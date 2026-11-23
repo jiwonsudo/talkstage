@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { BrandMark } from '@/components/ui/BrandMark';
 import { PLANS } from '@/lib/plans';
 import { useCreditsLeft } from '@/lib/data/useCredits';
 
@@ -20,17 +21,6 @@ const TITLES: Record<string, string> = {
   '/me/plan': '요금제 관리',
   '/me/support': '지원 받기',
 };
-
-export function BrandMark() {
-  return (
-    <svg className="mark" viewBox="0 0 32 32" aria-hidden="true">
-      <path d="M1 15A14 14 0 0 1 15 1V15Z" className="mq q1" />
-      <path d="M17 1A14 14 0 0 1 31 15H17Z" className="mq q2" />
-      <path d="M17 17H31A14 14 0 0 1 17 31Z" className="mq q3" />
-      <rect x="1" y="17" width="14" height="14" rx="3" className="mq q4" />
-    </svg>
-  );
-}
 
 export function Navbar() {
   const { user, openAuth, requireAuth, signOut } = useAuth();

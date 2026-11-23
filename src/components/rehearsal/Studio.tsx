@@ -57,6 +57,7 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
     recStart: 0, recorder: null as MediaRecorder | null, chunks: [] as Blob[], mime: '', transcriber: null as Transcriber | null,
     cooldown: {} as Record<string, number>, quietSince: null as number | null, lastQuiet: 0, cueTimer: 0 as unknown as ReturnType<typeof setTimeout>,
     hudTimer: 0 as unknown as ReturnType<typeof setInterval>,
+    gen: 0, // 화면이 바뀔 때마다 올라가요. 늦게 도착한 카메라 응답을 버리는 데 써요.
   });
   const setP = (ph: Phase) => { r.current.phase = ph; setPhase(ph); };
 
@@ -66,44 +67,56 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
 
   const startCamera = useCallback(async () => {
     if (!navigator.mediaDevices?.getUserMedia) return;
-    const slow = setTimeout(() => { if (!r.current.stream) { setCamErr('권한 요청 창이 보이지 않으면 아래 버튼을 눌러 주세요.'); setShowCamBtn(true); } }, 4000);
+    const gen = r.current.gen;
+    const stale = () => r.current.gen !== gen;
+    const slow = setTimeout(() => { if (!stale() && !r.current.stream) { setCamErr('권한 요청 창이 보이지 않으면 아래 버튼을 눌러 주세요.'); setShowCamBtn(true); } }, 4000);
+    let stream: MediaStream;
     try {
-      r.current.stream = await navigator.mediaDevices.getUserMedia({
+      stream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false },
       });
     } catch (e) {
       clearTimeout(slow);
+      if (stale()) return;
       const name = (e as DOMException).name;
       setCamErr(name === 'NotAllowedError' ? '카메라·마이크 권한이 거부됐어요. 주소창 왼쪽 아이콘에서 권한을 허용한 뒤 다시 눌러 주세요.' : `카메라를 켜지 못했어요 (${name}). 다른 앱이 카메라를 쓰고 있는지 확인하세요.`);
       setShowCamBtn(true);
       return;
     }
     clearTimeout(slow);
+    // 기다리는 사이 화면을 떠났으면(또는 개발 모드의 첫 effect 가 정리됐으면) 카메라를 바로 꺼요.
+    if (stale()) { stream.getTracks().forEach((t) => t.stop()); return; }
+    r.current.stream?.getTracks().forEach((t) => t.stop());
+    r.current.stream = stream;
     const cam = camRef.current!;
-    cam.srcObject = r.current.stream;
+    cam.srcObject = stream;
     await cam.play().catch(() => {});
-    r.current.audio = new AudioMeter(r.current.stream);
+    r.current.audio?.close();
+    r.current.audio = new AudioMeter(stream);
     await r.current.audio.resume();
+    if (stale()) return;
     setCamOn(true); setShowCamBtn(false);
   }, []);
 
   // 카메라와 분석 모델을 켜고, 화면을 떠나면 모두 꺼요.
   useEffect(() => {
     const st = r.current;
-    // 카메라는 외부 장치라 권한 응답을 기다린 뒤에 상태를 바꿔요(동기 setState 아님).
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     startCamera();
     let live = true;
-    loadVision().then((m) => { if (live) { st.models = m; setModel('ok'); } }).catch((e) => { console.error(e); if (live) setModel('failed'); });
+    loadVision().then((m) => {
+      if (!live) { m.pose.close(); m.face.close(); return; }
+      st.models = m; setModel('ok');
+    }).catch((e) => { console.error(e); if (live) setModel('failed'); });
     return () => {
       live = false;
+      st.gen++;
       clearInterval(st.hudTimer); clearTimeout(st.cueTimer);
       if (st.recorder && st.recorder.state !== 'inactive') st.recorder.stop();
       st.transcriber?.stop();
-      st.audio?.close();
-      st.stream?.getTracks().forEach((t) => t.stop());
-      st.models?.pose.close(); st.models?.face.close();
+      st.audio?.close(); st.audio = null;
+      st.stream?.getTracks().forEach((t) => t.stop()); st.stream = null;
+      st.models?.pose.close(); st.models?.face.close(); st.models = null;
     };
   }, [startCamera]);
 

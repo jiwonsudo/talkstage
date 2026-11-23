@@ -1,3 +1,4 @@
+import { BrandMark } from '@/components/ui/BrandMark';
 import { FooterAction, PurposeButton, ContactButton } from './actions';
 
 export function Footer() {
@@ -6,12 +7,7 @@ export function Footer() {
       <div className="foot-top">
         <div className="foot-id">
           <span className="foot-brand">
-            <svg className="mark" viewBox="0 0 32 32" aria-hidden="true">
-              <path d="M1 15A14 14 0 0 1 15 1V15Z" className="mq q1" />
-              <path d="M17 1A14 14 0 0 1 31 15H17Z" className="mq q2" />
-              <path d="M17 17H31A14 14 0 0 1 17 31Z" className="mq q3" />
-              <rect x="1" y="17" width="14" height="14" rx="3" className="mq q4" />
-            </svg>
+            <BrandMark />
             <b>Talkstage</b>
           </span>
           <p>사람 앞에 설 차례를 위한 발표 리허설.</p>

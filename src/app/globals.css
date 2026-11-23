@@ -1369,7 +1369,7 @@ table.self { width: 100%; border-collapse: collapse; font-size: 14px; min-width:
 
 /* ── Talkstage 로고 v2: 네 조각 말풍선 (왼쪽 아래 각진 조각이 말풍선 꼬리) ── */
 .mq { stroke: none; transition: translate .4s var(--spring); }
-.mq.q1 { fill: var(--blue); } .mq.q2 { fill: var(--yellow); } .mq.q3 { fill: var(--pink); } .mq.q4 { fill: var(--red); }
+.mark { filter: drop-shadow(0 1.5px 1.5px color-mix(in oklab, var(--ink) 22%, transparent)); } /* 풍선이 떠 있는 듯한 그림자 */
 .brand:hover .mark, .mark { transform: none; }
 .brand:hover .q1 { translate: -1.5px -1.5px; } .brand:hover .q2 { translate: 1.5px -1.5px; }
 .brand:hover .q3 { translate: 1.5px 1.5px; } .brand:hover .q4 { translate: -1.5px 1.5px; }
