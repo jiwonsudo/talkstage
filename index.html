@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<title>Talkstage · 발표 리허설</title>
+<meta name="description" content="무엇을 만들었든, 청중에게 결국 전해지는 건 이야기예요. Talkstage로 그 몇 분을 미리 연습하세요.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-screen="home">
+<header class="navbar">
+  <a class="brand" href="#" id="brandHome" aria-label="Talkstage 홈"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M1 15A14 14 0 0 1 15 1V15Z" class="mq q1"/><path d="M17 1A14 14 0 0 1 31 15H17Z" class="mq q2"/><path d="M17 17H31A14 14 0 0 1 17 31Z" class="mq q3"/><rect x="1" y="17" width="14" height="14" rx="3" class="mq q4"/></svg><span>Talkstage</span></a>
+  <div class="nav-l"><button type="button" class="nav-btn" id="navBack" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg><span class="sr" id="navBackLabel">홈</span></button></div>
+  <div class="nav-title" id="navTitle"></div>
+  <div class="nav-r">
+    <button type="button" class="nav-link" id="navStart" data-start>리허설 시작</button>
+    <button type="button" class="nav-login" id="btnLogin">로그인</button>
+    <div class="account" id="account" hidden>
+      <button type="button" class="avatar-btn" id="btnAccount" aria-haspopup="menu" aria-expanded="false"><span class="avatar" id="avatar"></span><span class="acc-name" id="accName"></span></button>
+      <div class="menu" id="accMenu" role="menu" hidden>
+        <p class="menu-h"><b id="menuName"></b><small id="menuEmail"></small></p>
+        <button type="button" role="menuitem" id="mHistory">내 연습 기록</button>
+        <button type="button" role="menuitem" id="mLogout">로그아웃</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="wipe" id="wipe" aria-hidden="true"><i class="art-1"></i><i class="art-3"></i><i class="art-2"></i></div>
+<main>
+  <!-- 홈 · 랜딩 -->
+  <section id="s-home" class="screen">
+    <div class="landing">
+      <div class="hero hero-arc">
+        <div class="hero-copy">
+          <h1 class="display display-k" style="margin-top:0"><span class="ln"><span>무엇을 만들었든,</span></span><span class="ln"><span>결국 전해지는 건</span></span><span class="ln"><span class="grad">이야기예요.</span></span></h1>
+          <p class="display-sub rv" style="--d:.25s">면접관에게도, 투자자에게도, 교수님과 고객에게도.<br>청중에게 마지막으로 닿는 건 결국 당신의 발표예요.</p>
+          <p class="lede rv" style="--d:.35s">졸업 발표장에서, 면접장에서, 회의실에서. 그 차례가 왔을 때 흔들리지 않도록 Talkstage가 대본부터 점검하고, 녹화 한 번으로 자세·시선·말 속도·호흡·억양을 짚어 드려요.</p>
+          <div class="hero-cta rv" style="--d:.45s">
+            <button type="button" class="btn-fill btn-xl" id="btnNew">첫 리허설 시작하기<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg></button>
+            <a href="#pick" class="btn-text">발표 상황 고르기</a>
+          </div>
+          <p class="lang-note rv" style="--d:.6s"><span lang="en">English rehearsal</span> 영어 발표 코칭은 추후 출시 예정이에요.</p>
+        </div>
+        <div class="arc" id="heroArt" aria-hidden="true"><div class="wheel" id="wheel"></div></div>
+      </div>
+
+
+      <section class="block nv" id="nonverbal">
+        <h2 class="catch rv"><span>말보다 먼저</span><span><em class="grad">보이는 것들.</em></span></h2>
+        <p class="catch-sub rv" style="--d:.1s">같은 대본도 서 있는 자세, 시선이 머무는 곳, 손의 움직임, 목소리의 높낮이에 따라 전혀 다르게 들려요. <b>청중은 첫 문장을 듣기 전에 이미 이것부터 읽어요.</b></p>
+        <blockquote class="nv-quote rv">
+          <svg class="nv-qmark" viewBox="0 0 56 48" aria-hidden="true"><path d="M0 48V24A24 24 0 0 1 24 0V48Z" style="fill:var(--blue)"/><path d="M32 48V24A24 24 0 0 1 56 0V48Z" style="fill:var(--pink)"/></svg>
+          <svg class="nv-qart" viewBox="0 0 200 200" aria-hidden="true"><path d="M0 100A100 100 0 0 1 100 0V100Z" style="fill:var(--blue)"/><circle cx="150" cy="50" r="50" style="fill:var(--red)"/><rect x="100" y="100" width="100" height="100" rx="18" style="fill:var(--ink)"/><path d="M0 200A100 100 0 0 1 100 100V200Z" style="fill:var(--pink)"/><circle cx="150" cy="150" r="22" style="fill:#fff"/><rect x="128" y="146" width="44" height="8" rx="4" transform="rotate(-45 150 150)" style="fill:var(--ink)"/></svg>
+          <p>소리를 끈 <em>30초</em>짜리 강의 영상만 보고도,<br>사람들은 학기 말 강의 평가를 꽤 정확하게 맞혔어요.</p>
+          <cite>Ambady &amp; Rosenthal, 1993 · ‘thin slices’ 연구</cite>
+        </blockquote>
+        <p class="nv-try rv">직접 확인해 보세요. 두 영상 모두 소리를 껐어요.</p>
+        <div class="nv-pair">
+          <figure class="nv-vid nv-a rv">
+            <div class="nv-frame">
+              <video muted loop playsinline preload="metadata" data-src="media/nv-a.mp4"></video>
+              <div class="nv-empty"><span>예시 영상 자리</span><small>media/nv-a.mp4</small></div>
+              <span class="nv-mute" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9l4 6M21 9l-4 6"/></svg>소리 꺼짐</span>
+              <ul class="nv-meter"><li style="--c:var(--blue)"><b>시선</b>렌즈 22%</li><li style="--c:var(--green)"><b>자세</b>기울기 8°</li><li style="--c:var(--orange)"><b>손</b>움직임 없음</li></ul>
+            </div>
+            <figcaption><b>대본만 읽은 발표</b><span>같은 내용, 같은 사람</span></figcaption>
+          </figure>
+          <figure class="nv-vid nv-b rv">
+            <div class="nv-frame">
+              <video muted loop playsinline preload="metadata" data-src="media/nv-b.mp4"></video>
+              <div class="nv-empty"><span>예시 영상 자리</span><small>media/nv-b.mp4</small></div>
+              <span class="nv-mute" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9l4 6M21 9l-4 6"/></svg>소리 꺼짐</span>
+              <ul class="nv-meter"><li style="--c:var(--blue)"><b>시선</b>렌즈 71%</li><li style="--c:var(--green)"><b>자세</b>수평</li><li style="--c:var(--orange)"><b>손</b>강조 3회</li></ul>
+            </div>
+            <figcaption><b>전달한 발표</b><span>Talkstage 코칭 세 번 뒤</span></figcaption>
+          </figure>
+        </div>
+        <ul class="nv-list">
+          <li class="rv" style="--c:var(--blue)"><b>시선</b><span>렌즈를 보는 비율, 시선이 떨어진 순간</span></li>
+          <li class="rv" style="--c:var(--green)"><b>자세</b><span>어깨 기울기, 몸의 흔들림</span></li>
+          <li class="rv" style="--c:var(--orange)"><b>손</b><span>강조할 때 손이 함께 움직이는지</span></li>
+          <li class="rv" style="--c:var(--pink)"><b>목소리</b><span>억양의 폭, 핵심어 앞의 쉼</span></li>
+        </ul>
+      </section>
+
+      <section class="block why" id="why">
+        <h2 class="catch rv"><span>다양한 주제의 프레젠테이션을</span><span><em class="grad">더 효과적으로</em> 청중에게</span><span>전달해보세요.</span></h2>
+        <p class="catch-sub rv" style="--d:.1s">면접은 결론부터, 투자 미팅은 문제부터, 축사는 이야기부터. <b>주제가 달라지면 발표를 끌고 가는 순서도 달라져야 해요.</b> Talkstage는 고른 주제에 맞는 흐름으로 대본과 녹화를 봐 드려요.</p>
+        <div class="tline rv" id="tline" aria-label="발표 상황별 말하는 순서">
+          <div class="tl-ruler" aria-hidden="true"><span>시작</span><span>끝</span></div>
+          <div class="tl-row" style="--c:var(--red)"><div class="tl-name"><b>면접<small>1분</small></b><span>첫 대답에서 인상이 정해져요.</span></div><div class="tl-track"><i class="tl-clip is-key" style="--w:20"><span>결론</span></i><i class="tl-clip" style="--w:30"><span>근거</span></i><i class="tl-clip" style="--w:30"><span>사례</span></i><i class="tl-clip" style="--w:20"><span>기여</span></i></div></div>
+          <div class="tl-row" style="--c:var(--blue)"><div class="tl-name"><b>업무 보고<small>5분</small></b><span>결론이 늦으면 결정도 늦어요.</span></div><div class="tl-track"><i class="tl-clip is-key" style="--w:15"><span>결론</span></i><i class="tl-clip" style="--w:30"><span>현황</span></i><i class="tl-clip" style="--w:30"><span>이슈</span></i><i class="tl-clip is-key" style="--w:25"><span>요청</span></i></div></div>
+          <div class="tl-row" style="--c:var(--orange)"><div class="tl-name"><b>투자 미팅<small>10분</small></b><span>숫자보다 확신이 먼저 들려요.</span></div><div class="tl-track"><i class="tl-clip" style="--w:15"><span>문제</span></i><i class="tl-clip" style="--w:20"><span>해결</span></i><i class="tl-clip" style="--w:15"><span>시장</span></i><i class="tl-clip" style="--w:20"><span>지표</span></i><i class="tl-clip" style="--w:10"><span>팀</span></i><i class="tl-clip is-key" style="--w:20"><span>요청</span></i></div></div>
+          <div class="tl-row" style="--c:var(--green)"><div class="tl-name"><b>졸업 발표<small>10분</small></b><span>결과까지 가는 길이 보여야 해요.</span></div><div class="tl-track"><i class="tl-clip" style="--w:18"><span>문제</span></i><i class="tl-clip" style="--w:30"><span>방법 · 구현</span></i><i class="tl-clip is-key" style="--w:37"><span>결과 · 데모</span></i><i class="tl-clip" style="--w:15"><span>배운 점</span></i></div></div>
+          <div class="tl-row" style="--c:var(--pink)"><div class="tl-name"><b>축사<small>3분</small></b><span>남는 건 결국 한 문장이에요.</span></div><div class="tl-track"><i class="tl-clip" style="--w:15"><span>인사</span></i><i class="tl-clip" style="--w:45"><span>일화</span></i><i class="tl-clip" style="--w:25"><span>덕담</span></i><i class="tl-clip is-key" style="--w:15"><span>건배</span></i></div></div>
+          <div class="tl-head" aria-hidden="true"><i></i></div>
+        </div>
+        <p class="why-close rv">그 몇 분, 이제 연습하고 들어가세요.</p>
+      </section>
+
+      <section class="block" id="who">
+        <h2 class="h2 rv"><span class="nw">발표가 평가가 되는 모든 사람에게.</span></h2>
+        <div class="who">
+          <article class="who-c rv"><span class="who-ico art-6" data-picto="capstone"></span><h3>대학생 · 취업 준비생</h3><p>교수님과 면접관 앞에 서기 전에.</p><ul><li>졸업 프로젝트 · 과제 발표</li><li>PT 면접 · 1분 자기소개</li><li>공모전 · 데모데이 피칭</li></ul></article>
+          <article class="who-c rv" style="--d:.06s"><span class="who-ico art-2" data-picto="report"></span><h3>직장인</h3><p>회의실의 5분이 곧 평가가 되는 사람에게.</p><ul><li>주간 보고 · 의사결정 회의</li><li>투자 · 영업 피칭</li><li>컨퍼런스 · 사내 세미나</li></ul></article>
+          <article class="who-c rv" style="--d:.12s"><span class="who-ico art-8" data-picto="conference"></span><h3>팀 · 기업 · 교육기관</h3><p>구성원 모두의 발표 기준을 맞추고 싶은 조직에게.</p><ul><li>신입 온보딩 · 리더십 교육</li><li>영업 · IR 팀 리허설</li><li>학과 · 취업지원센터</li></ul><a href="#teams" class="btn-text">팀으로 도입하기</a></article>
+        </div>
+      </section>
+
+      <section class="block pick" id="pick">
+        <h2 class="h2 rv"><span class="nw">어떤 발표를 준비하나요?</span></h2>
+        <p class="lead2 rv">고르면 바로 자세와 목표 설정으로 넘어가요.</p>
+        <div class="scen-grid" id="scenGrid"></div>
+      </section>
+
+      <div class="marquee" aria-hidden="true"><div class="marquee-track">
+        <span>졸업 발표</span><i></i><span>PT 면접</span><i></i><span>면접</span><i></i><span>IR 피칭</span><i></i><span>업무 보고</span><i></i><span>강의</span><i></i><span>학회 발표</span><i></i><span>축사</span><i></i><span>시선</span><i></i><span>자세</span><i></i><span>말 속도</span><i></i><span>호흡</span><i></i><span>억양</span><i></i>
+        <span>면접</span><i></i><span>IR 피칭</span><i></i><span>업무 보고</span><i></i><span>강의</span><i></i><span>학회 발표</span><i></i><span>축사</span><i></i><span>시선</span><i></i><span>자세</span><i></i><span>말 속도</span><i></i><span>호흡</span><i></i><span>억양</span><i></i>
+      </div></div>
+
+      <section class="block" id="how">
+        <h2 class="h2 rv"><span class="nw">세 단계면 충분해요.</span></h2>
+        <div class="steps">
+          <article class="step-card rv" style="--d:0s"><span class="sc-num art-1" data-picto="choose"></span><h3>상황 고르기</h3><p>목적, 자세, 원하는 결과, 시간, 걱정되는 점. 다섯 번 탭하고 발표 내용을 자유롭게 적어요.</p></article>
+          <article class="step-card rv" style="--d:.1s"><span class="sc-num art-3" data-picto="record"></span><h3>녹화하기</h3><p>3초 동안 기준 자세와 소음을 잰 뒤, 실시간 코칭 알림을 받으며 발표해요.</p></article>
+          <article class="step-card rv" style="--d:.2s"><span class="sc-num art-2" data-picto="highlights"></span><h3>하이라이트 리포트</h3><p>잘한 순간과 고칠 순간을 자동으로 잘라 보여주고, 연구와 전문가 근거로 고칠 방법을 알려줘요.</p></article>
+        </div>
+      </section>
+
+      <section class="block">
+        <div class="script-band rv">
+          <div class="sb-copy">
+            <h2><span class="nw">카메라 켜기 전에,</span><br><span class="nw">대본부터.</span></h2>
+            <p>리허설을 시작하면 녹화 직전에 대본을 받아요. 붙여넣거나 파일로 올리면 목표 시간에 맞는지, 흐름이 끊기는 곳은 없는지, 한 호흡에 읽기 버거운 문장은 어디인지 먼저 짚어 드려요. 숨 쉴 자리와 강조할 단어를 표시하고 예시 억양으로 읽어 들려줘요. 대본이 없으면 이 단계는 건너뛰어요.</p>
+            <button type="button" class="btn-white" data-start>리허설 시작하기<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg></button>
+          </div>
+          <ul class="sb-points">
+            <li><b>시간</b><span>목적에 맞는 속도로 읽었을 때의 예상 시간</span></li>
+            <li><b>흐름</b><span>목적별 필수 요소가 순서대로 있는지</span></li>
+            <li><b>문장</b><span>긴 문장, 망설이는 표현, 같은 말끝 반복</span></li>
+            <li><b>억양</b><span>쉼 · 강조 · 말끝 방향과 예시 낭독</span></li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="block">
+        <h2 class="h2 rv"><span class="nw">말과 몸, 그리고 내용까지.</span></h2>
+        <div class="bento">
+          <article class="bcard b-wide rv"><span class="bc-ico art-6" data-picto="voice"></span><b>말 속도 · 호흡 · 억양</b><p>한국어 음절 기준으로 분당 속도를 재고, 숨 없이 이어 말한 구간과 단조로운 구간을 찾아요.</p></article>
+          <article class="bcard rv"><span class="bc-ico art-7" data-picto="eyes"></span><b>시선</b><p>렌즈를 보는 비율과 시선이 떨어진 순간.</p></article>
+          <article class="bcard rv"><span class="bc-ico art-4" data-picto="body"></span><b>자세 · 제스처</b><p>구부정함, 기울기, 흔들림, 손 움직임.</p></article>
+          <article class="bcard rv"><span class="bc-ico art-8" data-picto="words"></span><b>군더더기 말</b><p>“어, 음, 이제, 약간” 같은 습관어.</p></article>
+          <article class="bcard rv"><span class="bc-ico art-5" data-picto="story"></span><b>내용 구조</b><p>결론 먼저, 숫자 근거, 핵심 메시지 반복, 마지막 요청까지 목적별로 확인해요.</p></article>
+        </div>
+      </section>
+
+      <section class="block" id="teams">
+        <div class="teams">
+          <div class="teams-copy">
+            <h2 class="h2 rv"><span class="nw">팀, 또는 기관이나</span><br><span class="nw">학교의 발표 기준을</span><br><span class="nw">한 곳에서 확인하세요.</span></h2>
+            <p class="lead2 rv">코치 한 명이 모두를 봐 줄 수는 없어요. 기준은 팀이 정하고, 매일의 연습은 Talkstage가 봐 드려요.</p>
+            <ul class="t-feats">
+              <li class="rv"><b>팀 기준 설정</b><span>목적, 목표 시간, 꼭 들어가야 할 흐름을 팀 기준으로 고정해요.</span></li>
+              <li class="rv"><b>리허설 과제</b><span>신입 PT, 분기 보고, 고객 피칭을 과제로 보내고 제출을 확인해요.</span></li>
+              <li class="rv"><b>팀 대시보드</b><span>연습 횟수, 점수 추이, 팀에서 자주 나오는 약점을 한눈에 봐요.</span></li>
+              <li class="rv"><b>영상은 구성원 기기에</b><span>분석은 구성원 브라우저에서 끝나고, 관리자는 점수와 요약만 봐요.</span></li>
+            </ul>
+            <button type="button" class="btn-fill" data-contact>도입 문의하기<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg></button>
+          </div>
+          <div class="dash rv" aria-hidden="true">
+            <div class="dash-top"><b>영업팀</b><span>이번 달</span></div>
+            <div class="dash-kpi">
+              <div><span>리허설</span><b>128</b><small>회</small></div>
+              <div><span>평균 점수</span><b>76</b><small class="up">+6</small></div>
+              <div><span>목표 시간 준수</span><b>82</b><small>%</small></div>
+            </div>
+            <div class="dash-chart"><svg viewBox="0 0 300 70" preserveAspectRatio="none"><path class="dc-area" d="M0 58 L30 54 L60 56 L90 47 L120 49 L150 40 L180 36 L210 38 L240 28 L270 24 L300 18 V70 H0Z"/><path class="dc-line" d="M0 58 L30 54 L60 56 L90 47 L120 49 L150 40 L180 36 L210 38 L240 28 L270 24 L300 18"/></svg></div>
+            <p class="dash-h">팀에서 자주 나오는 약점</p>
+            <ul class="dash-bars">
+              <li><span>결론이 늦음</span><i style="--v:.68"></i><b>68%</b></li>
+              <li><span>말끝 흐림</span><i style="--v:.44"></i><b>44%</b></li>
+              <li><span>시선 이탈</span><i style="--v:.31"></i><b>31%</b></li>
+            </ul>
+            <ul class="dash-people">
+              <li><span class="av" style="--h:20">민</span><span>김민준</span><small>연습 14회</small><b>84</b></li>
+              <li><span class="av" style="--h:200">서</span><span>이서연</span><small>연습 11회</small><b>79</b></li>
+              <li><span class="av" style="--h:300">도</span><span>박도윤</span><small>연습 6회</small><b class="lo">61</b></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="seg cmp-switch rv" role="tablist" aria-label="요금제 종류">
+          <button type="button" role="tab" data-cmp="solo" aria-selected="true">개인</button>
+          <button type="button" role="tab" data-cmp="team" aria-selected="false">대학 · 팀 · 기업</button>
+        </div>
+        <div class="cmp cmp-3 rv" role="table" aria-label="개인 요금제 비교" id="cmpSolo">
+          <div class="cmp-head" role="row"><div class="cmp-lab" role="columnheader"><b>개인 요금제</b><small>쓴 만큼 크레딧이 줄어요. 리허설 한 번(녹화 10분 + 대본 점검)에 12크레딧이에요.</small></div><div class="cmp-plan" role="columnheader"><h3>Opening<span>처음 서 보는 무대</span></h3><p>무료</p><small>월 36크레딧 · 리허설 약 3회</small><button type="button" class="btn-plain btn-sm" data-start>무료로 시작</button></div><div class="cmp-plan is-hi" role="columnheader"><h3>Spotlight<span>매주 연습하는 사람</span></h3><p>월 9,900원</p><small>연간 결제 시 월 7,900원 · 월 240크레딧</small><button type="button" class="btn-fill btn-sm" data-plan="Spotlight">Spotlight 시작</button></div><div class="cmp-plan" role="columnheader"><h3>Headliner<span>큰 발표를 앞둔 사람</span></h3><p>월 19,900원</p><small>연간 결제 시 월 15,900원 · 월 600크레딧</small><button type="button" class="btn-plain btn-sm" data-plan="Headliner">Headliner 시작</button></div></div>
+          <div class="cmp-group" role="row"><span role="rowheader">크레딧</span></div>
+          <div class="cmp-row" role="row"><div class="cmp-lab" role="rowheader">월 크레딧</div><div class="cmp-cell" role="cell">36</div><div class="cmp-cell" role="cell">240</div><div class="cmp-cell" role="cell">600</div></div>
+          <div class="cmp-row" role="row"><div class="cmp-lab" role="rowheader">예상 리허설 횟수</div><div class="cmp-cell" role="cell">월 약 3회</div><div class="cmp-cell" role="cell">월 약 20회</div><div class="cmp-cell" role="cell">월 약 50회</div></div>
+          <div class="cmp-row" role="row"><div class="cmp-lab" role="rowheader">남은 크레딧 이월</div><div class="cmp-cell" role="cell"><span class="no" aria-label="없음">—</span></div><div class="cmp-cell" role="cell">다음 달까지</div><div class="cmp-cell" role="cell">다음 달까지</div></div>
+          <div class="cmp-row" role="row"><div class="cmp-lab" role="rowheader">크레딧 추가 구매</div><div class="cmp-cell" role="cell"><span class="no" aria-label="없음">—</span></div><div class="cmp-cell" role="cell"><svg class="ck" viewBox="0 0 24 24" aria-label="포함"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><div class="cmp-cell" role="cell"><svg class="ck" viewBox="0 0 24 24" aria-label="포함"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div></div>
+          <div class="cmp-group" role="row"><span role="rowheader">리허설</span></div>
+          <div class="cmp-row" role="row"><div class="cmp-lab" role="rowheader">하이라이트 리포트</div><div class="cmp-cell" role="cell"><svg class="ck" viewBox="0 0 24 24" aria-label="포함"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><div class="cmp-cell" role="cell"><svg class="ck" viewBox="0 0 24 24" aria-label="포함"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><div class="cmp-cell" role="cell"><svg class="ck" viewBox="0 0 24 24" aria-label="포함"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div></div>
+          <div class="cmp-row" role="row"><div class="cmp-lab" role="rowheader">리포트 보관</div><div class="cmp-cell" role="cell">최근 3개</div><div class="cmp-cell" role="cell">전체</div><div class="cmp-cell" role="cell">전체</div></div>
+          <div class="cmp-row" role="row"><div class="cmp-lab" role="rowheader">지난 연습과 비교</div><div class="cmp-cell" role="cell"><span class="no" aria-label="없음">—</span></div><div class="cmp-cell" role="cell"><svg class="ck" viewBox="0 0 24 24" aria-label="포함"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><div class="cmp-cell" role="cell"><svg class="ck" viewBox="0 0 24 24" aria-label="포함"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div></div>
+          <div class="cmp-row" role="row"><div class="cmp-lab" role="rowheader">하이라이트 클립 저장</div><div class="cmp-cell" role="cell"><span class="no" aria-label="없음">—</span></div><div class="cmp-cell" role="cell"><svg class="ck" viewBox="0 0 24 24" aria-label="포함"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><div class="cmp-cell" role="cell"><svg class="ck" viewBox="0 0 24 24" aria-label="포함"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div></div>
+          <div class="cmp-row" role="row"><div class="cmp-lab" role="rowheader">발표 유형 · 목표 직접 입력</div><div class="cmp-cell" role="cell"><span class="no" aria-label="없음">—</span></div><div class="cmp-cell" role="cell"><svg class="ck" viewBox="0 0 24 24" aria-label="포함"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><div class="cmp-cell" role="cell"><svg class="ck" viewBox="0 0 24 24" aria-label="포함"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div></div>
+          <div class="cmp-row" role="row"><div class="cmp-lab" role="rowheader">리포트 PDF 내보내기</div><div class="cmp-cell" role="cell"><span class="no" aria-label="없음">—</span></div><div class="cmp-cell" role="cell"><span class="no" aria-label="없음">—</span></div><div class="cmp-cell" role="cell"><svg class="ck" viewBox="0 0 24 24" aria-label="포함"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div></div>
+        </div>
+        <div class="cmp cmp-2 rv" role="table" aria-label="단체 요금제 비교" id="cmpTeam" hidden>
+          <div class="cmp-head" role="row"><div class="cmp-lab" role="columnheader"><b>단체 요금제</b><small>인원과 기간에 맞춰 견적을 드려요. 크레딧은 구성원이 함께 써요.</small></div><div class="cmp-plan is-hi" role="columnheader"><h3>대학 · 교육기관<span>학과 · 수업 · 취업지원센터</span></h3><p>1인당 월 3,900원부터</p><small>학기 단위 · 30명부터</small><button type="button" class="btn-fill btn-sm" data-contact="edu">도입 문의</button></div><div class="cmp-plan" role="columnheader"><h3>팀 · 기업<span>영업 · 기획 · 신입 교육</span></h3><p>1인당 월 12,900원부터</p><small>연 단위 · 10명부터</small><button type="button" class="btn-plain btn-sm" data-contact="biz">도입 문의</button></div></div>
+          <div class="cmp-group" role="row"><span role="rowheader">크레딧</span></div>
+          <div class="cmp-row" role="row"><div class="cmp-lab" role="rowheader">1인당 월 크레딧</div><div class="cmp-cell" role="cell">240</div><div class="cmp-cell" role="cell">600</div></div>
+          <div class="cmp-row" role="row"><div class="cmp-lab" role="rowheader">크레딧 공유</div><div class="cmp-cell" role="cell">수업 · 반 단위</div><div class="cmp-cell" role="cell">팀 단위</div></div>
+          <div class="cmp-group" role="row"><span role="rowheader">리허설</span></div>
+          <div class="cmp-row" role="row"><div class="cmp-lab" role="rowheader">개인 Spotlight 기능 전체</div><div class="cmp-cell" role="cell"><svg class="ck" viewBox="0 0 24 24" aria-label="포함"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><div class="cmp-cell" role="cell"><svg class="ck" viewBox="0 0 24 24" aria-label="포함"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div></div>
+          <div class="cmp-row" role="row"><div class="cmp-lab" role="rowheader">리포트 PDF 내보내기</div><div class="cmp-cell" role="cell"><svg class="ck" viewBox="0 0 24 24" aria-label="포함"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><div class="cmp-cell" role="cell"><svg class="ck" viewBox="0 0 24 24" aria-label="포함"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div></div>
+          <div class="cmp-group" role="row"><span role="rowheader">운영</span></div>
+          <div class="cmp-row" role="row"><div class="cmp-lab" role="rowheader">발표 기준 템플릿</div><div class="cmp-cell" role="cell">졸업 · 과제 발표</div><div class="cmp-cell" role="cell">팀 맞춤</div></div>
+          <div class="cmp-row" role="row"><div class="cmp-lab" role="rowheader">리허설 과제 보내기</div><div class="cmp-cell" role="cell"><svg class="ck" viewBox="0 0 24 24" aria-label="포함"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><div class="cmp-cell" role="cell"><svg class="ck" viewBox="0 0 24 24" aria-label="포함"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div></div>
+          <div class="cmp-row" role="row"><div class="cmp-lab" role="rowheader">연습 현황</div><div class="cmp-cell" role="cell">학생별</div><div class="cmp-cell" role="cell">팀 대시보드</div></div>
+          <div class="cmp-row" role="row"><div class="cmp-lab" role="rowheader">사내 계정 연동 (SSO)</div><div class="cmp-cell" role="cell"><span class="no" aria-label="없음">—</span></div><div class="cmp-cell" role="cell"><svg class="ck" viewBox="0 0 24 24" aria-label="포함"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div></div>
+          <div class="cmp-row" role="row"><div class="cmp-lab" role="rowheader">도입 · 교육 지원</div><div class="cmp-cell" role="cell"><svg class="ck" viewBox="0 0 24 24" aria-label="포함"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><div class="cmp-cell" role="cell"><svg class="ck" viewBox="0 0 24 24" aria-label="포함"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div></div>
+        </div>
+      </section>
+
+      <section class="block evidence" id="evidence">
+        <h2 class="h2 rv"><span class="nw">감이 아니라, 근거로 코칭해요.</span></h2>
+        <p class="lead2 rv">모든 피드백은 아래 연구와 원칙 중 하나에 기대고 있어요. 리포트에서도 지적마다 출처를 함께 보여드려요.</p>
+        <div class="ev-head rv" aria-hidden="true"><span>출처</span><span>내용</span><span>Talkstage에서</span></div>
+        <ul class="ev-grid">
+          <li class="rv"><b>Ambady &amp; Rosenthal</b><span>짧은 순간의 비언어 행동만으로도 인상이 형성된다는 ‘thin slices’ 연구</span><em>첫인상 · 시선</em></li>
+          <li class="rv" style="--d:.05s"><b>Goldin-Meadow</b><span>제스처가 말의 이해와 기억을 돕는다는 연구</span><em>제스처</em></li>
+          <li class="rv" style="--d:.1s"><b>Niebuhr et al.</b><span>카리스마 있게 들리는 목소리의 음높이 변화와 속도 연구</span><em>억양 · 말 속도</em></li>
+          <li class="rv" style="--d:.15s"><b>Nancy Duarte</b><span>『Resonate』의 현재와 이상을 오가는 발표 구조</span><em>흐름</em></li>
+          <li class="rv" style="--d:.2s"><b>Chris Anderson · TED</b><span>발표 전체를 꿰는 하나의 핵심 메시지(throughline)</span><em>핵심 메시지</em></li>
+          <li class="rv" style="--d:.25s"><b>Barbara Minto</b><span>『피라미드 원칙』의 결론 먼저, 근거는 그다음</span><em>결론 먼저</em></li>
+          <li class="rv" style="--d:.3s"><b>Toastmasters</b><span>군더더기 말을 세는 ‘Ah-Counter’ 연습법</span><em>군더더기 말</em></li>
+        </ul>
+      </section>
+
+      <section class="block" id="recentBlock">
+        <h2 class="h2 rv" id="recentTitle">최근 연습</h2>
+        <ul class="group recent rv" id="recent"></ul>
+      </section>
+
+      <section class="cta-band art-2 rv" data-picto="conference">
+        <h2><span class="nw">당신의 이야기를</span><br><span class="nw">세상에 들려줄 차례예요.</span></h2>
+        <button type="button" class="btn-white" id="btnNew2">지금 리허설하기<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg></button>
+      </section>
+
+      <footer class="foot">
+        <div class="foot-top">
+          <div class="foot-id">
+            <span class="foot-brand"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M1 15A14 14 0 0 1 15 1V15Z" class="mq q1"/><path d="M17 1A14 14 0 0 1 31 15H17Z" class="mq q2"/><path d="M17 17H31A14 14 0 0 1 17 31Z" class="mq q3"/><rect x="1" y="17" width="14" height="14" rx="3" class="mq q4"/></svg><b>Talkstage</b></span>
+            <p>사람 앞에 설 차례를 위한 발표 리허설.</p>
+          </div>
+          <nav class="foot-cols" aria-label="바로 가기">
+            <div><h3>제품</h3><button type="button" data-fx="new">녹화 리허설</button><button type="button" data-fx="recent">최근 연습</button><button type="button" data-fx="login">로그인</button></div>
+            <div><h3>발표 상황</h3><button type="button" data-fp="interview">면접</button><button type="button" data-fp="ir">IR 피칭</button><button type="button" data-fp="report">업무 보고</button><button type="button" data-fp="lecture">강의</button><button type="button" data-fp="conference">학회 발표</button><button type="button" data-fp="speech">축사</button></div>
+            <div><h3>알아보기</h3><a href="#how">사용 방법</a><a href="#teams">팀 · 기업용</a><button type="button" data-contact="biz">도입 문의</button><button type="button" data-contact="edu">교육기관 문의</button><a href="#evidence">코칭 근거</a></div>
+          </nav>
+        </div>
+        <div class="foot-bot">
+          <span>© 2026 Talkstage · 프로토타입</span>
+          <span class="foot-lang"><b>한국어</b><span lang="en">English · 추후 출시</span></span>
+        </div>
+      </footer>
+    </div>
+  </section>
+
+  <!-- 대본 점검 -->
+  <section id="s-script" class="screen" hidden>
+    <div class="page sc-page">
+      <h1 class="title1">대본 점검</h1>
+      <p class="subtitle">녹화 전에 대본만으로 시간, 흐름, 문장을 확인하고 예시 억양으로 들어 보세요.</p>
+      <div class="sc-setup">
+        <label class="sel"><span>발표 상황</span><select id="scPurpose"></select></label>
+        <label class="sel"><span>목표 시간</span><select id="scTime"></select></label>
+        <label class="sel sel-wide"><span>핵심 메시지 <em>선택</em></span><input id="scKey" placeholder="예: 누구나 코치 없이 발표 실력을 올릴 수 있다"></label>
+      </div>
+      <div class="textview sc-editor" id="scDrop">
+        <textarea id="scText" rows="10" placeholder="대본을 붙여넣거나, 파일을 이 칸에 끌어다 놓으세요."></textarea>
+        <div class="sc-tools">
+          <label class="btn-ghost sm" for="scFile">파일 올리기</label><input type="file" id="scFile" accept=".txt,.md,.docx,text/plain,text/markdown" hidden>
+          <button type="button" class="btn-ghost sm" id="scExample">예시 대본</button>
+          <span class="sc-hint">.txt · .md · .docx</span>
+          <span class="count" id="scCount"></span>
+        </div>
+        <div class="sc-dropmask">여기에 놓으면 대본을 불러와요</div>
+      </div>
+      <p class="sc-err" id="scErr" role="alert"></p>
+      <button type="button" class="btn-fill btn-block" id="scRun" disabled>대본 분석하기</button>
+      <div id="scOut" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <!-- 설정: 질문 5개 + 프롬프트 -->
+  <section id="s-wizard" class="screen" hidden>
+    <div class="page wiz">
+      <div class="wiz-progress"><div class="wiz-bar"><i id="wizFill"></i></div><span id="wizCount">1/6</span></div>
+      <div id="wizBody" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <!-- 카메라 · 녹화 -->
+  <section id="s-studio" class="screen" hidden>
+    <div class="studio">
+      <div class="stage-col">
+        <div class="stage" id="stage">
+          <div class="stage-media" id="stageMedia">
+            <video id="cam" playsinline muted></video>
+            <canvas id="ov"></canvas>
+          </div>
+          <div class="cam-empty" id="camEmpty">
+            <p>카메라와 마이크를 켜는 중이에요.</p>
+            <button type="button" class="btn-fill" id="btnCam" hidden>카메라와 마이크 켜기</button>
+            <p class="cam-err" id="camErr" role="alert"></p>
+          </div>
+          <div class="framing" id="framing" hidden></div>
+          <div class="countdown" id="countdown" hidden><span id="cdNum">3</span><p>렌즈를 보고 바른 자세로 잠시 조용히 있어 주세요.<br>기준 자세와 주변 소음을 측정하고 있어요.</p></div>
+          <div class="hud" id="hud" hidden>
+            <div class="hud-top">
+              <span class="rec-pill"><i></i><b id="hudTime">0:00</b></span>
+              <span class="hud-target">목표 <span id="hudTarget">1:00</span></span>
+            </div>
+            <div class="hud-prog"><i id="hudProg"></i></div>
+            <div class="hud-chips">
+              <span class="hc" id="hcGaze" data-cat="gaze"><i></i>시선</span>
+              <span class="hc" id="hcPosture" data-cat="posture"><i></i>자세</span>
+              <span class="hc" id="hcPace" data-cat="pace">속도 <b id="hudRate">–</b></span>
+              <span class="hc" data-cat="tone">음량 <span class="vol"><i id="hudVol"></i></span></span>
+            </div>
+            <div class="cue" id="cue" hidden></div>
+            <div class="hud-transcript" id="hudTx"></div>
+          </div>
+          <div class="analyzing" id="analyzing" hidden><div class="spin" aria-hidden="true"></div><p>녹화를 분석하고 하이라이트를 고르는 중…</p></div>
+        </div>
+        <div class="stage-bar">
+          <span id="sbCam"><i class="dot"></i>카메라 꺼짐</span>
+          <span id="sbModel"><i class="dot"></i>분석 모델 준비 중</span>
+          <span>마이크 <span class="meter"><i id="micMeter"></i></span></span>
+        </div>
+        <div class="rec-actions" id="recActions" hidden>
+          <button type="button" class="btn-stop" id="btnStop"><i aria-hidden="true"></i>종료하고 분석</button>
+          <button type="button" class="btn-plain" id="btnCancel">취소</button>
+        </div>
+      </div>
+
+      <aside class="ready" id="ready">
+        <h2 class="ready-h" id="readyTitle">면접 · 앉아서</h2>
+        <ul class="group" id="readyList"></ul>
+        <ul class="group">
+          <li class="cell cell-switch"><label for="optStt"><span class="cell-t"><b>음성 받아쓰기</b><small>말 빠르기·군더더기 말·내용 구조 분석. 음성이 Google 서버로 전송돼요.</small></span><input type="checkbox" class="switch" id="optStt" checked></label></li>
+          <li class="cell cell-switch"><label for="optCues"><span class="cell-t"><b>실시간 코칭 알림</b><small>녹화 중 “조금 천천히” 같은 알림을 띄워요.</small></span><input type="checkbox" class="switch" id="optCues" checked></label></li>
+        </ul>
+        <div class="tips" id="readyTips"></div>
+        <p class="focus-note" id="focusNote" hidden></p>
+        <div class="rec-wrap">
+          <button type="button" class="btn-fill btn-rec" id="btnStart" disabled><i aria-hidden="true"></i>녹화 시작</button>
+          <p class="rec-label" id="recLabel">카메라를 켜는 중</p>
+        </div>
+        <button type="button" class="btn-plain" id="btnEditSetup">설정 수정</button>
+      </aside>
+    </div>
+  </section>
+
+  <!-- 리포트 -->
+  <section id="s-report" class="screen" hidden>
+    <div class="report" id="report"></div>
+  </section>
+</main>
+
+<dialog class="auth contact" id="contactDlg" aria-labelledby="ctTitle">
+  <form id="contactForm" novalidate>
+    <button type="button" class="dlg-x" id="ctClose" aria-label="닫기"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    <div id="ctBody">
+      <h2 id="ctTitle">도입 문의</h2>
+      <p class="auth-sub">팀 규모와 쓰임을 알려 주시면 맞춰서 안내드릴게요.</p>
+      <div class="seg" role="tablist" aria-label="기관 종류">
+        <button type="button" role="tab" data-kind="biz" aria-selected="true">기업</button>
+        <button type="button" role="tab" data-kind="edu" aria-selected="false">대학 · 교육기관</button>
+      </div>
+      <label class="field"><span id="ctOrgLabel">회사명</span><input name="org" autocomplete="organization" required></label>
+      <div class="field-row">
+        <label class="field"><span>이름</span><input name="person" autocomplete="name" required></label>
+        <label class="field"><span>인원</span><select name="size"><option>10명 미만</option><option selected>10–50명</option><option>50–200명</option><option>200명 이상</option></select></label>
+      </div>
+      <label class="field"><span id="ctMailLabel">업무 이메일</span><input name="mail" type="email" autocomplete="email" required></label>
+      <label class="field"><span>쓰고 싶은 곳 <em>선택</em></span><textarea name="note" rows="3" placeholder="예: 신입사원 PT 교육, 분기 보고 리허설"></textarea></label>
+      <p class="auth-err" id="ctErr" role="alert"></p>
+      <button type="submit" class="btn-fill btn-block">문의 보내기</button>
+    </div>
+    <div id="ctDone" hidden>
+      <h2>접수됐어요</h2>
+      <p class="auth-sub">영업일 기준 하루 안에 연락드리는 흐름이에요. 지금은 프로토타입이라 실제로 전송되지는 않고, 이 브라우저에만 저장돼요.</p>
+      <button type="button" class="btn-fill btn-block" id="ctOk">확인</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="auth" id="authDlg" aria-labelledby="authTitle">
+  <div class="auth-art art-2" aria-hidden="true"></div>
+  <form id="authForm" novalidate>
+    <button type="button" class="dlg-x" id="authClose" aria-label="닫기"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    <h2 id="authTitle">로그인</h2>
+    <p class="auth-sub">연습 기록을 계정에 모으고 지난 연습과 비교해요.</p>
+    <div class="seg" role="tablist" aria-label="로그인 또는 회원가입">
+      <button type="button" role="tab" data-mode="in" aria-selected="true">로그인</button>
+      <button type="button" role="tab" data-mode="up" aria-selected="false">회원가입</button>
+    </div>
+    <div class="social" role="group" aria-label="소셜 계정으로 계속하기">
+      <button type="button" class="soc soc-kakao" data-soc="카카오"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4C7 4 3 7.1 3 11c0 2.5 1.7 4.7 4.2 6l-1 3.6c-.1.3.3.6.6.4l4.3-2.8c.3 0 .6.1.9.1 5 0 9-3.1 9-7s-4-7.3-9-7.3z"/></svg>카카오로 계속하기</button>
+      <div class="soc-row">
+        <button type="button" class="soc soc-google" data-soc="Google"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.5 12.3c0-.8-.1-1.5-.2-2.2H12v4.2h5.9a5 5 0 0 1-2.2 3.3v2.7h3.5c2.1-1.9 3.3-4.7 3.3-8z"/><path fill="#34A853" d="M12 23c3 0 5.5-1 7.2-2.7l-3.5-2.7c-1 .7-2.2 1.1-3.7 1.1-2.9 0-5.3-1.9-6.2-4.5H2.2v2.8A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.8 14.2a6.6 6.6 0 0 1 0-4.4V7H2.2a11 11 0 0 0 0 10z"/><path fill="#EA4335" d="M12 5.4c1.6 0 3.1.6 4.2 1.6l3.2-3.2A11 11 0 0 0 2.2 7l3.6 2.8C6.7 7.3 9.1 5.4 12 5.4z"/></svg>Google로 계속하기</button>
+      </div>
+      <p class="soc-note" id="socNote" hidden></p>
+      <div class="or"><span>또는 이메일로</span></div>
+    </div>
+    <label class="field" id="fName" hidden><span>이름</span><input name="name" autocomplete="name" placeholder="홍길동"></label>
+    <label class="field"><span>이메일</span><input name="email" type="email" autocomplete="email" placeholder="name@example.com" required></label>
+    <label class="field"><span>비밀번호</span><input name="password" type="password" autocomplete="current-password" placeholder="8자 이상" required></label>
+    <p class="auth-err" id="authErr" role="alert"></p>
+    <button type="submit" class="btn-fill btn-block" id="authSubmit">로그인</button>
+    <p class="auth-note">프로토타입이라 계정과 연습 기록은 이 브라우저에만 저장돼요.</p>
+  </form>
+</dialog>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
