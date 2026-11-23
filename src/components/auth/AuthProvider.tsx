@@ -1,6 +1,7 @@
 'use client';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import { useRouter } from '@/lib/nav';
 import { getSupabase } from '@/lib/supabase/client';
 import { supabaseReady } from '@/lib/supabase/config';
 import { fetchProfile } from '@/lib/data/profile';
@@ -13,8 +14,11 @@ type AuthCtx = {
   ready: boolean;
   user: Profile | null;
   openAuth: (opts?: OpenOpts) => void;
-  /** 로그인한 상태면 바로 실행하고, 아니면 로그인 창을 띄운 뒤 로그인하면 이어서 실행해요. */
-  requireAuth: (fn: () => void, reason?: string) => void;
+  /**
+   * 로그인한 상태면 바로 실행하고, 아니면 로그인 창을 띄운 뒤 로그인하면 이어서 실행해요.
+   * next: 소셜 로그인처럼 페이지를 떠났다 돌아오는 경우 돌아올 주소(이때는 fn 대신 이 주소에서 이어가요).
+   */
+  requireAuth: (fn: () => void, reason?: string, next?: string) => void;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -73,10 +77,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setDlg({ open: true, ...opts });
   }, []);
 
-  const requireAuth = useCallback((fn: () => void, reason = DEFAULT_REASON) => {
+  const requireAuth = useCallback((fn: () => void, reason = DEFAULT_REASON, next?: string) => {
     if (user) { fn(); return; }
     pending.current = fn;
-    setDlg({ open: true, mode: 'in', reason });
+    setDlg({ open: true, mode: 'in', reason, next });
   }, [user]);
 
   const onSignedIn = useCallback(async () => {

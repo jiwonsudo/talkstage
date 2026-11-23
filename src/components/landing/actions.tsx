@@ -1,16 +1,15 @@
 'use client';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/lib/nav';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useContact } from '@/components/contact/ContactProvider';
 import { useToast } from '@/components/ui/Toast';
 
 type BtnProps = { className?: string; children: React.ReactNode };
 
-/** 로그인 확인 뒤 새 리허설(선택한 상황이 있으면 그 상황으로)을 열어요. */
+/** 새 리허설(선택한 상황이 있으면 그 상황으로)을 열어요. 로그인은 설정을 다 고른 뒤 녹화 직전에 받아요. */
 export function useStartRehearsal() {
-  const { requireAuth } = useAuth();
   const router = useRouter();
-  return (purpose?: string) => requireAuth(() => router.push(purpose ? `/rehearsal/new?purpose=${encodeURIComponent(purpose)}` : '/rehearsal/new'));
+  return (purpose?: string) => router.push(purpose ? `/rehearsal/new?purpose=${encodeURIComponent(purpose)}&step=1` : '/rehearsal/new');
 }
 
 export function StartButton({ className, children }: BtnProps) {
@@ -41,11 +40,12 @@ export function PlanButton({ plan, className, children }: BtnProps & { plan: str
 export function FooterAction({ fx, className, children }: BtnProps & { fx: string }) {
   const { user, openAuth } = useAuth();
   const toast = useToast();
+  const router = useRouter();
   const start = useStartRehearsal();
   const onClick = () => {
     if (fx === 'new') start();
-    else if (fx === 'login') { if (user) toast('이미 로그인되어 있어요'); else openAuth({ mode: 'in' }); }
-    else if (fx === 'recent') document.getElementById('recentBlock')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    else if (fx === 'login') { if (user) toast('이미 로그인되어 있어요'); else openAuth({ mode: 'in', next: '/me/rehearsals' }); }
+    else if (fx === 'mine') { if (user) router.push('/me/rehearsals'); else openAuth({ mode: 'in', next: '/me/rehearsals' }); }
   };
   return <button type="button" className={className} onClick={onClick}>{children}</button>;
 }

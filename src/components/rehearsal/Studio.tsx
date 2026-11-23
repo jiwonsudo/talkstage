@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { analyze, buildCalibration, classifyFrame, type Analysis, type Calibration } from '@/lib/coach/analysis';
+import { MIN_REHEARSAL_SEC, analyze, buildCalibration, classifyFrame, type Analysis, type Calibration } from '@/lib/coach/analysis';
 import { AudioMeter, Transcriber } from '@/lib/coach/audio';
 import { detect, drawOverlay, extractFeatures, loadVision, type VisionFrame, type VisionModels } from '@/lib/coach/vision';
 import type { Setup } from '@/lib/coach/types';
@@ -8,7 +8,13 @@ import { outcomeLabel, purposeOf, type Draft } from '@/lib/rehearsal/draft';
 import { CAT_LABEL, POSTURES, fmtTime, type CatId } from '@/lib/scenarios';
 
 export type StudioResult = { result: Analysis; videoURL: string; durationSec: number; setup: Setup };
-type Phase = 'idle' | 'calib' | 'rec' | 'analyzing';
+type Phase = 'idle' | 'calib' | 'rec' | 'interrupted' | 'analyzing';
+/** 녹화를 멈춘 뒤 분석에 넘길 재료 */
+type Captured = { audio: ReturnType<AudioMeter['end']>; transcript: Promise<Awaited<ReturnType<Transcriber['stop']>> | null>; stopped: Promise<unknown>; durationSec: number };
+/** 이보다 짧게 녹화하다 끊기면 '여기까지 분석'을 권하지 않아요(분석 최소 길이와 같게) */
+const MIN_PARTIAL_SEC = MIN_REHEARSAL_SEC;
+/** 폰(터치 화면)은 녹화 파일을 가볍게: 10분 기준 약 75MB(데스크톱 2.5Mbps 면 약 190MB). 분석은 카메라 화면으로 해서 점수와 무관해요. */
+const videoBitrate = () => (matchMedia('(pointer: coarse)').matches ? 1_000_000 : 2_500_000);
 type Chip = boolean | null;
 
 const PREFS = 'ts-studio-prefs';
@@ -44,6 +50,7 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
   const [level, setLevel] = useState(0);
   const [cue, setCue] = useState<{ text: string; n: number } | null>(null);
   const [error, setError] = useState('');
+  const [cutSec, setCutSec] = useState(0); // 끊긴 녹화 길이(초)
   const [prefs] = useState(() => {
     try { return JSON.parse(localStorage.getItem(PREFS) ?? '{}') as { stt?: unknown; cues?: unknown }; } catch { return {}; }
   });
@@ -57,6 +64,7 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
     recStart: 0, recorder: null as MediaRecorder | null, chunks: [] as Blob[], mime: '', transcriber: null as Transcriber | null,
     cooldown: {} as Record<string, number>, quietSince: null as number | null, lastQuiet: 0, cueTimer: 0 as unknown as ReturnType<typeof setTimeout>,
     hudTimer: 0 as unknown as ReturnType<typeof setInterval>,
+    captured: null as Captured | null, // 다른 앱으로 나가서 끊긴 녹화
     gen: 0, // 화면이 바뀔 때마다 올라가요. 늦게 도착한 카메라 응답을 버리는 데 써요.
   });
   const setP = (ph: Phase) => { r.current.phase = ph; setPhase(ph); };
@@ -208,7 +216,7 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
     st.transcriber = null;
     if (stt) { const tr = new Transcriber('ko-KR'); if (tr.supported && tr.start(st.recStart)) st.transcriber = tr; }
     st.mime = pickMime();
-    st.recorder = new MediaRecorder(st.stream, st.mime ? { mimeType: st.mime, videoBitsPerSecond: 2_500_000 } : undefined);
+    st.recorder = new MediaRecorder(st.stream, st.mime ? { mimeType: st.mime, videoBitsPerSecond: videoBitrate() } : undefined);
     st.recorder.ondataavailable = (e) => { if (e.data.size) st.chunks.push(e.data); };
     st.recorder.start(1000);
     setP('rec');
@@ -238,34 +246,40 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
   const autoStarted = useRef(false);
   useEffect(() => { if (autoStart && ready && !autoStarted.current) { autoStarted.current = true; begin(); } }, [autoStart, ready, begin]);
 
-  async function cancel() {
+  /** 녹화·소리·받아쓰기를 멈추고 분석 재료를 모아요(분석은 아직). */
+  const capture = useCallback((): Captured | null => {
     const st = r.current;
-    if (st.phase === 'calib') st.audio?.end();
-    if (st.phase === 'rec') {
-      clearInterval(st.hudTimer);
-      st.recorder?.stop();
-      st.audio?.end();
-      await st.transcriber?.stop();
-    }
-    setP('idle');
-  }
-
-  async function stop() {
-    const st = r.current;
-    if (st.phase !== 'rec' || !st.recorder || !st.audio || !st.calib) return;
+    if (st.phase !== 'rec' || !st.recorder || !st.audio) return null;
     clearInterval(st.hudTimer);
-    const durationSec = (performance.now() - st.recStart) / 1000;
-    setP('analyzing');
     const rec = st.recorder;
-    const stopped = new Promise((res) => { rec.onstop = res; });
-    rec.stop();
-    const audioFrames = st.audio.end();
-    const transcript = st.transcriber ? await st.transcriber.stop() : null;
-    await stopped;
+    // 폰이 뒤에서 녹화기를 이미 멈췄으면 onstop 을 기다리지 않아요
+    const stopped = rec.state === 'inactive' ? Promise.resolve() : new Promise((res) => { rec.onstop = res; });
+    if (rec.state !== 'inactive') rec.stop();
+    return {
+      audio: st.audio.end(),
+      transcript: st.transcriber ? st.transcriber.stop() : Promise.resolve(null),
+      stopped,
+      durationSec: (performance.now() - st.recStart) / 1000,
+    };
+  }, []);
+
+  async function analyzeCaptured(c: Captured) {
+    const st = r.current;
+    if (!st.calib) return;
+    setP('analyzing');
+    const transcript = await c.transcript;
+    await c.stopped;
     const videoURL = URL.createObjectURL(new Blob(st.chunks, { type: st.mime || 'video/webm' }));
     try {
-      const result = analyze({ audio: audioFrames, vision: st.frames, transcript, calib: st.calib, purpose: p, setup, durationSec });
-      onDone({ result, videoURL, durationSec, setup });
+      const result = analyze({ audio: c.audio, vision: st.frames, transcript, calib: st.calib, purpose: p, setup, durationSec: c.durationSec });
+      if (result.invalid) {
+        // 리허설로 치지 않아요: 리포트·저장·크레딧 차감 없이 다시 녹화
+        URL.revokeObjectURL(videoURL);
+        setP('idle');
+        setError(`${result.invalid} 크레딧은 쓰지 않았어요.`);
+        return;
+      }
+      onDone({ result, videoURL, durationSec: c.durationSec, setup });
     } catch (e) {
       console.error(e);
       URL.revokeObjectURL(videoURL);
@@ -274,13 +288,62 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
     }
   }
 
+  async function cancel() {
+    const st = r.current;
+    if (st.phase === 'calib') st.audio?.end();
+    if (st.phase === 'rec') await capture()?.transcript;
+    st.captured = null;
+    setP('idle');
+  }
+
+  async function stop() {
+    const c = capture();
+    if (c) await analyzeCaptured(c);
+  }
+
+  // 녹화하는 동안 화면이 꺼지지 않게 해요(폰 자동 잠금 때문에 카메라가 멈추는 것 방지).
+  // 다른 앱으로 나가면 브라우저가 잠금을 풀어서, 돌아오면 다시 걸어요.
+  const recording = phase === 'rec' || phase === 'calib';
+  useEffect(() => {
+    if (!recording || !('wakeLock' in navigator)) return;
+    let lock: WakeLockSentinel | null = null, live = true;
+    const acquire = () => {
+      if (document.visibilityState !== 'visible') return;
+      navigator.wakeLock.request('screen').then((l) => { if (live) lock = l; else l.release(); }).catch(() => { /* 배터리 절약 모드 등: 그냥 녹화 */ });
+    };
+    acquire();
+    document.addEventListener('visibilitychange', acquire);
+    return () => { live = false; document.removeEventListener('visibilitychange', acquire); lock?.release().catch(() => {}); };
+  }, [recording]);
+
+  // 녹화 중 다른 앱으로 나가면 그 자리에서 녹화를 끊어요(폰은 뒤에서 카메라를 멈추거나 탭을 없애기도 해서).
+  // 돌아오면 '여기까지 분석할지, 다시 녹화할지' 물어봐요. 카메라가 꺼졌으면 다시 켜요.
+  useEffect(() => {
+    const onVis = () => {
+      const st = r.current;
+      if (document.visibilityState === 'hidden') {
+        if (st.phase === 'calib') { st.audio?.end(); setP('idle'); return; }
+        if (st.phase === 'rec') { st.captured = capture(); setCutSec(st.captured?.durationSec ?? 0); setP('interrupted'); }
+        return;
+      }
+      if (st.stream && st.stream.getVideoTracks().some((t) => t.readyState === 'ended')) { setCamOn(false); startCamera(); }
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, [capture, startCamera]);
+
+  function resumeInterrupted(analyzeIt: boolean) {
+    const c = r.current.captured;
+    r.current.captured = null;
+    if (analyzeIt && c) analyzeCaptured(c); else setP('idle');
+  }
+
   const rows: [string, string][] = [
     ['주제', setup.topic || '—'],
     ['핵심 메시지', setup.keyMessage ? `“${setup.keyMessage}”` : '—'],
     ['원하는 결과', setup.outcomeText || outcomeLabel(draft)],
     ['목표 시간', fmtTime(setup.targetSec)],
   ];
-  const recording = phase === 'rec' || phase === 'calib';
   const chip = (g: Chip) => (g === true ? ' is-good' : g === false ? ' is-bad' : '');
   const fc = (c: CatId) => (setup.focus === c ? ' is-focus' : '');
 
@@ -317,6 +380,16 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
                 </div>
                 {cue && <div key={cue.n} className="cue pop">{cue.text}</div>}
                 <div className="hud-transcript">{hud.tx}</div>
+              </div>
+            )}
+            {phase === 'interrupted' && (
+              <div className="analyzing interrupted" role="alertdialog" aria-label="녹화가 중단됐어요">
+                <b>다른 화면으로 나가서 녹화가 멈췄어요.</b>
+                <p>{cutSec >= MIN_PARTIAL_SEC ? `${fmtTime(cutSec)}까지 녹화됐어요. 여기까지 분석할까요?` : '녹화가 너무 짧아서 분석하기 어려워요. 다시 녹화해 주세요.'}</p>
+                <div>
+                  {cutSec >= MIN_PARTIAL_SEC && <button type="button" className="btn-fill btn-sm" onClick={() => resumeInterrupted(true)}>여기까지 분석</button>}
+                  <button type="button" className="btn-plain btn-sm" onClick={() => resumeInterrupted(false)}>다시 녹화</button>
+                </div>
               </div>
             )}
             {phase === 'analyzing' && <div className="analyzing"><div className="spin" aria-hidden="true" /><p>녹화를 분석하고 하이라이트를 고르는 중…</p></div>}

@@ -1,5 +1,5 @@
 import { ContactButton, StartButton, PlanButton } from './actions';
-import { PlansProvider, PlanSwitch, PlanTable } from './Plans';
+import { PlansFold, PlansProvider, PlanSwitch, PlanTable } from './Plans';
 
 export function Teams() {
   return (
@@ -48,6 +48,7 @@ export function Teams() {
           </ul>
         </div>
       </div>
+      <PlansFold>
       <PlanSwitch />
       <PlanTable className="cmp cmp-3 rv" role="table" aria-label="개인 요금제 비교" which="solo">
         <div className="cmp-head" role="row">
@@ -60,14 +61,14 @@ export function Teams() {
           </div>
           <div className="cmp-plan is-hi" role="columnheader">
             <h3>Spotlight<span>매주 연습하는 사람</span></h3>
-            <p>월 9,900원</p>
-            <small>연간 결제 시 월 7,900원 · 월 240크레딧</small>
+            <p>월 4,900원</p>
+            <small>연간 결제 시 월 3,900원 · 월 120크레딧</small>
             <PlanButton className="btn-fill btn-sm" plan="Spotlight">Spotlight 시작</PlanButton>
           </div>
           <div className="cmp-plan" role="columnheader">
             <h3>Headliner<span>큰 발표를 앞둔 사람</span></h3>
-            <p>월 19,900원</p>
-            <small>연간 결제 시 월 15,900원 · 월 600크레딧</small>
+            <p>월 9,900원</p>
+            <small>연간 결제 시 월 7,900원 · 월 360크레딧</small>
             <PlanButton className="btn-plain btn-sm" plan="Headliner">Headliner 시작</PlanButton>
           </div>
         </div>
@@ -75,14 +76,14 @@ export function Teams() {
         <div className="cmp-row" role="row">
           <div className="cmp-lab" role="rowheader">월 크레딧</div>
           <div className="cmp-cell" role="cell">36</div>
-          <div className="cmp-cell" role="cell">240</div>
-          <div className="cmp-cell" role="cell">600</div>
+          <div className="cmp-cell" role="cell">120</div>
+          <div className="cmp-cell" role="cell">360</div>
         </div>
         <div className="cmp-row" role="row">
           <div className="cmp-lab" role="rowheader">예상 리허설 횟수</div>
           <div className="cmp-cell" role="cell">월 약 3회</div>
-          <div className="cmp-cell" role="cell">월 약 20회</div>
-          <div className="cmp-cell" role="cell">월 약 50회</div>
+          <div className="cmp-cell" role="cell">월 약 10회</div>
+          <div className="cmp-cell" role="cell">월 약 30회</div>
         </div>
         <div className="cmp-row" role="row">
           <div className="cmp-lab" role="rowheader">남은 크레딧 이월</div>
@@ -187,13 +188,13 @@ export function Teams() {
           <div className="cmp-lab" role="columnheader"><b>단체 요금제</b><small>인원과 기간에 맞춰 견적을 드려요. 크레딧은 구성원이 함께 써요.</small></div>
           <div className="cmp-plan is-hi" role="columnheader">
             <h3>대학 · 교육기관<span>학과 · 수업 · 취업지원센터</span></h3>
-            <p>1인당 월 3,900원부터</p>
+            <p>1인당 월 2,900원부터</p>
             <small>학기 단위 · 30명부터</small>
             <ContactButton className="btn-fill btn-sm" kind="edu">도입 문의</ContactButton>
           </div>
           <div className="cmp-plan" role="columnheader">
             <h3>팀 · 기업<span>영업 · 기획 · 신입 교육</span></h3>
-            <p>1인당 월 12,900원부터</p>
+            <p>1인당 월 7,900원부터</p>
             <small>연 단위 · 10명부터</small>
             <ContactButton className="btn-plain btn-sm" kind="biz">도입 문의</ContactButton>
           </div>
@@ -201,8 +202,8 @@ export function Teams() {
         <div className="cmp-group" role="row"><span role="rowheader">크레딧</span></div>
         <div className="cmp-row" role="row">
           <div className="cmp-lab" role="rowheader">1인당 월 크레딧</div>
-          <div className="cmp-cell" role="cell">240</div>
-          <div className="cmp-cell" role="cell">600</div>
+          <div className="cmp-cell" role="cell">120</div>
+          <div className="cmp-cell" role="cell">360</div>
         </div>
         <div className="cmp-row" role="row">
           <div className="cmp-lab" role="rowheader">크레딧 공유</div>
@@ -283,6 +284,7 @@ export function Teams() {
           </div>
         </div>
       </PlanTable>
+      </PlansFold>
     </section>
     </PlansProvider>
   );
