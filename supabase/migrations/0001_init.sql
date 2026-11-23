@@ -1,4 +1,5 @@
 -- Talkstage 초기 스키마. Supabase 대시보드 > SQL Editor 에서 실행하거나 `supabase db push` 로 적용해요.
+-- 여러 번 실행해도 안전해요(이미 있으면 다시 만들어요).
 
 -- 프로필: 가입하면 자동으로 한 줄 생겨요.
 create table if not exists public.profiles (
@@ -49,14 +50,21 @@ alter table public.profiles enable row level security;
 alter table public.rehearsals enable row level security;
 alter table public.support_requests enable row level security;
 
+drop policy if exists "own profile read" on public.profiles;
 create policy "own profile read" on public.profiles for select using (auth.uid() = id);
 -- 주의: 결제 연동 전 프로토타입이라 plan 도 본인이 바꿀 수 있어요.
 -- 결제를 붙이면 plan 은 결제 웹훅(service role)만 바꾸도록 이 정책을 name 전용으로 좁혀 주세요.
+drop policy if exists "own profile update" on public.profiles;
 create policy "own profile update" on public.profiles for update using (auth.uid() = id) with check (auth.uid() = id);
 
+drop policy if exists "own rehearsals read" on public.rehearsals;
 create policy "own rehearsals read" on public.rehearsals for select using (auth.uid() = user_id);
+drop policy if exists "own rehearsals insert" on public.rehearsals;
 create policy "own rehearsals insert" on public.rehearsals for insert with check (auth.uid() = user_id);
+drop policy if exists "own rehearsals delete" on public.rehearsals;
 create policy "own rehearsals delete" on public.rehearsals for delete using (auth.uid() = user_id);
 
+drop policy if exists "own support insert" on public.support_requests;
 create policy "own support insert" on public.support_requests for insert with check (auth.uid() = user_id);
+drop policy if exists "own support read" on public.support_requests;
 create policy "own support read" on public.support_requests for select using (auth.uid() = user_id);

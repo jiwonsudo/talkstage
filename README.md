@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Talkstage
 
-## Getting Started
+녹화 한 번으로 말 빠르기·시선·자세·제스처를 분석해 주는 리허설 코칭 웹앱이에요.
 
-First, run the development server:
+- Next.js 16 (App Router) · React 19 · TypeScript
+- Supabase Auth / Postgres (RLS)
+- MediaPipe Tasks Vision (브라우저에서 자세·얼굴 분석)
+
+## 실행
+
+pnpm 을 써요(`packageManager` 에 버전이 고정돼 있어요).
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
+cp .env.example .env.local   # 값 채우기
+pnpm dev                     # http://localhost:5180
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Supabase 로그인 후 돌아오는 주소를 5180 으로 맞춰 두었기 때문에 개발 서버는 항상 5180 포트로 떠요.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| 명령 | 하는 일 |
+| --- | --- |
+| `pnpm dev` | 개발 서버 |
+| `pnpm build` / `pnpm start` | 프로덕션 빌드 / 실행 |
+| `pnpm lint` | ESLint |
+| `pnpm exec tsc --noEmit` | 타입 검사 |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Supabase 설정
 
-## Learn More
+1. Project Settings → API Keys 에서 값을 복사해 `.env.local` 에 넣어요.
+   - `NEXT_PUBLIC_SUPABASE_URL`: `https://<ref>.supabase.co` (뒤에 `/rest/v1/` 는 없어도 돼요)
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: `sb_publishable_...`
+   - `SUPABASE_SECRET_KEY`: `sb_secret_...` (서버 전용, 계정 삭제에만 써요)
+2. SQL Editor 에서 `supabase/migrations/` 의 파일을 번호 순서대로 실행해요.
+3. Authentication → URL Configuration
+   - Site URL: `http://localhost:5180`
+   - Redirect URLs: `http://localhost:5180/auth/callback`
+4. 카카오·Google 로그인은 Authentication → Sign In / Providers 에서 켜요.
 
-To learn more about Next.js, take a look at the following resources:
+## 폴더
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `src/app` 라우트 (`/`, `/rehearsal/new`, `/me/*`, `/auth/callback`, `/api/account`)
+- `src/components` 랜딩·인증·리허설(마법사, 대본 점검, 녹화, 리포트) 컴포넌트
+- `src/lib/coach` 음성·영상 분석과 코칭 엔진
+- `legacy/` 이전 plain JS 버전(참고용)
