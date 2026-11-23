@@ -52,6 +52,16 @@ export function AuthDialog({ open, mode: initialMode, reason, next, onClose, onS
 
   const up = mode === 'up';
 
+  // 오류가 나면 메시지를 띄우고 입력 폼을 좌우로 흔들어요(예전 버전의 shake).
+  const fail = (msg: string) => {
+    setErr(msg);
+    const f = formRef.current;
+    if (!f) return;
+    delete f.dataset.shake;
+    void f.offsetWidth;
+    f.dataset.shake = '';
+  };
+
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const sb = getSupabase();
@@ -61,9 +71,9 @@ export function AuthDialog({ open, mode: initialMode, reason, next, onClose, onS
     const password = String(f.get('password') ?? '');
     const name = String(f.get('name') ?? '').trim();
     setErr(''); setNote('');
-    if (up && !name) { setErr('이름을 입력해 주세요.'); return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setErr('이메일 형식을 확인해 주세요.'); return; }
-    if (password.length < 8) { setErr('비밀번호는 8자 이상으로 정해 주세요.'); return; }
+    if (up && !name) { fail('이름을 입력해 주세요.'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { fail('이메일 형식을 확인해 주세요.'); return; }
+    if (password.length < 8) { fail('비밀번호는 8자 이상으로 정해 주세요.'); return; }
     setBusy(true);
     try {
       if (up) {
@@ -80,7 +90,7 @@ export function AuthDialog({ open, mode: initialMode, reason, next, onClose, onS
       }
       onSignedIn();
     } catch (x) {
-      setErr(friendly((x as Error).message ?? ''));
+      fail(friendly((x as Error).message ?? ''));
     } finally {
       setBusy(false);
     }
@@ -93,7 +103,7 @@ export function AuthDialog({ open, mode: initialMode, reason, next, onClose, onS
       provider,
       options: { redirectTo: `${location.origin}/auth/callback?next=${encodeURIComponent(next ?? pathname)}` },
     });
-    if (error) setErr(friendly(error.message));
+    if (error) fail(friendly(error.message));
   }
 
   return (

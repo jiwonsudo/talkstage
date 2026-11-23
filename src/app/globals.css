@@ -113,17 +113,18 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 .wipe { position: fixed; inset: 0; z-index: 100; pointer-events: none; }
 .wipe i { position: absolute; inset: 0; transform: translateY(105%); background-size: cover; }
 .wipe[data-v="1"] i:nth-child(1) { order: 2; }
-.wipe.go i { animation: wipe .9s var(--ease) both; }
-.wipe.go i:nth-child(2) { animation-delay: .07s; }
-.wipe.go i:nth-child(3) { animation-delay: .14s; }
-.wipe[data-v="1"].go i { animation-name: wipe-x; }
-.wipe[data-v="2"].go i { animation-name: wipe-d; }
+.wipe[data-go] i { animation: wipe .9s var(--ease) both; }
+.wipe[data-go] i:nth-child(2) { animation-delay: .07s; }
+.wipe[data-go] i:nth-child(3) { animation-delay: .14s; }
+.wipe[data-v="1"][data-go] i { animation-name: wipe-x; }
+.wipe[data-v="2"][data-go] i { animation-name: wipe-d; }
 @keyframes wipe { 0% { transform: translateY(105%); } 42% { transform: translateY(0); } 58% { transform: translateY(0); } 100% { transform: translateY(-105%); } }
 @keyframes wipe-x { 0% { transform: translateX(-105%); } 42% { transform: translateX(0); } 58% { transform: translateX(0); } 100% { transform: translateX(105%); } }
 @keyframes wipe-d { 0% { clip-path: circle(0% at 50% 50%); transform: none; } 45% { clip-path: circle(80% at 50% 50%); transform: none; } 60% { clip-path: circle(80% at 50% 50%); transform: none; opacity: 1; } 100% { clip-path: circle(80% at 50% 50%); transform: scale(1.06); opacity: 0; } }
-.screen.enter { animation: screen-in .9s var(--ease) both; animation-delay: .38s; }
+/* 화면 전환: ui/ScreenTransition 이 data-enter 를 붙여요. 처음 열 때(="first")는 기다리지 않아요. */
+.screen[data-enter] { animation: screen-in .9s var(--ease) both; animation-delay: .38s; }
 @keyframes screen-in { from { opacity: 0; transform: translateY(28px) scale(.985); filter: blur(8px); } to { opacity: 1; transform: none; filter: none; } }
-body:not([data-ready]) .screen.enter { animation-delay: 0s; }
+.screen[data-enter="first"] { animation-delay: 0s; }
 
 /* 스크롤 등장 */
 .rv, [data-rv] { opacity: 0; transform: translateY(32px); filter: blur(6px); transition: opacity .8s var(--ease), transform .9s var(--ease), filter .8s var(--ease); transition-delay: var(--d, 0s); }
@@ -619,7 +620,7 @@ table.self { width: 100%; border-collapse: collapse; font-size: 14px; min-width:
 @keyframes fade { from { opacity: 0; } }
 .auth-art { height: 96px; background-size: cover; }
 .auth form { position: relative; padding: 24px 28px 26px; display: grid; gap: 12px; }
-.auth form.shake { animation: shake .4s; }
+.auth form[data-shake] { animation: shake .4s; }
 @keyframes shake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
 .dlg-x { position: absolute; top: -78px; right: 16px; width: 38px; height: 38px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .92); color: #111; display: grid; place-items: center; transition: transform .3s var(--spring); }
 .dlg-x:hover { transform: rotate(90deg); }

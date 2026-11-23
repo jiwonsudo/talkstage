@@ -6,6 +6,7 @@ import { ToastProvider } from '@/components/ui/Toast';
 import { Navbar } from '@/components/nav/Navbar';
 import { ContactProvider } from '@/components/contact/ContactProvider';
 import { Suspense } from 'react';
+import { ScreenTransition } from '@/components/ui/ScreenTransition';
 
 export const metadata: Metadata = {
   title: 'Talkstage · 발표 리허설',
@@ -22,7 +23,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ko">
-      <body><ToastProvider><Suspense><AuthProvider><ContactProvider><Navbar /><main>{children}</main></ContactProvider></AuthProvider></Suspense></ToastProvider></body>
+      <body><ToastProvider><Suspense><AuthProvider><ContactProvider><Navbar /><ScreenTransition /><main>{children}</main></ContactProvider></AuthProvider></Suspense></ToastProvider></body>
     </html>
   );
 }
