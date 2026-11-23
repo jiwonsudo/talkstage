@@ -6,7 +6,7 @@ import { renderReport } from './report.js';
 import { picto } from './picto.js';
 import { mountScript } from './scriptview.js';
 import { readScriptFile } from './script.js';
-import { currentUser, onAuthChange, historyKey, signIn, signUp, signOut } from './auth.js';
+import { currentUser, onAuthChange, historyKey, signIn, signUp, signOut, updateName, changePassword, deleteAccount } from './auth.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -17,7 +17,14 @@ const store = {
 const K_SETUP = 'rc-setup-v2';
 // 요금제 (프로토타입: 요금표의 버튼으로 바꿔 볼 수 있어요)
 const K_PLAN = 'ts-plan';
-const planName = () => store.get(K_PLAN, 'Opening');
+const planKey = () => `${K_PLAN}:${currentUser()?.email || 'guest'}`;
+const planName = () => store.get(planKey(), 'Opening');
+const PLANS = {
+  Opening: { credits: 36, price: '무료', who: '처음 서 보는 무대' },
+  Spotlight: { credits: 240, price: '월 9,900원', who: '매주 연습하는 사람' },
+  Headliner: { credits: 600, price: '월 19,900원', who: '큰 발표를 앞둔 사람' },
+};
+const CREDIT_PER_REHEARSAL = 12;
 const isPaid = () => planName() !== 'Opening';
 const CUSTOM_WARN = '직접 입력한 내용에는 검증된 기준표가 따로 없어요. 그래서 고른 유형과 항목의 기준으로 코칭하고, 적은 내용은 리포트 문구와 내용 점검에만 반영해요. 적는 방식에 따라 코칭이 덜 정확할 수 있어요.';
 
@@ -107,12 +114,12 @@ function playTransition(from, to) {
 function show(name) {
   const from = document.body.dataset.screen;
   if (from === 'script' && name !== 'script') scriptView?.leave();
-  for (const s of ['home', 'script', 'wizard', 'studio', 'report']) $(`#s-${s}`).hidden = s !== name;
+  for (const s of ['home', 'hub', 'script', 'wizard', 'studio', 'report']) $(`#s-${s}`).hidden = s !== name;
   playTransition(document.body.dataset.ready ? from : null, name);
   document.body.dataset.ready = '1';
   document.body.dataset.screen = name;
   window.scrollTo(0, 0);
-  const nav = { home: [null, ''], script: ['이전', '대본 분석'], wizard: ['홈', '새 프레젠테이션'], studio: ['설정', '녹화'], report: ['홈', '리포트'] }[name];
+  const nav = { home: [null, ''], script: ['이전', '대본 분석'], wizard: ['홈', '새 리허설'], studio: ['설정', '녹화'], report: ['홈', '리포트'], hub: ['홈', '내 Talkstage'] }[name];
   $('#navBack').hidden = !nav[0];
   $('#navBackLabel').textContent = nav[0] || '';
   $('#navTitle').textContent = nav[1];
@@ -146,7 +153,7 @@ function renderHome() {
 }
 // 새 리허설은 지난 대본·메모를 비우고 시작해요. 예시는 placeholder로만 보여 줘요.
 const clearText = () => { draft.script = ''; draft.key = ''; draft.prompt = ''; draft.hasScript = 'yes'; };
-const startFresh = () => { state.focus = null; clearText(); startWizard(0); };
+const startFresh = () => needLogin(() => { state.focus = null; clearText(); startWizard(0); });
 $('#brandHome').addEventListener('click', (e) => {
   e.preventDefault();
   if (['rec', 'calib', 'analyzing'].includes(state.phase)) return;
@@ -206,7 +213,7 @@ document.addEventListener('click', (e) => {
     $('#cmpSolo').classList.add('in'); $('#cmpTeam').classList.add('in');
   }
   const plan = e.target.closest('[data-plan]');
-  if (plan) { store.set(K_PLAN, plan.dataset.plan); toast(`프로토타입이라 결제 없이 ${plan.dataset.plan}을 켰어요. 직접 입력 기능을 써 볼 수 있어요.`); }
+  if (plan) needLogin(() => setPlan(plan.dataset.plan), '요금제를 바꾸려면 로그인해 주세요.');
 });
 
 // 푸터 바로 가기
@@ -214,11 +221,13 @@ document.querySelector('.foot').addEventListener('click', (e) => {
   const b = e.target.closest('[data-fx], [data-fp]');
   if (!b) return;
   if (b.dataset.fp) {
+    needLogin(() => {
     state.focus = null;
     clearText();
     if (b.dataset.fp !== draft.purposeId) { draft.purposeId = b.dataset.fp; draft.outcomeIdxs = [0]; draft.customGoal = null; draft.targetSec = null; }
     saveDraft();
     startWizard(1);
+    });
     return;
   }
   const fx = b.dataset.fx;
@@ -235,13 +244,13 @@ $('#scenGrid').innerHTML = PURPOSES.map((p) => `
     <b>${esc(p.label)}</b><small>${esc(p.summary)}</small>
     <span class="pc-go" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 5l7 7-7 7"/></svg></span>
   </button>`).join('');
-$('#scenGrid').querySelectorAll('[data-purpose]').forEach((b) => b.addEventListener('click', () => {
+$('#scenGrid').querySelectorAll('[data-purpose]').forEach((b) => b.addEventListener('click', () => needLogin(() => {
   state.focus = null;
   clearText();
   if (b.dataset.purpose !== draft.purposeId) { draft.purposeId = b.dataset.purpose; draft.outcomeIdxs = [0]; draft.customGoal = null; draft.targetSec = null; }
   saveDraft();
   startWizard(1);
-}));
+})));
 
 // ---------------- 로그인 ----------------
 // 소셜 로그인은 OAuth 앱 등록과 서버 연결이 필요해 출시 때 엽니다.
@@ -261,7 +270,17 @@ function setAuthMode(m) {
   $('#authDlg').querySelectorAll('.seg [data-mode]').forEach((t) => t.setAttribute('aria-selected', String(t.dataset.mode === m)));
   $('#authErr').textContent = '';
 }
-function openAuth(m = 'in') {
+// 로그인이 필요한 동작은 로그인 창을 먼저 띄우고, 로그인하면 이어서 실행해요.
+let afterAuth = null;
+const AUTH_SUB = '연습 기록을 계정에 모으고 지난 연습과 비교해요.';
+function needLogin(fn, why = '리허설을 시작하려면 로그인해 주세요. 계정이 없으면 회원가입 탭에서 바로 만들 수 있어요.') {
+  if (currentUser()) return fn();
+  afterAuth = fn;
+  openAuth('in', why);
+}
+function openAuth(m = 'in', why = '') {
+  $('#authDlg .auth-sub').textContent = why || AUTH_SUB;
+  if (!why) afterAuth = null;
   setAuthMode(m);
   $('#authForm').reset();
   $('#authDlg').showModal();
@@ -274,7 +293,7 @@ function closeAuth() {
   setTimeout(() => { d.classList.remove('closing'); d.close(); }, 220);
 }
 $('#btnLogin').addEventListener('click', () => openAuth('in'));
-$('#authClose').addEventListener('click', closeAuth);
+$('#authClose').addEventListener('click', () => { afterAuth = null; closeAuth(); });
 $('#authDlg').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeAuth(); });
 $('#authDlg').addEventListener('cancel', (e) => { e.preventDefault(); closeAuth(); });
 $('#authDlg').querySelectorAll('.seg [data-mode]').forEach((t) => t.addEventListener('click', () => setAuthMode(t.dataset.mode)));
@@ -289,6 +308,8 @@ $('#authForm').addEventListener('submit', async (e) => {
     const { moved } = authMode === 'up' ? await signUp(data) : await signIn(data);
     closeAuth();
     toast(moved ? `기존 연습 ${moved}개를 계정으로 옮겼어요.` : `${currentUser().name}님, 반가워요.`);
+    const next = afterAuth; afterAuth = null;
+    if (next) setTimeout(next, 260);
   } catch (err) {
     $('#authErr').textContent = err.message || '다시 시도해 주세요.';
     f.classList.remove('shake'); void f.offsetWidth; f.classList.add('shake');
@@ -296,13 +317,17 @@ $('#authForm').addEventListener('submit', async (e) => {
 });
 function renderAccount(user) {
   $('#btnLogin').hidden = !!user;
+  $('#navStart').hidden = !!user;
   $('#account').hidden = !user;
   if (user) {
     $('#avatar').textContent = user.name.trim().slice(0, 1).toUpperCase();
-    $('#accName').textContent = user.name;
     $('#menuName').textContent = user.name;
     $('#menuEmail').textContent = user.email;
+    $('#menuPlan').textContent = `${planName()} · 이번 달 ${creditsLeft()}크레딧 남음`;
+  } else if (['hub', 'wizard', 'studio', 'script'].includes(document.body.dataset.screen) && !['rec', 'calib', 'analyzing'].includes(state.phase)) {
+    show('home');
   }
+  if (document.body.dataset.screen === 'hub' && user) renderHub();
   closeMenu();
   if (document.body.dataset.screen === 'home') renderHome();
 }
@@ -315,12 +340,101 @@ $('#btnAccount').addEventListener('click', (e) => {
 });
 document.addEventListener('click', (e) => { if (!e.target.closest?.('#account')) closeMenu(); });
 $('#mLogout').addEventListener('click', () => { signOut(); toast('로그아웃했어요.'); });
-$('#mHistory').addEventListener('click', () => {
+// ---------------- 내 Talkstage (리허설 · 계정 · 요금제 · 지원) ----------------
+let hubTab = 'decks';
+const busy = () => ['rec', 'calib', 'analyzing'].includes(state.phase);
+function openHub(tab) {
   closeMenu();
-  if (['rec', 'calib', 'analyzing'].includes(state.phase)) return;
-  if (document.body.dataset.screen !== 'home') show('home');
-  setTimeout(() => $('#recentTitle').scrollIntoView({ behavior: 'smooth', block: 'start' }), 450);
-});
+  if (busy()) { toast('녹화가 끝난 뒤에 열 수 있어요.'); return; }
+  hubTab = tab;
+  show('hub');
+  renderHub();
+}
+document.addEventListener('click', (e) => { const b = e.target.closest('[data-hub]'); if (b) needLogin(() => openHub(b.dataset.hub)); });
+const monthStart = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).getTime(); };
+const myHistory = () => store.get(historyKey(), []);
+const creditsUsed = () => myHistory().filter((h) => h.at >= monthStart()).length * CREDIT_PER_REHEARSAL;
+const creditsLeft = () => Math.max(0, (PLANS[planName()] || PLANS.Opening).credits - creditsUsed());
+function setPlan(name) {
+  if (!PLANS[name]) return;
+  store.set(planKey(), name);
+  renderAccount(currentUser());
+  toast(name === 'Opening' ? 'Opening(무료)으로 바꿨어요.' : `프로토타입이라 결제 없이 ${name}을 켰어요.`);
+}
+function renderHub() {
+  const user = currentUser();
+  if (!user) return;
+  document.querySelectorAll('.hub-tabs [data-hub]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.hub === hubTab)));
+  const body = $('#hubBody');
+  if (hubTab === 'decks') {
+    const list = myHistory().map((h, i) => ({ ...h, i })).reverse();
+    body.innerHTML = `<div class="hub-h"><h1 class="title1">내 리허설</h1><button type="button" class="btn-fill btn-sm" data-start>새 리허설 시작하기</button></div>
+      <p class="subtitle">지금까지 한 리허설이에요. 같은 설정으로 다시 하면 지난 점수와 비교해 드려요.</p>
+      ${list.length ? `<ul class="group hub-list">${list.map((h) => `
+        <li class="cell"><span class="cover cover-${h.overall >= 80 ? 3 : h.overall >= 55 ? 2 : 4}">${h.overall ?? '–'}</span>
+          <span class="cell-t"><b>${esc(h.topic || PURPOSE_BY_ID[h.purposeId]?.label || '발표')}</b>
+          <small>${esc(PURPOSE_BY_ID[h.purposeId]?.label || '')} · ${h.posture === 'standing' ? '서서' : '앉아서'}${h.dur ? ` · ${fmtTime(h.dur)}` : ''} · ${new Date(h.at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}</small></span>
+          <span class="hub-act"><button type="button" class="btn-plain btn-sm" data-again="${h.i}">다시 연습</button><button type="button" class="hub-del" data-del="${h.i}" aria-label="기록 삭제">삭제</button></span></li>`).join('')}</ul>`
+      : '<div class="hub-empty"><b>아직 리허설 기록이 없어요.</b><span>첫 리허설을 시작하면 여기에 쌓여요.</span></div>'}`;
+    body.querySelectorAll('[data-again]').forEach((b) => b.addEventListener('click', () => {
+      const h = myHistory()[Number(b.dataset.again)];
+      if (!h) return;
+      state.focus = null; clearText();
+      if (h.purposeId !== draft.purposeId) { draft.purposeId = h.purposeId; draft.outcomeIdxs = [0]; draft.customGoal = null; draft.targetSec = null; }
+      draft.posture = h.posture; saveDraft(); startWizard(2);
+    }));
+    body.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', () => {
+      const all = myHistory(), h = all[Number(b.dataset.del)];
+      if (!h || !confirm(`‘${h.topic || PURPOSE_BY_ID[h.purposeId]?.label || '발표'}’ 기록을 지울까요? 되돌릴 수 없어요.`)) return;
+      all.splice(Number(b.dataset.del), 1); store.set(historyKey(), all); renderHub(); toast('기록을 지웠어요.');
+    }));
+  } else if (hubTab === 'account') {
+    body.innerHTML = `<h1 class="title1">계정 관리</h1><p class="subtitle">이 프로토타입은 계정을 이 기기에만 저장해요.</p>
+      <form class="hub-card" id="fName"><h2>프로필</h2>
+        <label class="field"><span>이름</span><input name="name" type="text" maxlength="20" value="${esc(user.name)}" required></label>
+        <label class="field"><span>이메일</span><input type="email" value="${esc(user.email)}" disabled></label>
+        <button class="btn-fill btn-sm">저장</button></form>
+      <form class="hub-card" id="fPw"><h2>비밀번호 바꾸기</h2>
+        <label class="field"><span>지금 비밀번호</span><input name="current" type="password" autocomplete="current-password" required></label>
+        <label class="field"><span>새 비밀번호 <small>(8자 이상)</small></span><input name="next" type="password" autocomplete="new-password" minlength="8" required></label>
+        <p class="wiz-err" hidden></p><button class="btn-fill btn-sm">비밀번호 바꾸기</button></form>
+      <form class="hub-card hub-danger" id="fDel"><h2>계정 삭제</h2><p>계정과 연습 기록이 모두 지워지고 되돌릴 수 없어요.</p>
+        <label class="field"><span>비밀번호 확인</span><input name="password" type="password" autocomplete="current-password" required></label>
+        <p class="wiz-err" hidden></p><button class="btn-plain btn-sm">계정 삭제</button></form>`;
+    const err = (f, m) => { const e = f.querySelector('.wiz-err'); e.textContent = m; e.hidden = !m; };
+    $('#fName').addEventListener('submit', (e) => { e.preventDefault(); try { updateName(e.currentTarget.elements.name.value); toast('이름을 바꿨어요.'); } catch (x) { toast(x.message); } });
+    $('#fPw').addEventListener('submit', async (e) => { e.preventDefault(); const f = e.currentTarget; try { await changePassword({ current: f.elements.current.value, next: f.elements.next.value }); f.reset(); err(f, ''); toast('비밀번호를 바꿨어요.'); } catch (x) { err(f, x.message); } });
+    $('#fDel').addEventListener('submit', async (e) => { e.preventDefault(); const f = e.currentTarget;
+      if (!confirm('정말 계정을 삭제할까요? 연습 기록도 함께 지워지고 되돌릴 수 없어요.')) return;
+      try { await deleteAccount(f.elements.password.value); toast('계정을 삭제했어요.'); show('home'); } catch (x) { err(f, x.message); } });
+  } else if (hubTab === 'plan') {
+    const cur = planName(), info = PLANS[cur], used = creditsUsed(), left = creditsLeft();
+    const pct = Math.min(100, Math.round((used / info.credits) * 100));
+    body.innerHTML = `<h1 class="title1">요금제 관리</h1><p class="subtitle">리허설 한 번(녹화 10분 + 대본 점검)에 ${CREDIT_PER_REHEARSAL}크레딧을 써요.</p>
+      <div class="hub-card hub-plan"><div class="hp-top"><span><small>지금 요금제</small><b>${cur}</b></span><em>${info.price}</em></div>
+        <div class="hp-bar"><i style="width:${pct}%"></i></div>
+        <p class="hp-meta"><b>${left}크레딧 남음</b><span>이번 달 ${used} / ${info.credits} 사용 · 리허설 약 ${Math.floor(left / CREDIT_PER_REHEARSAL)}회 더 가능</span></p></div>
+      <ul class="hub-plans">${Object.entries(PLANS).map(([n, p]) => `<li class="${n === cur ? 'is-cur' : ''}"><span><b>${n}</b><small>${p.who} · 월 ${p.credits}크레딧</small></span><em>${p.price}</em>
+        ${n === cur ? '<span class="hp-now">사용 중</span>' : `<button type="button" class="btn-plain btn-sm" data-setplan="${n}">${PLANS[n].credits > info.credits ? '올리기' : '내리기'}</button>`}</li>`).join('')}</ul>
+      <p class="wiz-note">정식 출시 전이라 결제 없이 바뀌어요. 단체 요금제는 <button type="button" class="link-btn" data-contact="biz">도입 문의</button>로 알려 주세요.</p>`;
+    body.querySelectorAll('[data-setplan]').forEach((b) => b.addEventListener('click', () => { setPlan(b.dataset.setplan); renderHub(); }));
+  } else {
+    const faq = [
+      ['녹화한 영상은 어디에 저장되나요?', '영상과 음성은 이 브라우저 안에서만 분석하고 서버로 보내지 않아요. 리포트를 닫으면 영상은 사라지고 점수 기록만 남아요.'],
+      ['카메라나 마이크가 안 잡혀요.', '주소창의 카메라 아이콘에서 권한을 허용해 주세요. 다른 앱(줌, 팀즈)이 카메라를 쓰고 있으면 먼저 꺼 주세요.'],
+      ['크레딧은 언제 다시 채워지나요?', '매달 1일에 요금제만큼 채워져요. Spotlight 이상은 남은 크레딧을 다음 달까지 쓸 수 있어요.'],
+      ['요금제를 바꾸거나 해지하고 싶어요.', '요금제 탭에서 바로 바꿀 수 있어요. 해지하면 다음 결제일부터 Opening(무료)으로 바뀌어요.'],
+    ];
+    body.innerHTML = `<h1 class="title1">지원 받기</h1><p class="subtitle">자주 묻는 질문을 먼저 확인해 보세요.</p>
+      <div class="hub-faq">${faq.map(([q, a]) => `<details class="custom-box"><summary>${q}</summary><p>${a}</p></details>`).join('')}</div>
+      <form class="hub-card" id="fHelp"><h2>문의 남기기</h2><p class="hub-hint">${esc(user.email)}로 답장을 드려요.</p>
+        <label class="field"><span>내용</span><textarea name="msg" rows="5" maxlength="1000" required placeholder="어떤 화면에서 무엇이 안 되는지 적어 주시면 빨리 도와드릴 수 있어요."></textarea></label>
+        <button class="btn-fill btn-sm">보내기</button></form>`;
+    $('#fHelp').addEventListener('submit', (e) => { e.preventDefault(); const f = e.currentTarget;
+      const q = store.get('ts-support', []); q.push({ at: Date.now(), email: user.email, msg: f.elements.msg.value.trim() }); store.set('ts-support', q);
+      f.reset(); toast('문의를 남겼어요. 프로토타입이라 실제로 전송되지는 않아요.'); });
+  }
+}
 onAuthChange(renderAccount);
 renderAccount(currentUser());
 
