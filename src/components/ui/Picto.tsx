@@ -96,8 +96,13 @@ export type PictoName = keyof typeof ART;
 export const PICTO_NAMES = Object.keys(ART);
 
 /** 도형 문자열은 이 파일 안에서만 만들어져요(사용자 입력 없음). */
+// 그림마다 실제로 그려진 영역(선 두께 포함)의 중심이 120×120 가운데에서 벗어난 만큼 [dx, dy].
+// viewBox 를 그만큼 옮겨서 아이콘 칸 가운데에 오게 해요. 그림을 고치면 이 값도 다시 재 주세요.
+const NUDGE: Record<string, [number, number]> = { interview: [-9, 2], ir: [0, -2], report: [-9, 2], conference: [-2, 0], speech: [-2, 4], seated: [2, -1], standing: [0, 4], voice: [-7, 0], body: [0, 2], words: [0, -2], story: [0, -5], highlights: [0, 8] };
+
 export function Picto({ name, className = '' }: { name: string; className?: string }) {
   const body = ART[name];
   if (!body) return null;
-  return <svg className={`picto ${className}`.trim()} viewBox="0 0 120 120" aria-hidden="true" focusable="false" dangerouslySetInnerHTML={{ __html: body }} />;
+  const [dx, dy] = NUDGE[name] ?? [0, 0];
+  return <svg className={`picto ${className}`.trim()} viewBox={`${-dx} ${-dy} 120 120`} aria-hidden="true" focusable="false" dangerouslySetInnerHTML={{ __html: body }} />;
 }

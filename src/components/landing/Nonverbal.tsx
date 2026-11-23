@@ -29,46 +29,26 @@ export function Nonverbal() {
         <figure className="nv-vid nv-a rv">
           <NvFrame src="/media/nv-a.mp4">
             <div className="nv-empty"><span>예시 영상 자리</span><small>media/nv-a.mp4</small></div>
-            <span className="nv-mute" aria-hidden="true">
-              <svg viewBox="0 0 24 24">
-                <path d="M4 9h4l5-4v14l-5-4H4z" />
-                <path d="M17 9l4 6M21 9l-4 6" />
-              </svg>
-              소리 꺼짐
-            </span>
-            <ul className="nv-meter">
-              <li style={{ '--c': 'var(--blue)' }}><b>시선</b>렌즈 22%</li>
-              <li style={{ '--c': 'var(--green)' }}><b>자세</b>기울기 8°</li>
-              <li style={{ '--c': 'var(--orange)' }}><b>손</b>움직임 없음</li>
-            </ul>
           </NvFrame>
           <figcaption><b>대본만 읽은 발표</b><span>같은 내용, 같은 사람</span></figcaption>
+          <ul className="nv-meter">
+            <li style={{ '--c': 'var(--blue)' }}><b>시선</b>렌즈 22%</li>
+            <li style={{ '--c': 'var(--green)' }}><b>자세</b>기울기 8°</li>
+            <li style={{ '--c': 'var(--orange)' }}><b>손</b>움직임 없음</li>
+          </ul>
         </figure>
         <figure className="nv-vid nv-b rv">
           <NvFrame src="/media/nv-b.mp4">
             <div className="nv-empty"><span>예시 영상 자리</span><small>media/nv-b.mp4</small></div>
-            <span className="nv-mute" aria-hidden="true">
-              <svg viewBox="0 0 24 24">
-                <path d="M4 9h4l5-4v14l-5-4H4z" />
-                <path d="M17 9l4 6M21 9l-4 6" />
-              </svg>
-              소리 꺼짐
-            </span>
-            <ul className="nv-meter">
-              <li style={{ '--c': 'var(--blue)' }}><b>시선</b>렌즈 71%</li>
-              <li style={{ '--c': 'var(--green)' }}><b>자세</b>수평</li>
-              <li style={{ '--c': 'var(--orange)' }}><b>손</b>강조 3회</li>
-            </ul>
           </NvFrame>
           <figcaption><b>전달한 발표</b><span>Talkstage 코칭 세 번 뒤</span></figcaption>
+          <ul className="nv-meter">
+            <li style={{ '--c': 'var(--blue)' }}><b>시선</b>렌즈 71%</li>
+            <li style={{ '--c': 'var(--green)' }}><b>자세</b>수평</li>
+            <li style={{ '--c': 'var(--orange)' }}><b>손</b>강조 3회</li>
+          </ul>
         </figure>
       </div>
-      <ul className="nv-list">
-        <li className="rv" style={{ '--c': 'var(--blue)' }}><b>시선</b><span>렌즈를 보는 비율, 시선이 떨어진 순간</span></li>
-        <li className="rv" style={{ '--c': 'var(--green)' }}><b>자세</b><span>어깨 기울기, 몸의 흔들림</span></li>
-        <li className="rv" style={{ '--c': 'var(--orange)' }}><b>손</b><span>강조할 때 손이 함께 움직이는지</span></li>
-        <li className="rv" style={{ '--c': 'var(--pink)' }}><b>목소리</b><span>억양의 폭, 핵심어 앞의 쉼</span></li>
-      </ul>
     </section>
   );
 }

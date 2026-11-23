@@ -27,12 +27,17 @@ pnpm install
 pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려고 5180 고정)
 ```
 
+## 확인용 계정
+
+- 로그인이 필요한 화면·DB 확인은 `talkstage-qa@example.com` 하나로 한다. 비밀번호는 `.env.local` 의 `TEST_USER_EMAIL` / `TEST_USER_PASSWORD`(출력 금지). 임시 계정을 새로 만들고 지우지 말 것. 이 계정의 기록·크레딧은 확인 중에 써도 됨.
+
 ## 구조
 
 - `src/app`
   - `/` 랜딩 — `page.tsx` 가 `components/landing/*` 섹션을 조립
   - `/rehearsal/new` 리허설 — `RehearsalEntry`(ssr:false) → `RehearsalFlow`: 마법사 → (대본 점검) → 녹화 → 리포트. `?purpose=&posture=&step=` 지원
-  - `/me/rehearsals|account|plan|support` 내 정보 허브
+  - `/me/rehearsals` 내 리허설 대시보드(사이드바 없음, 로그인하면 여기로). `/me/(settings)/account|plan|support|settings` 설정(왼쪽 사이드바, 구분선 아래 톱니바퀴 "설정" = 화면 테마 시스템/라이트/다크, localStorage `ts-theme`). 랜딩에는 최근 기록 없음
+  - `/dev/eval` 정확도 검증(개발 서버 전용, 배포는 404): 영상 + 같은 이름 정답 .json → 앱과 같은 코드로 분석해 정답과 비교. 합격선은 `lib/eval/compare.ts`, 실행은 `lib/eval/run.ts`(첫 3초는 조용히 렌즈 보기)
   - `/auth/callback` OAuth 코드 교환, `/api/account` 계정 삭제(secret key, 서버 전용)
 - `src/components`
   - `landing/` 서버 컴포넌트 섹션 + 작은 클라이언트 아일랜드(`HeroDial`, `Timeline`, `NvFrame`, `Plans`, `Reveal`, `actions.tsx`)
@@ -44,14 +49,20 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
   - `rehearsal/draft.ts` 마법사 설정(localStorage `rc-setup-v2`) → `toSetup()`
   - `scenarios.ts` 발표 상황(interview, ir, report, lecture, conference, capstone, speech)·목표·기준값
   - `plans.ts` 요금제, `data/` Supabase 읽기·쓰기, `supabase/` 클라이언트 생성
-- `supabase/migrations/` 0001 스키마+RLS, 0002 권한(GRANT). **둘 다 원격 프로젝트에 적용 완료.**
+- `supabase/migrations/` 0001 스키마+RLS, 0002 권한(GRANT) — 원격 적용 완료. 0003 크레딧 사용 내역(`credit_ledger`, `credits_left()`, `record_rehearsal()`) — 원격 적용 완료. 0004 요금제 크레딧 조정(`plan_credits()` 120/360) — **원격 적용 전**.
 - `legacy/` 이전 plain JS 버전. 참고용, 빌드·lint 대상 아님.
 
 ## 제품 규칙(이미 구현됨, 바꿀 때 지킬 것)
 
-- 리허설 시작은 로그인 필수 → 로그인 모달. 로그인 후 내비: "새 리허설 +" CTA + 메뉴(내 리허설 / 계정 관리 / 요금제 관리 / 지원 받기 / 로그아웃).
-- 요금제: Opening 36크레딧(무료), Spotlight 240(월 9,900원), Headliner 600(월 19,900원), 대학·팀·기업 단체 요금제는 문의. 리허설 1회 = 12크레딧. 크레딧 = 이번 달 리허설 수로 계산.
-- 목적·목표 직접 입력은 유료 플랜만, 정확도 경고 문구 표시.
+- 리허설 설정(마법사)은 로그인 없이 고를 수 있고, 첫 단계에 "녹화할 때 로그인" 안내를 띄움. 마지막 단계 버튼("로그인하고 녹화 준비/대본 분석하기")에서 로그인 모달 → 로그인 후 그대로 이어감(소셜 로그인은 `?step=5&resume=1` 로 돌아옴). `/me` 만 proxy 가 막음.
+- 마법사: 지난 설정·기본값은 체크로 안 보여 줌(이번에 직접 고른 단계만 체크). 단계마다 history 를 쌓아서 내비 뒤로 화살표·폰 뒤로 가기가 이전 단계로 감. "그만두기"는 홈으로. 로그인 후 내비: "새 리허설 +" CTA + 메뉴(내 리허설 / 계정 관리 / 요금제 관리 / 지원 받기 / 로그아웃).
+- 요금제: Opening 36크레딧(무료), Spotlight 120(월 4,900원, 연 3,900원), Headliner 360(월 9,900원, 연 7,900원), 대학·팀·기업 단체 요금제는 문의. 리허설 1회 = 12크레딧.
+- 크레딧은 서버가 센다: `credit_ledger` 사용 내역 합계(한국 시간 매월 1일 초기화). 기록을 지워도 차감은 유지. 저장은 `record_rehearsal()` RPC 로만(앱의 rehearsals 직접 insert 권한 없음), "종료하고 분석" 뒤 저장이 성공해야 리포트를 보여 줌. 크레딧을 못 불러오거나 모자라면 녹화 화면 진입 차단. 요금제 크레딧을 바꾸면 `plans.ts` 와 SQL `plan_credits()` 둘 다.
+- 리허설 성립 조건(`analysis.ts` 의 `MIN_REHEARSAL_SEC` 등): 20초 미만이거나 실제 목소리가 max(8초, 녹화의 20%) 미만이면 `invalid` → 점수·리포트·저장·크레딧 차감 없이 녹화 화면으로 돌아감.
+- 화면 전환: 누르는 즉시 색 조각이 덮고 다음 화면이 준비되면 걷힘(`ui/ScreenTransition`). 화면을 옮기는 `router.push` 는 `next/navigation` 말고 **`@/lib/nav` 의 `useRouter`** 를 쓸 것(그래야 덮개가 먼저 켜짐). 링크 클릭은 자동.
+- 녹화 중: Wake Lock 으로 화면 꺼짐 방지. 다른 앱으로 나가면 그 자리에서 녹화를 끊고, 돌아오면 "여기까지 분석(20초 이상) / 다시 녹화"를 물어봄. 폰(pointer: coarse)은 녹화 비트레이트 1Mbps(데스크톱 2.5Mbps). 분석은 녹화 중 카메라 프레임으로 실시간이라 종료 후 1~2초.
+- 목적·목표 직접 입력은 유료 플랜만, 정확도 경고 문구 표시. 잠긴 칸을 누르면 `/me/plan?pick=Spotlight&from=wizard` 로 가고, 업그레이드하면 설정 화면으로 돌아옴. 요금제 관리는 한 단계 위 요금제를 "추천"으로 강조.
+- 마법사 중간 단계로 바로 들어와도(`?step=N`) 앞 단계 기록을 채워서 뒤로 가기가 이전 단계로 감. 첫 단계(목적 고르기)에서 내비 뒤로는 홈.
 - 목표는 목적별로 다르고 최대 3개. 권장 시간은 목적+목표에 따라 달라짐.
 - 대본 단계: "대본이 없나요?"가 입력칸 위, 예시는 placeholder 로만, 지원 형식 `.txt · .md · .docx` 표시.
 - 히어로 다이얼: 카드 부채꼴, 베젤과 동기화, 잡으면 멈춤, 넓은 화면에선 오른쪽.
@@ -63,6 +74,8 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
 - **React 가 관리하는 `className` 을 `classList` 로 바꾸지 말 것.** 하이드레이션 불일치 + 리렌더 때 지워짐. 등장 모션은 `data-in`/`data-rv` 속성 사용.
 - 예전 CSS가 `#id` 선택자를 쓰는 곳이 있었음. 포팅할 때 id 를 빼먹으면 스타일이 안 붙음(타임라인 캔버스가 무한히 넓어졌던 원인). class 로 바꿔 둠.
 - 새 Supabase 프로젝트는 테이블 GRANT 가 자동이 아님 → 0002_grants.sql. secret key(service_role)도 테이블 권한 없음(지금은 auth admin API 만 써서 문제없음).
+- **`.rv` 등장 모션은 `<html data-js>` 일 때만 글자를 숨긴다.** JS 가 안 돌면(폰에서 LAN 주소로 dev 서버 접속 시 `allowedDevOrigins` 차단 등) 랜딩 글자가 전부 투명했음. layout 의 인라인 스크립트가 4초 안에 Reveal 이 안 뜨면 `data-js` 를 뗀다. 숨김 CSS 를 새로 만들 때도 `[data-js]` 아래에 둘 것.
+- Picto 그림은 그려진 영역 중심이 120×120 가운데와 어긋난 게 있어서 `NUDGE` 로 viewBox 를 옮김. 그림을 고치면 다시 잴 것. 아이콘 칸(`.opt-ico` 등)은 `position: relative` 필요.
 - 대시보드에서 URL 을 `/rest/v1/` 까지 복사해 오는 경우가 있어 `config.ts` 에서 잘라냄.
 
 ## 남은 일

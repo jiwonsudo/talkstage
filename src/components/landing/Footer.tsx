@@ -16,7 +16,7 @@ export function Footer() {
           <div>
             <h3>제품</h3>
             <FooterAction fx="new">녹화 리허설</FooterAction>
-            <FooterAction fx="recent">최근 연습</FooterAction>
+            <FooterAction fx="mine">내 리허설</FooterAction>
             <FooterAction fx="login">로그인</FooterAction>
           </div>
           <div>

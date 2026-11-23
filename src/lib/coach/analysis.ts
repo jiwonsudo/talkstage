@@ -241,6 +241,11 @@ export const CHECK_LABEL: Record<string, string> = {
 };
 
 // ---------------- 메인 분석 ----------------
+/** 리허설로 칠 최소 조건. 못 넘으면 점수·저장·크레딧 차감 없이 다시 녹화하게 해요. */
+export const MIN_REHEARSAL_SEC = 20;
+/** 실제 목소리(음높이가 잡히는 소리)가 이만큼은 있어야 해요: 최소 8초, 그리고 녹화의 20% 이상 */
+const MIN_VOICE_SEC = 8, MIN_VOICE_FRAC = 0.2;
+
 export type AnalyzeInput = { audio: AudioFrame[]; vision: VisionFrame[]; transcript: TranscriptResult | null; calib: Calibration; purpose: Purpose; setup: Setup; durationSec: number };
 export type Analysis = ReturnType<typeof analyze>;
 export function analyze({ audio, vision, transcript, calib, purpose, setup, durationSec }: AnalyzeInput) {
@@ -632,7 +637,15 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
   // ---------- 종합 점수 ----------
   const outs = pickOutcomes(purpose, setup);
   const weightOf = (id: CatId) => (purpose.weights[id] || 1) * outcomeWeight(outs, id);
-  const avail = Object.values(cats).filter((c) => c.score != null);
+  // 리허설이 성립했는지: 너무 짧거나 목소리가 거의 없으면 카메라 항목만으로 점수를 내지 않아요
+  // (가만히 렌즈만 보고 있어도 시선·자세가 높게 나와서 50점대가 나오던 문제).
+  const voiceSec = pitched.length * dtA;
+  const invalid = dur < MIN_REHEARSAL_SEC
+    ? `녹화가 ${Math.round(dur)}초로 너무 짧아요. ${MIN_REHEARSAL_SEC}초 이상 말해 주세요.`
+    : voiceSec < Math.max(MIN_VOICE_SEC, dur * MIN_VOICE_FRAC)
+      ? '말소리가 거의 들리지 않았어요. 마이크가 켜져 있는지 확인하고, 실제로 발표하듯 말해 주세요.'
+      : null;
+  const avail = invalid ? [] : Object.values(cats).filter((c) => c.score != null);
   const overall = avail.length ? Math.round(sum(avail.map((c) => (c.score ?? 0) * weightOf(c.id))) / sum(avail.map((c) => weightOf(c.id)))) : null;
 
   // 문제 구간 정리: 같은 종류는 심각한 순으로 최대 6개
@@ -647,7 +660,7 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
   if (transcript?.error) limits.push(transcript.error);
   if (rateSource === 'transcript') limits.push('음성 인식은 “어”, “음” 같은 소리를 받아쓰지 않을 때가 많아서, 군더더기 말 횟수가 실제보다 적게 나올 수 있어요.');
 
-  return { dur, overall, cats, issues: finalIssues, highlights, series, finals, rateSource, limits, smileRatio, calib, thr };
+  return { invalid, voiceSec, dur, overall, cats, issues: finalIssues, highlights, series, finals, rateSource, limits, smileRatio, calib, thr };
 }
 
 // ---------------- 하이라이트 ----------------

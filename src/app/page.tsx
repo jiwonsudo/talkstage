@@ -11,7 +11,6 @@ import { Teams } from '@/components/landing/Teams';
 import { Evidence } from '@/components/landing/Evidence';
 import { CtaBand } from '@/components/landing/CtaBand';
 import { Footer } from '@/components/landing/Footer';
-import { RecentRehearsals } from '@/components/landing/RecentRehearsals';
 import { Reveal } from '@/components/landing/Reveal';
 
 export default function Home() {
@@ -19,7 +18,6 @@ export default function Home() {
     <section className="screen" data-screen="home">
       <div className="landing">
         <Hero />
-        <RecentRehearsals slot="top" />
         <Nonverbal />
         <Why />
         <Who />
@@ -30,7 +28,6 @@ export default function Home() {
         <Features />
         <Teams />
         <Evidence />
-        <RecentRehearsals slot="bottom" />
         <CtaBand />
         <Footer />
       </div>

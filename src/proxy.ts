@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabaseReady } from '@/lib/supabase/config';
 
-/** 요청마다 Supabase 세션 쿠키를 갱신하고, /me 는 로그인한 사람만 들어오게 해요. */
+/** 요청마다 Supabase 세션 쿠키를 갱신하고, /me 는 로그인한 사람만 들어오게 해요. (/rehearsal 설정은 로그인 없이 볼 수 있고, 녹화 직전에 로그인해요.) */
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
   if (!supabaseReady) return response;
@@ -19,7 +19,7 @@ export async function proxy(request: NextRequest) {
   });
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user && (request.nextUrl.pathname.startsWith('/me') || request.nextUrl.pathname.startsWith('/rehearsal'))) {
+  if (!user && request.nextUrl.pathname.startsWith('/me')) {
     const url = request.nextUrl.clone();
     url.pathname = '/';
     url.search = `?login=1&next=${encodeURIComponent(request.nextUrl.pathname)}`;

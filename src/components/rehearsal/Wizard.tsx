@@ -1,5 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from '@/lib/nav';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { Picto } from '@/components/ui/Picto';
 import { useToast } from '@/components/ui/Toast';
 import { syllables } from '@/lib/coach/audio';
@@ -11,6 +13,7 @@ import {
 import { CAT_LABEL, POSTURES, PURPOSES, fmtMin, fmtTime, type CatId } from '@/lib/scenarios';
 
 export const STEPS = ['purpose', 'posture', 'outcome', 'time', 'worry', 'prompt'] as const;
+export type StepId = typeof STEPS[number];
 const ART_OF: Record<string, number> = { interview: 1, ir: 3, report: 2, lecture: 4, conference: 7, capstone: 6, speech: 5 };
 const MULTI = 3;
 
@@ -21,11 +24,19 @@ type Props = {
   step: number;
   go: (delta: number) => void;
   paid: boolean;
+  /** 로그인 전이면 마지막 단계에서 로그인한다고 미리 알려요. */
+  guest: boolean;
+  /** 이번에 직접 고른 단계. 여기 없는 단계는 저장된 값이 있어도 체크를 보여 주지 않아요. */
+  chosen: ReadonlySet<StepId>;
+  /** id 를 골랐다고 표시하고, drop 에 있는 단계(앞의 선택에 따라 바뀌는 단계)는 다시 고르게 해요. */
+  mark: (id: StepId, drop?: StepId[]) => void;
+  onExit: () => void;
   onAnalyzeScript: () => void;
   onRecord: () => void;
 };
+type ChoiceProps = Pick<Props, 'draft' | 'update' | 'go' | 'paid' | 'chosen' | 'mark'>;
 
-export function Wizard({ draft, update, step, go, paid, onAnalyzeScript, onRecord }: Props) {
+export function Wizard({ draft, update, step, go, paid, guest, chosen, mark, onExit, onAnalyzeScript, onRecord }: Props) {
   const id = STEPS[step];
   const [dir, setDir] = useState(1);
   const prev = useRef(step);
@@ -37,18 +48,25 @@ export function Wizard({ draft, update, step, go, paid, onAnalyzeScript, onRecor
         <div className="wiz-progress">
           <div className="wiz-bar"><i style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} /></div>
           <span>{step + 1}/{STEPS.length}</span>
+          <button type="button" className="wiz-exit" onClick={onExit}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>그만두기
+          </button>
         </div>
+        {guest && step === 0 && <p className="wiz-note wiz-guest">설정은 로그인 없이 골라 볼 수 있어요. 녹화를 시작할 때 로그인해 주세요.</p>}
         <div aria-live="polite" key={id} className={`step ${dir < 0 ? 'from-left' : 'from-right'}`}>
           {id === 'prompt'
-            ? <PromptStep draft={draft} update={update} onAnalyzeScript={onAnalyzeScript} onRecord={onRecord} />
-            : <ChoiceStep id={id} draft={draft} update={update} go={go} paid={paid} />}
+            ? <PromptStep draft={draft} update={update} guest={guest} onAnalyzeScript={onAnalyzeScript} onRecord={onRecord} />
+            : <ChoiceStep id={id} draft={draft} update={update} go={go} paid={paid} chosen={chosen} mark={mark} />}
         </div>
       </div>
     </section>
   );
 }
 
-function ChoiceStep({ id, draft, update, go, paid }: { id: Exclude<typeof STEPS[number], 'prompt'>; draft: Draft; update: Props['update']; go: Props['go']; paid: boolean }) {
+// 앞 단계를 바꾸면 기본값이 바뀌는 뒤 단계: 목적 → 목표·시간, 목표 → 시간
+const DEPENDS: Partial<Record<StepId, StepId[]>> = { purpose: ['outcome', 'time'], outcome: ['time'] };
+
+function ChoiceStep({ id, draft, update, go, paid, chosen, mark }: ChoiceProps & { id: Exclude<StepId, 'prompt'> }) {
   const toast = useToast();
   const locked = useRef(false);
   const p = purposeOf(draft);
@@ -83,7 +101,9 @@ function ChoiceStep({ id, draft, update, go, paid }: { id: Exclude<typeof STEPS[
   }
 
   const multi = id === 'outcome';
-  const picked = draft.outcomeIdxs;
+  const done = chosen.has(id);
+  if (!done) value = null; // 지난번 설정·기본값은 체크로 보여 주지 않아요
+  const picked = multi && !done ? [] : draft.outcomeIdxs;
   const extra = draft.customGoal ? 1 : 0;
   const full = picked.length + extra >= MULTI;
 
@@ -91,11 +111,15 @@ function ChoiceStep({ id, draft, update, go, paid }: { id: Exclude<typeof STEPS[
     if (multi) {
       const k = picked.indexOf(i);
       if (k < 0 && full) { toast(`최대 ${MULTI}개까지 고를 수 있어요`); return; }
-      update((d) => ({ ...d, outcomeIdxs: k >= 0 ? d.outcomeIdxs.filter((x) => x !== i) : [...d.outcomeIdxs, i], targetSec: null }));
+      const base = done ? draft.outcomeIdxs : [];
+      mark(id, DEPENDS[id]);
+      update((d) => ({ ...d, outcomeIdxs: k >= 0 ? base.filter((x) => x !== i) : [...base, i], targetSec: null }));
       return;
     }
     if (locked.current) return;
     locked.current = true;
+    // 같은 값을 다시 고르면 뒤 단계 선택은 그대로 둬요
+    mark(id, i === value ? [] : DEPENDS[id]);
     pick(i);
     setTimeout(() => go(1), 220);
   };
@@ -132,7 +156,7 @@ function ChoiceStep({ id, draft, update, go, paid }: { id: Exclude<typeof STEPS[
           );
         })}
       </ul>
-      {id === 'purpose' && <CustomPurpose draft={draft} update={update} go={go} paid={paid} />}
+      {id === 'purpose' && <CustomPurpose draft={draft} update={update} go={go} paid={paid} mark={mark} />}
       {multi && <CustomGoalBox draft={draft} update={update} paid={paid} />}
       {multi && (
         <div className="multi-foot">
@@ -144,16 +168,19 @@ function ChoiceStep({ id, draft, update, go, paid }: { id: Exclude<typeof STEPS[
   );
 }
 
+/** 유료 기능 잠금: 누르면 바로 요금제 바꾸기(Spotlight 추천)로 가요. 업그레이드하면 이 설정 화면으로 돌아와요. */
 function Lock({ title }: { title: string }) {
-  const toast = useToast();
+  const router = useRouter();
+  const { requireAuth } = useAuth();
+  const to = '/me/plan?pick=Spotlight&from=wizard';
   return (
-    <button type="button" className="custom-lock" onClick={() => toast('직접 입력은 Spotlight 요금제부터 쓸 수 있어요. 요금제 관리에서 확인해 보세요.')}>
+    <button type="button" className="custom-lock" onClick={() => requireAuth(() => router.push(to), '요금제를 바꾸려면 로그인해 주세요.', to)}>
       <span><b>{title}</b><small>Spotlight 이상 요금제에서 쓸 수 있어요</small></span><i aria-hidden="true">Spotlight</i>
     </button>
   );
 }
 
-function CustomPurpose({ draft, update, go, paid }: { draft: Draft; update: Props['update']; go: Props['go']; paid: boolean }) {
+function CustomPurpose({ draft, update, go, paid, mark }: Pick<ChoiceProps, 'draft' | 'update' | 'go' | 'paid' | 'mark'>) {
   const toast = useToast();
   const cp = draft.customPurpose;
   const [name, setName] = useState(cp?.name ?? '');
@@ -170,6 +197,7 @@ function CustomPurpose({ draft, update, go, paid }: { draft: Draft; update: Prop
       <p className="custom-warn">{CUSTOM_WARN}</p>
       <button type="button" className="btn-fill btn-block" onClick={() => {
         if (!name.trim()) { toast('발표 이름을 적어 주세요'); return; }
+        mark('purpose', DEPENDS.purpose);
         update((d) => ({ ...withPurpose(d, base), customPurpose: { name: name.trim(), base } }));
         go(1);
       }}>이 설정으로 다음</button>
@@ -205,7 +233,7 @@ function CustomGoalBox({ draft, update, paid }: { draft: Draft; update: Props['u
   );
 }
 
-function PromptStep({ draft, update, onAnalyzeScript, onRecord }: { draft: Draft; update: Props['update']; onAnalyzeScript: () => void; onRecord: () => void }) {
+function PromptStep({ draft, update, guest, onAnalyzeScript, onRecord }: Pick<Props, 'draft' | 'update' | 'guest' | 'onAnalyzeScript' | 'onRecord'>) {
   const has = draft.hasScript;
   const p = purposeOf(draft);
   const copy = PROMPT_COPY[has];
@@ -260,7 +288,7 @@ function PromptStep({ draft, update, onAnalyzeScript, onRecord }: { draft: Draft
           <label className="field"><span>핵심 메시지 <small>(선택)</small></span>
             <input type="text" maxLength={80} value={draft.key} onChange={(e) => update((d) => ({ ...d, key: e.target.value }))} placeholder="청중이 기억했으면 하는 한 문장" />
           </label>
-          <button type="button" className="btn-fill btn-block w-analyze" disabled={scN < 20} onClick={onAnalyzeScript}>대본 분석하기</button>
+          <button type="button" className="btn-fill btn-block w-analyze" disabled={scN < 20} onClick={onAnalyzeScript}>{guest ? '로그인하고 대본 분석하기' : '대본 분석하기'}</button>
         </div>
       ) : (
         <div className="wiz-pane">
@@ -281,7 +309,7 @@ function PromptStep({ draft, update, onAnalyzeScript, onRecord }: { draft: Draft
             {rows.map(([k, v]) => <li key={k} className="cell cell-kv"><span>{k}</span><b className={v ? '' : 'empty'}>{v || '아직 없음'}</b></li>)}
             {!parsed.keyMessage && <li className="cell cell-note">핵심 메시지는 따옴표로 감싸거나 “핵심은 ~”처럼 쓰면 찾아요. 녹화 후 이 문장이 처음과 끝에 나왔는지 확인해요.</li>}
           </ul>
-          <button type="button" className="btn-fill btn-block" onClick={onRecord}>녹화 준비</button>
+          <button type="button" className="btn-fill btn-block" onClick={onRecord}>{guest ? '로그인하고 녹화 준비' : '녹화 준비'}</button>
         </div>
       )}
     </>

@@ -9,6 +9,7 @@ const SEL = '.rv, .r-hero, .r-sec, .hl, .cat, .pri';
  */
 export function Reveal({ root = 'main' }: { root?: string }) {
   useEffect(() => {
+    document.documentElement.dataset.rvOn = ''; // layout 의 대비책(4초 뒤 data-js 떼기)을 꺼요
     const host = document.querySelector(root);
     if (!host) return;
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
