@@ -18,10 +18,15 @@
     <button type="button" class="nav-link" id="navStart" data-start>리허설 시작</button>
     <button type="button" class="nav-login" id="btnLogin">로그인</button>
     <div class="account" id="account" hidden>
-      <button type="button" class="avatar-btn" id="btnAccount" aria-haspopup="menu" aria-expanded="false"><span class="avatar" id="avatar"></span><span class="acc-name" id="accName"></span></button>
+      <button type="button" class="nav-cta" id="navNew" data-start>새 리허설<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+      <button type="button" class="menu-btn" id="btnAccount" aria-haspopup="menu" aria-expanded="false" aria-label="계정 메뉴"><span class="avatar" id="avatar"></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
       <div class="menu" id="accMenu" role="menu" hidden>
-        <p class="menu-h"><b id="menuName"></b><small id="menuEmail"></small></p>
-        <button type="button" role="menuitem" id="mHistory">내 연습 기록</button>
+        <p class="menu-h"><b id="menuName"></b><small id="menuEmail"></small><em id="menuPlan"></em></p>
+        <button type="button" role="menuitem" data-hub="decks">내 리허설</button>
+        <button type="button" role="menuitem" data-hub="account">계정 관리</button>
+        <button type="button" role="menuitem" data-hub="plan">요금제 관리</button>
+        <button type="button" role="menuitem" data-hub="support">지원 받기</button>
+        <hr>
         <button type="button" role="menuitem" id="mLogout">로그아웃</button>
       </div>
     </div>
@@ -274,6 +279,18 @@
   </section>
 
   <!-- 대본 점검 -->
+  <section id="s-hub" class="screen" hidden>
+    <div class="page hub">
+      <div class="hub-tabs" role="tablist" aria-label="내 Talkstage">
+        <button type="button" role="tab" data-hub="decks">리허설</button>
+        <button type="button" role="tab" data-hub="account">계정</button>
+        <button type="button" role="tab" data-hub="plan">요금제</button>
+        <button type="button" role="tab" data-hub="support">지원</button>
+      </div>
+      <div id="hubBody"></div>
+    </div>
+  </section>
+
   <section id="s-script" class="screen" hidden>
     <div class="page sc-page">
       <h1 class="title1">대본 점검</h1>

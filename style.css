@@ -1647,3 +1647,54 @@ p, li, .catch-sub, .lead2, .display-sub, small { word-break: keep-all; text-wrap
   .cmp-head { position: static; }
 }
 .cmp-switch ~ .cmp { margin-top: 16px; }
+
+/* ---- 로그인 후 내비: 새 리허설 CTA + 햄버거 메뉴 ---- */
+.account { display: flex; align-items: center; gap: 8px; }
+.account[hidden] { display: none; }
+.nav-cta { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 16px 0 18px; border: 0; border-radius: 999px; background: var(--ink); color: var(--bg); font-weight: 700; font-size: 14px; cursor: pointer; transition: transform .3s var(--spring); }
+.nav-cta:hover { transform: translateY(-1px) scale(1.03); }
+.nav-cta svg, .menu-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+.menu-btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px 0 4px; border: 0; border-radius: 999px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow); cursor: pointer; }
+.menu-btn .avatar { width: 32px; height: 32px; }
+.menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; }
+.menu-h em { font-style: normal; font-size: 12px; font-weight: 700; color: var(--blue); margin-top: 4px; }
+body:not([data-screen="home"]) .nav-cta { display: none; }
+@media (max-width: 480px) { .nav-cta { padding: 0 12px; font-size: 13px; } }
+
+/* ---- 내 Talkstage 화면 ---- */
+.hub { padding-top: 8px; padding-bottom: 80px; }
+.hub-tabs { display: flex; gap: 4px; padding: 4px; margin-bottom: 28px; border-radius: 999px; background: var(--surface-2); overflow-x: auto; }
+.hub-tabs button { flex: 1; height: 40px; padding: 0 16px; border: 0; border-radius: 999px; background: transparent; font-weight: 700; font-size: 14px; color: var(--ink-2); white-space: nowrap; cursor: pointer; }
+.hub-tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+.hub-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.hub-list .cell { gap: 14px; }
+.hub-act { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.hub-del { border: 0; background: none; color: var(--ink-3); font-size: 13px; font-weight: 700; padding: 8px; cursor: pointer; }
+.hub-del:hover { color: var(--red); }
+.hub-empty { display: grid; gap: 4px; padding: 40px 24px; border-radius: 24px; background: var(--surface); text-align: center; color: var(--ink-2); }
+.hub-card { display: grid; gap: 12px; margin-top: 16px; padding: 24px; border-radius: 28px; background: var(--surface); box-shadow: var(--shadow); }
+.hub-card h2 { margin: 0; font-size: 17px; font-weight: 800; }
+.hub-card .btn-fill, .hub-card .btn-plain { justify-self: start; }
+.hub-danger p { margin: 0; font-size: 14px; color: var(--ink-2); }
+.hub-hint { margin: -6px 0 0; font-size: 13px; color: var(--ink-3); }
+.hp-top { display: flex; justify-content: space-between; align-items: flex-end; }
+.hp-top span { display: grid; gap: 2px; }
+.hp-top small { font-size: 12px; color: var(--ink-3); font-weight: 600; }
+.hp-top b { font-size: 26px; font-weight: 800; letter-spacing: -0.03em; }
+.hp-top em { font-style: normal; font-weight: 700; color: var(--ink-2); }
+.hp-bar { height: 10px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.hp-bar i { display: block; height: 100%; border-radius: inherit; background: var(--blue); }
+.hp-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; margin: 0; font-size: 13px; color: var(--ink-2); }
+.hub-plans { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 8px; }
+.hub-plans li { display: flex; align-items: center; gap: 14px; padding: 16px 20px; border-radius: 22px; background: var(--surface); border: 1.5px solid var(--line); }
+.hub-plans li.is-cur { border-color: var(--ink); }
+.hub-plans li > span:first-child { display: grid; gap: 2px; flex: 1; }
+.hub-plans small { font-size: 12px; color: var(--ink-3); }
+.hub-plans em { font-style: normal; font-weight: 700; font-size: 14px; }
+.hp-now { font-size: 12px; font-weight: 800; color: var(--blue); min-width: 72px; text-align: center; }
+.hub-plans .btn-sm { min-width: 72px; }
+.hub-faq { display: grid; gap: 8px; }
+.hub-faq p { margin: 0 0 12px; font-size: 14px; line-height: 1.7; color: var(--ink-2); }
+.link-btn { border: 0; background: none; padding: 0; color: var(--blue); font: inherit; font-weight: 700; cursor: pointer; text-decoration: underline; }
+@media (max-width: 560px) { .hub-list .cell { flex-wrap: wrap; } .hub-act { width: 100%; justify-content: flex-end; } .hub-plans li { flex-wrap: wrap; } }
+@supports (corner-shape: squircle) { .hub-card, .hub-empty, .hub-plans li { corner-shape: squircle; border-radius: 40px; } }
