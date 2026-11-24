@@ -54,6 +54,7 @@ export function Navbar() {
 
   const start = () => router.push('/rehearsal/new');
   // 홈: 로그인했으면 내 리허설(대시보드), 아니면 랜딩
+  // 홈(로그인했으면 대시보드)에서는 뒤로·홈 버튼을 둘 다 숨겨요
   const home = user ? '/me/rehearsals' : '/';
   // 뒤로: 앱 안에서 옮겨 다닌 기록이 있으면 바로 전 화면으로. 기록이 없을 때만(주소로 바로 들어옴, 결제창에서 돌아옴) 갈 만한 곳으로.
   // 홈은 옆의 집 버튼으로 따로 가요.
@@ -68,7 +69,7 @@ export function Navbar() {
     <header className="navbar" data-screen={onLanding ? 'home' : 'page'}>
       <Link className="brand" href="/" aria-label="Talkstage 홈"><BrandMark /><span>Talkstage</span></Link>
       <div className="nav-l">
-        {!onLanding && (
+        {!onLanding && pathname !== home && (
           <button type="button" className="nav-btn" onClick={back}>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
             <span className="sr">뒤로</span>
