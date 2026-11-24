@@ -53,6 +53,7 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
   - `/rehearsal/new` 리허설 — `RehearsalEntry`(ssr:false) → `RehearsalFlow`: 마법사 → (대본 점검) → 녹화 → 리포트. `?purpose=&posture=&step=` 지원
   - `/me/rehearsals` 내 리허설 대시보드(사이드바 없음, 로그인하면 여기로). 기록은 제목(`topic`, 마법사 마지막 단계에서 입력, 비우면 "{상황} 리허설")별로 묶고 `/me/rehearsals/[title]` 에서 회차별 점수 비교·"이 발표 다시 연습"(`?title=`). `/me/(settings)/account|plan|support|settings` 설정(왼쪽 사이드바, 구분선 아래 톱니바퀴 "설정" = 화면 테마 시스템/라이트/다크, localStorage `ts-theme`). 랜딩에는 최근 기록 없음
   - `/dev/showtest` 보여 주기 감지 합성 테스트(개발 전용): 가리키기·복귀·가로지름·얼굴 가림·잦음·오탐(손 모음·흔들기) 시나리오. `showing.ts` 를 바꾸면 결과가 그대로인지 볼 것
+  - `/dev/og` OG 이미지 원본(개발 전용)
   - `/dev/eval` 정확도 검증(개발 서버 전용, 배포는 404): 영상 + 같은 이름 정답 .json → 앱과 같은 코드로 분석해 정답과 비교. 합격선은 `lib/eval/compare.ts`, 실행은 `lib/eval/run.ts`(첫 3초는 조용히 렌즈 보기)
   - `/auth/callback` OAuth 코드 교환, `/api/account` 계정 삭제(secret key, 서버 전용)
 - `src/components`
@@ -107,6 +108,12 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
 - `.seg` 토글에는 `<SegPill />` 을 넣어 고른 칸으로 미끄러지게. 상태가 바뀌는 곳은 뚝 바뀌지 않게 전환 모션을 넣을 것.
 - `<dialog>` 는 열 때 창 자체에 포커스(`tabIndex={-1}` + `focus()`) — 첫 버튼에 파란 포커스 링이 뜨지 않게.
 - 테마 변경은 `setThemeAnimated`(누른 자리에서 원으로 번짐, View Transitions).
+
+## 브랜드 파일·OG
+
+- `public/brand/*.svg`: 마크(`talkstage-mark`, 평면 `-flat`, 앱 아이콘 `-app-icon`), 로고타입(마크+글자, 흰 글자 `-white`, 평면 `-flat`), 워드마크. 글자는 Pretendard ExtraBold 윤곽선(자간 -0.04em, GPOS 커닝 반영), 도형·그라디언트는 `BrandMark.tsx` 와 같은 값. `png/transparent`(배경 없음)·`png/background`(흰/잉크 배경, 앱 아이콘, OG).
+- 앱 아이콘: `src/app/icon.svg`·`apple-icon.png`·`favicon.ico`(마크). 로고 모양을 바꾸면 위 파일들도 다시 뽑을 것.
+- OG·트위터 이미지: `src/app/opengraph-image.png`·`twitter-image.png`(1200×630). 원본은 개발 전용 `/dev/og`(랜딩 카드·Picto 그대로) — 고치면 `.og` 요소를 캡처해 두 파일 교체. **카드에 URL·설명 문구 넣지 말 것**(주소는 바뀔 수 있음). `metadataBase` 는 `layout.tsx`.
 
 ## 랜딩 실제 분석 예시
 

@@ -10,9 +10,17 @@ import { Suspense } from 'react';
 import { THEME_SCRIPT } from '@/lib/theme';
 import { ScreenTransition } from '@/components/ui/ScreenTransition';
 
+const DESC = 'Talkstage는 중요한 발표 한 번을 앞두고, 녹화할 때마다 말과 몸짓을 코칭해 주는 리허설 코치예요. 면접·IR·졸업 발표마다 다른 기준으로 짚어 드려요.';
+const OG_TITLE = 'Talkstage — 중요한 발표 한 번을 위한 리허설 코치';
+
+// OG·트위터 이미지는 app/opengraph-image.png · twitter-image.png, 아이콘은 icon.svg · apple-icon.png · favicon.ico(파일 규칙)
 export const metadata: Metadata = {
+  metadataBase: new URL('https://talkstage-three.vercel.app'),
   title: 'Talkstage · 발표 리허설',
-  description: 'Talkstage는 중요한 발표 한 번을 앞두고, 녹화할 때마다 말과 몸짓을 코칭해 주는 리허설 코치예요. 면접·IR·졸업 발표마다 다른 기준으로 짚어 드려요.',
+  description: DESC,
+  applicationName: 'Talkstage',
+  openGraph: { type: 'website', url: '/', siteName: 'Talkstage', locale: 'ko_KR', title: OG_TITLE, description: DESC },
+  twitter: { card: 'summary_large_image', title: OG_TITLE, description: DESC },
 };
 
 export const viewport: Viewport = {
