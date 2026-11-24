@@ -1,6 +1,12 @@
 import type { PlanId } from '@/lib/plans';
 
-export type Profile = { id: string; email: string; name: string; plan: PlanId };
+export type Profile = {
+  id: string; email: string; name: string; plan: PlanId;
+  /** 비밀번호로 로그인할 수 있는 계정인지(이메일 가입). 소셜로만 가입했으면 false */
+  hasPassword?: boolean;
+  /** 소셜로 가입·연결한 방법(카카오·Google) */
+  social?: 'kakao' | 'google' | null;
+};
 
 export type Rehearsal = {
   id: string;

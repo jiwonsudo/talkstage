@@ -1,4 +1,5 @@
 'use client';
+import { forgetLast } from '@/lib/auth/lastLogin';
 import { getSupabase } from '@/lib/supabase/client';
 import type { PlanId } from '@/lib/plans';
 
@@ -31,12 +32,16 @@ export async function changePassword(email: string, current: string, next: strin
 }
 
 /** 계정 삭제는 관리자 키가 필요해서 서버 라우트(/api/account)에서 해요. */
-export async function deleteAccount(email: string, password: string) {
-  const { error: e1 } = await db().auth.signInWithPassword({ email, password });
-  if (e1) throw new Error('비밀번호가 맞지 않아요.');
+// 비밀번호가 있는 계정은 비밀번호로 한 번 더 확인하고, 소셜로만 가입한 계정은 화면에서 확인 문구를 직접 입력받아요.
+export async function deleteAccount(email: string, password: string | null) {
+  if (password !== null) {
+    const { error: e1 } = await db().auth.signInWithPassword({ email, password });
+    if (e1) throw new Error('비밀번호가 맞지 않아요.');
+  }
   const res = await fetch('/api/account', { method: 'DELETE' });
   if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? '계정을 삭제하지 못했어요.');
-  await db().auth.signOut();
+  forgetLast(); // 지운 계정이 "최근 로그인한 계정"으로 남지 않게
+  await db().auth.signOut({ scope: 'local' });
 }
 
 export async function sendSupport(message: string) {
