@@ -21,6 +21,7 @@ export function PromoFilm() {
   const stageRef = useRef<HTMLDivElement>(null);
   const vidRef = useRef<HTMLVideoElement>(null);
   const kickRef = useRef<HTMLParagraphElement>(null);
+  const startedRef = useRef(false); // 이번 페이지에서 한 번 확대돼 재생을 시작했는지
   const [muted, setMuted] = useState(true);
   const portrait = useSyncExternalStore(subscribe, isPortrait, () => false);
 
@@ -28,9 +29,15 @@ export function PromoFilm() {
     const sec = secRef.current!, stage = stageRef.current!, v = vidRef.current!;
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    // 화면 근처에 오면 불러오고 재생, 벗어나면 멈춤
+    // 처음엔 포스터로 멈춰 있다가, 카드가 화면을 거의 채우는 순간 처음(0초)부터 재생해요. 그 뒤로는 반복 재생.
+    // 화면 근처에 오면 미리 불러오고, 시작한 뒤에는 화면을 벗어나면 멈췄다 돌아오면 이어서 재생해요.
+    // 동작 줄이기 설정이면 확대가 없으니 화면에 보이면 바로 재생해요.
+    const started = startedRef;
+    if (reduce) started.current = true;
+    let inView = false;
     const io = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting) v.play().catch(() => {});
+      inView = e.isIntersecting;
+      if (inView) { v.preload = 'auto'; if (started.current) v.play().catch(() => {}); }
       else v.pause();
     }, { rootMargin: '120px 0px' });
     io.observe(stage);
@@ -49,6 +56,7 @@ export function PromoFilm() {
         const x0 = H - vh - 0.45 * vh, x1 = H - vh + 0.35 * vh; // 작아지는 구간
         p = smooth(sc < x0 ? clamp((sc - g0) / (g1 - g0)) : 1 - clamp((sc - x0) / (x1 - x0)));
       }
+      if (!started.current && p >= 0.75 && inView) { started.current = true; v.currentTime = 0; v.play().catch(() => {}); }
       const s = stage.style;
       s.setProperty('--w', `${w0 + (vw - w0) * p}px`);
       s.setProperty('--h', `${h0 + (vh - h0) * p}px`);
