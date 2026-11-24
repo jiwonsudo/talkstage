@@ -171,6 +171,8 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 .nav-home svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .nav-title { font-weight: 800; font-size: 18px; letter-spacing: -0.02em; flex: 1; min-width: 0; }
 .navbar[data-screen="home"] .nav-title { display: none; }
+.navbar[data-brand] .brand { display: inline-flex; }
+.navbar[data-brand] .nav-title { display: none; }
 .nav-r { margin-left: auto; }
 .nav-login { height: 40px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--ink); color: var(--bg); font-weight: 700; font-size: 14px; transition: transform .3s var(--spring); }
 .nav-login:hover { transform: translateY(-1px) scale(1.03); }
