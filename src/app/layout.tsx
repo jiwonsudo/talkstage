@@ -12,7 +12,7 @@ import { ScreenTransition } from '@/components/ui/ScreenTransition';
 
 export const metadata: Metadata = {
   title: 'Talkstage · 발표 리허설',
-  description: '무엇을 만들었든, 청중에게 결국 전해지는 건 이야기예요. Talkstage로 그 몇 분을 미리 연습하세요.',
+  description: 'Talkstage는 중요한 발표 한 번을 앞두고, 녹화할 때마다 말과 몸짓을 코칭해 주는 리허설 코치예요. 면접·IR·졸업 발표마다 다른 기준으로 짚어 드려요.',
 };
 
 export const viewport: Viewport = {

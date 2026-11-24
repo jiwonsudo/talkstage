@@ -1,5 +1,6 @@
 'use client';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { rememberLogin } from '@/lib/auth/lastLogin';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/lib/nav';
 import { getSupabase } from '@/lib/supabase/client';
@@ -45,12 +46,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!sb) return;
     const { data: { user: u } } = await sb.auth.getUser();
     if (!u) { setUser(null); setReady(true); return; }
+    let name = (u.email ?? '').split('@')[0];
     try {
       const p = await fetchProfile(u.id);
-      setUser({ id: u.id, email: u.email ?? '', name: p.name || (u.email ?? '').split('@')[0], plan: p.plan });
+      name = p.name || name;
+      setUser({ id: u.id, email: u.email ?? '', name, plan: p.plan });
     } catch {
-      setUser({ id: u.id, email: u.email ?? '', name: (u.email ?? '').split('@')[0], plan: 'Opening' });
+      setUser({ id: u.id, email: u.email ?? '', name, plan: 'Opening' });
     }
+    rememberLogin({ email: u.email ?? '', name, provider: u.app_metadata?.provider });
     setReady(true);
   }, []);
 
@@ -69,7 +73,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [urlHandled, setUrlHandled] = useState<string | null>(null);
   const urlOpen = !!urlKey && urlKey !== urlHandled && ready && !user && !dlg.open;
   const shown: OpenOpts & { open: boolean } = urlOpen
-    ? { open: true, mode: 'in', reason: '이 화면은 로그인한 뒤에 볼 수 있어요.', next: params.get('next') ?? undefined }
+    ? {
+      open: true, mode: 'in', next: params.get('next') ?? undefined,
+      reason: params.get('error') === 'cancelled'
+        ? '소셜 로그인을 취소했어요. 다른 방법으로 계속하거나 다시 시도해 주세요.'
+        : params.get('error')
+          ? '소셜 로그인을 마치지 못했어요. 잠시 뒤 다시 시도하거나 이메일로 로그인해 주세요.'
+          : '이 화면은 로그인한 뒤에 볼 수 있어요.',
+    }
     : dlg;
 
   const openAuth = useCallback((opts: OpenOpts = {}) => {

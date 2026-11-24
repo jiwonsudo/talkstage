@@ -96,6 +96,11 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
 - "이 발표 다시 연습"은 `?again=1&title=` → 설정 단계 건너뛰고 대본·녹화 단계로, 같은 제목이면 이 기기의 대본 유지. 뒤로 가면 발표 기록 화면으로 바로 나감(앞 단계 기록 채우지 않음).
 - 기록 삭제(회차·발표 통째) 확인 문구는 `DELETE_BODY`: 통계에서 빠짐 + 되돌릴 수 없음 + 크레딧 안 돌아옴.
 
+## 로그인
+
+- 최근 로그인(`lib/auth/lastLogin.ts`, localStorage `ts-last-login`, 비밀번호는 저장 안 함): 이메일이면 로그인 창에 "최근 로그인한 계정" 카드 + 비밀번호만(다른 계정·이 기기에서 기록 지우기), 카카오·Google 이면 그 버튼에 "최근 사용" 말풍선. 소셜은 떠나기 전에 `ts-login-pending` 에 방법을 적고 돌아와서 확정.
+- 소셜 로그인 취소·실패는 `/?login=1&error=cancelled|social&next=` 로 돌아와 이유를 보여 주고 원래 화면을 기억.
+
 ## UI 디테일 규칙
 
 - `window.alert/confirm/prompt` 금지. 확인은 `useConfirm()`(ui/Confirm) 모달로.
