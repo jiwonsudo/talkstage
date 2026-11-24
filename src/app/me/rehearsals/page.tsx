@@ -71,9 +71,9 @@ export default function MyRehearsals() {
           <small>남은 크레딧{plan ? ` · ${plan}` : ''}</small>
           {credits?.status === 'ok' ? (
             <>
-              <b>{credits.left}<em> / {credits.total}</em></b>
-              <span className="hp-bar" aria-hidden="true"><i style={{ width: `${credits.total ? (credits.left / credits.total) * 100 : 0}%` }} /></span>
-              <p>{credits.left >= credits.cost ? `리허설 ${Math.floor(credits.left / credits.cost)}회 더 할 수 있어요.` : '이번 달 크레딧을 다 썼어요.'} <Link href="/me/plan">요금제</Link></p>
+              <b>{credits.left}<em>{credits.bonus ? ' 크레딧' : ` / ${credits.total}`}</em></b>
+              <span className="hp-bar" aria-hidden="true"><i style={{ width: `${credits.total ? Math.min(100, (credits.left / credits.total) * 100) : 0}%` }} /></span>
+              <p>{credits.left >= credits.cost ? `리허설 ${Math.floor(credits.left / credits.cost)}회 더 할 수 있어요.` : '크레딧을 다 썼어요.'}{credits.bonus ? ` 산 크레딧 ${credits.bonus} 포함.` : ''} <Link href="/me/plan">{credits.left >= credits.cost ? '요금제' : '회차 추가'}</Link></p>
             </>
           ) : credits?.status === 'error' ? (
             <p>크레딧을 불러오지 못했어요. <button type="button" className="link-btn" onClick={credits.retry}>다시 시도</button></p>

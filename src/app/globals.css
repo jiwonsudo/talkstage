@@ -312,7 +312,8 @@ main { max-width: 1240px; margin: 0 auto; padding-block: 0 72px; padding-left: m
 .wiz { padding-top: 8px; }
 .wiz-progress { display: flex; align-items: center; gap: 14px; margin: 8px 0 32px; font-size: 12px; font-weight: 700; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .wiz-bar { flex: 1; height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
-.wiz-bar i { display: block; height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, var(--red), var(--orange), var(--yellow), var(--green), var(--blue)); background-size: 600px 100%; transition: width .6s var(--ease); }
+.wiz-bar i { display: block; height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, var(--red), var(--orange), var(--yellow), var(--green), var(--blue)) no-repeat; background-size: calc(100% / var(--f, 1)) 100%; transition: width .6s var(--ease), background-size .6s var(--ease); }
+/* 색 띠는 막대 전체 길이에 한 번만 깔고, 채워진 만큼만 보여요(예전엔 600px 마다 반복돼 넓은 화면에서 끝에 빨강이 다시 나왔어요) */
 .step .title1 { font-size: clamp(30px, 4.2vw, 46px); font-weight: 800; letter-spacing: -0.045em; line-height: 1.1; animation: step-in .7s var(--ease) both; }
 .step .subtitle { margin: 10px 0 28px; color: var(--ink-2); font-size: 15px; animation: step-in .7s var(--ease) .06s both; }
 .step.from-left .title1, .step.from-left .subtitle { animation-name: step-in-l; }
@@ -1910,3 +1911,19 @@ p, li, .catch-sub, .lead2, .display-sub, small { word-break: keep-all; text-wrap
   :root:not([data-theme="light"]) .art-8 { background-color: #d4d5db; --fg: #111; }
 }
 :root[data-theme="dark"] .art-8 { background-color: #d4d5db; --fg: #111; }
+
+/* 회차 추가 구매·결제 화면 */
+.hub-sub { margin: 36px 0 0; font-size: 17px; font-weight: 800; }
+.hub-sub-hint { margin: 6px 0 0; }
+.hub-sub + .hub-sub-hint + .hub-plans { margin-top: 12px; }
+.page.pay { max-width: 640px; padding-top: 8px; padding-bottom: 96px; }
+.pay-back { display: inline-block; margin-bottom: 12px; font-size: 13px; font-weight: 700; color: var(--ink-3); text-decoration: none; }
+.pay-back:hover { color: var(--ink); }
+/* 토스 결제위젯은 흰 바탕 기준이라 다크 모드에서도 흰 카드 위에 그려요 */
+.pay-box { position: relative; margin-top: 20px; min-height: 200px; padding: 8px 0; border-radius: 24px; background: #fff; color: #191f28; overflow: hidden; box-shadow: var(--shadow); }
+.pay-wait { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; font-size: 14px; color: #8b95a1; }
+.pay-go { margin-top: 16px; }
+.pay-note, .pay-err { margin: 12px 0 0; font-size: 13px; color: var(--ink-3); text-align: center; }
+.pay-err { padding: 20px; border-radius: 20px; background: var(--surface); color: var(--ink); }
+.pay-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+@supports (corner-shape: squircle) { .pay-box { corner-shape: squircle; border-radius: 40px; } }

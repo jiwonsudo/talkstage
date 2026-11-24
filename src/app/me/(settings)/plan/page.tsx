@@ -5,7 +5,8 @@ import { useContact } from '@/components/contact/ContactProvider';
 import { useToast } from '@/components/ui/Toast';
 import { setPlan } from '@/lib/data/profile';
 import { useCredits } from '@/lib/data/useCredits';
-import { CREDIT_PER_REHEARSAL, PLANS, type PlanId } from '@/lib/plans';
+import Link from 'next/link';
+import { CREDIT_PER_REHEARSAL, PACKS, PLANS, won, type PackId, type PlanId } from '@/lib/plans';
 
 export default function Plan() {
   const { user, refresh } = useAuth();
@@ -42,7 +43,7 @@ export default function Plan() {
         <div className="hp-top"><span><small>지금 요금제</small><b>{cur}</b></span><em>{info.price}</em></div>
         <div className="hp-bar"><i style={{ width: `${pct}%` }} /></div>
         {c ? (
-          <p className="hp-meta"><b>{c.left}크레딧 남음</b><span>이번 달 {c.used} / {c.total} 사용 · 리허설 {Math.floor(c.left / c.cost)}회 더 가능</span></p>
+          <p className="hp-meta"><b>{c.left}크레딧 남음</b><span>이번 달 {c.used} / {c.total} 사용{c.bonus ? ` · 산 크레딧 ${c.bonus}` : ''} · 리허설 {Math.floor(c.left / c.cost)}회 더 가능</span></p>
         ) : credits?.status === 'error' ? (
           <p className="hp-meta"><b>크레딧을 불러오지 못했어요</b><button type="button" className="link-btn" onClick={credits.retry}>다시 불러오기</button></p>
         ) : (
@@ -60,6 +61,17 @@ export default function Plan() {
             {n === cur ? <span className="hp-now">사용 중</span> : (
               <button type="button" className={n === rec ? 'btn-fill btn-sm' : 'btn-plain btn-sm'} onClick={() => change(n)}>{PLANS[n].credits > info.credits ? '업그레이드' : '다운그레이드'}</button>
             )}
+          </li>
+        ))}
+      </ul>
+      <h2 className="hub-sub">리허설 회차 추가</h2>
+      <p className="hub-hint hub-sub-hint">요금제는 그대로 두고 필요한 만큼만 사요. 산 회차는 매달 초기화되지 않아요.</p>
+      <ul className="hub-plans">
+        {(Object.keys(PACKS) as PackId[]).map((id) => (
+          <li key={id}>
+            <span><b>리허설 {PACKS[id].times}회</b><small>{PACKS[id].credits}크레딧 · 기한 없음 · 간편결제 가능</small></span>
+            <em>{won(PACKS[id].amount)}</em>
+            <Link href={`/me/pay?product=${id}`} className="btn-fill btn-sm">구매</Link>
           </li>
         ))}
       </ul>

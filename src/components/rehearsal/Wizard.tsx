@@ -46,7 +46,7 @@ export function Wizard({ draft, update, step, go, paid, guest, chosen, mark, onE
     <section className="screen">
       <div className="page wiz">
         <div className="wiz-progress">
-          <div className="wiz-bar"><i style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} /></div>
+          <div className="wiz-bar"><i style={{ width: `${((step + 1) / STEPS.length) * 100}%`, '--f': (step + 1) / STEPS.length }} /></div>
           <span>{step + 1}/{STEPS.length}</span>
           <button type="button" className="wiz-exit" onClick={onExit}>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>그만두기

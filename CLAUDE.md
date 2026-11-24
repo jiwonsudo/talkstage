@@ -20,6 +20,12 @@
 - Supabase: `@supabase/ssr` + `supabase-js`. publishable / secret 새 키 이름 사용(예전 anon / service_role 이름도 받음).
 - MediaPipe Tasks Vision(`@mediapipe/tasks-vision`, wasm 은 jsdelivr CDN)으로 브라우저에서 자세·얼굴 분석. 음성은 Web Audio + Web Speech API.
 
+## 배포
+
+- Vercel(GitHub 연동): https://talkstage-three.vercel.app — main 에 push 하면 운영 배포, PR 브랜치는 미리보기.
+- Vercel 환경 변수: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY` 만. `TEST_USER_*` 는 넣지 말 것.
+- Supabase Auth URL Configuration 에 배포 주소와 `/auth/callback` 등록됨.
+
 ## 실행
 
 ```bash
@@ -49,7 +55,7 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
   - `rehearsal/draft.ts` 마법사 설정(localStorage `rc-setup-v2`) → `toSetup()`
   - `scenarios.ts` 발표 상황(interview, ir, report, lecture, conference, capstone, speech)·목표·기준값
   - `plans.ts` 요금제, `data/` Supabase 읽기·쓰기, `supabase/` 클라이언트 생성
-- `supabase/migrations/` 0001 스키마+RLS, 0002 권한(GRANT) — 원격 적용 완료. 0003 크레딧 사용 내역(`credit_ledger`, `credits_left()`, `record_rehearsal()`) — 원격 적용 완료. 0004 요금제 크레딧 조정(`plan_credits()` 120/360) — **원격 적용 전**.
+- `supabase/migrations/` 0001 스키마+RLS, 0002 권한(GRANT) — 원격 적용 완료. 0003 크레딧 사용 내역(`credit_ledger`, `credits_left()`, `record_rehearsal()`) — 원격 적용 완료. 0004 요금제 크레딧 조정(`plan_credits()` 120/360) — 원격 적용 완료. 0005 회차 구매(`orders`, `create_order()`, 서버 전용 `order_for_confirm()`·`complete_order()`, 산 크레딧 `bonus_left()`, 20초 미만 저장 거절) — 원격 적용 완료.
 - `legacy/` 이전 plain JS 버전. 참고용, 빌드·lint 대상 아님.
 
 ## 제품 규칙(이미 구현됨, 바꿀 때 지킬 것)
@@ -57,6 +63,7 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
 - 리허설 설정(마법사)은 로그인 없이 고를 수 있고, 첫 단계에 "녹화할 때 로그인" 안내를 띄움. 마지막 단계 버튼("로그인하고 녹화 준비/대본 분석하기")에서 로그인 모달 → 로그인 후 그대로 이어감(소셜 로그인은 `?step=5&resume=1` 로 돌아옴). `/me` 만 proxy 가 막음.
 - 마법사: 지난 설정·기본값은 체크로 안 보여 줌(이번에 직접 고른 단계만 체크). 단계마다 history 를 쌓아서 내비 뒤로 화살표·폰 뒤로 가기가 이전 단계로 감. "그만두기"는 홈으로. 로그인 후 내비: "새 리허설 +" CTA + 메뉴(내 리허설 / 계정 관리 / 요금제 관리 / 지원 받기 / 로그아웃).
 - 요금제: Opening 36크레딧(무료), Spotlight 120(월 4,900원, 연 3,900원), Headliner 360(월 9,900원, 연 7,900원), 대학·팀·기업 단체 요금제는 문의. 리허설 1회 = 12크레딧.
+- 결제(토스페이먼츠 결제위젯, 지금은 테스트 키 `test_gck`/`test_gsk`): 회차 구매만(3회 36크레딧 1,500원, 6회 72크레딧 2,500원 — `plans.ts` `PACKS` 와 SQL `pack_info()` 둘 다). 금액은 DB 가 정하고, `/api/payments/confirm` 이 DB 금액과 대조 → 토스 승인(멱등 키 `confirm-{orderId}`) → `complete_order()`(service_role 만). 산 크레딧은 매달 초기화 안 되고, 이번 달 크레딧을 먼저 씀. 환경 변수 `NEXT_PUBLIC_TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY`(NEXT_PUBLIC_ 금지) — Vercel 에도 넣어 둠. 사업자등록 전이라 실결제(live 키) 불가. 월 요금제 변경은 아직 결제 없이 바뀜(프로토타입).
 - 크레딧은 서버가 센다: `credit_ledger` 사용 내역 합계(한국 시간 매월 1일 초기화). 기록을 지워도 차감은 유지. 저장은 `record_rehearsal()` RPC 로만(앱의 rehearsals 직접 insert 권한 없음), "종료하고 분석" 뒤 저장이 성공해야 리포트를 보여 줌. 크레딧을 못 불러오거나 모자라면 녹화 화면 진입 차단. 요금제 크레딧을 바꾸면 `plans.ts` 와 SQL `plan_credits()` 둘 다.
 - 리허설 성립 조건(`analysis.ts` 의 `MIN_REHEARSAL_SEC` 등): 20초 미만이거나 실제 목소리가 max(8초, 녹화의 20%) 미만이면 `invalid` → 점수·리포트·저장·크레딧 차감 없이 녹화 화면으로 돌아감.
 - 화면 전환: 누르는 즉시 색 조각이 덮고 다음 화면이 준비되면 걷힘(`ui/ScreenTransition`). 화면을 옮기는 `router.push` 는 `next/navigation` 말고 **`@/lib/nav` 의 `useRouter`** 를 쓸 것(그래야 덮개가 먼저 켜짐). 링크 클릭은 자동.

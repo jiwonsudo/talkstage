@@ -206,10 +206,11 @@ export function RehearsalFlow() {
     if (stage === 'nocredit' || c.left < c.cost) {
       return (
         <section className="screen"><div className="page">
-          <h1 className="title">이번 달 크레딧을 다 썼어요</h1>
-          <p className="subtitle">리허설 한 번에 {c.cost}크레딧이 필요해요. 남은 크레딧은 {c.left}이에요. 다음 달 1일에 다시 채워져요.</p>
+          <h1 className="title">크레딧을 다 썼어요</h1>
+          <p className="subtitle">리허설 한 번에 {c.cost}크레딧이 필요해요. 남은 크레딧은 {c.left}이에요. 다음 달 1일에 다시 채워지고, 그 전에 회차만 따로 살 수도 있어요.</p>
           <div className="next-actions">
-            <Link className="btn" href="/me/plan">요금제 보기</Link>
+            <Link className="btn" href="/me/pay?product=pack3">리허설 3회 추가</Link>
+            <Link className="btn-ghost" href="/me/plan">요금제 보기</Link>
             <button type="button" className="btn-ghost" onClick={() => setStage('wizard')}>설정으로 돌아가기</button>
           </div>
         </div></section>

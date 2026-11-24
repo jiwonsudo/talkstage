@@ -87,7 +87,7 @@ export function Navbar() {
               <div className="menu" role="menu">
                 <p className="menu-h">
                   <b>{user.name}</b><small>{user.email}</small>
-                  <em>{user.plan}{credits?.status === 'ok' ? ` · 남은 크레딧 ${credits.left}/${credits.total}` : ''}</em>
+                  <em>{user.plan}{credits?.status === 'ok' ? ` · 남은 크레딧 ${credits.left}${credits.bonus ? '' : `/${credits.total}`}` : ''}</em>
                 </p>
                 {MENU.map((m, i) => (
                   <span key={m.href} className="menu-row">
