@@ -1,5 +1,6 @@
 import { Hero } from '@/components/landing/Hero';
 import { Nonverbal } from '@/components/landing/Nonverbal';
+import { PromoFilm } from '@/components/landing/PromoFilm';
 import { Why } from '@/components/landing/Why';
 import { Who } from '@/components/landing/Who';
 import { Pick } from '@/components/landing/Pick';
@@ -18,6 +19,7 @@ export default function Home() {
     <section className="screen" data-screen="home">
       <div className="landing">
         <Hero />
+        <PromoFilm />
         <Nonverbal />
         <Why />
         <Who />

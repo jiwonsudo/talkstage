@@ -91,3 +91,25 @@
   .k-card { border-radius: 80px; } .k-wc { border-radius: 72px; } .k-cam { border-radius: 80px; } .k-cam.old { border-radius: 60px; }
   .k-chips i { border-radius: 24px; } .k-std span { border-radius: 30px; } .k-round { border-radius: 22px; }
 }
+
+/* 세로(1080×1920) 버전: 폰 랜딩·릴스·쇼츠. 타이밍은 같고 배치만 달라요. */
+.pm-stage.vert { width: 1080px; height: 1920px; }
+.vert .k-center { padding: 0 70px; }
+.vert .k-h { font-size: 92px; }
+.vert .k-h.big { font-size: 100px; }
+.vert .k-title { top: 250px; padding: 0 60px; font-size: 64px; }
+.vert .k-cap { left: 90px; top: 330px; }
+.vert .k-sent { left: 90px; top: 420px; font-size: 80px; }
+.vert .k-pile { left: 380px; top: 1020px; }
+.vert .k-fan { top: 780px; left: 540px; scale: .62; }
+.vert .k-cam.main { left: 190px; top: 400px; width: 700px; height: 875px; }
+.vert .k-std { left: 190px; top: 1340px; }
+.vert .k-bars { left: 190px; top: 1450px; width: 700px; gap: 44px; }
+.vert .k-cam.old { left: 90px; top: 470px; width: 300px; height: 375px; }
+.vert .k-arrow { left: 412px; top: 656px; }
+.vert .k-cam.new { left: 510px; top: 400px; width: 480px; height: 600px; }
+.vert .k-bars.after { left: 140px; top: 1170px; width: 800px; gap: 60px; }
+.vert .k-logo { font-size: 112px; gap: 26px; }
+.vert .k-mark { width: 134px; height: 134px; }
+.vert .k-end p { font-size: 44px; }
+.vert .k-cta { font-size: 38px; }
