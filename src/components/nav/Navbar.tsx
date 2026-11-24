@@ -53,13 +53,15 @@ export function Navbar() {
   }, [open, setOpen]);
 
   const start = () => router.push('/rehearsal/new');
+  // 홈: 로그인했으면 내 리허설(대시보드), 아니면 랜딩
+  const home = user ? '/me/rehearsals' : '/';
   // 뒤로: 앱 안에서 옮겨 다닌 기록이 있으면 바로 전 화면으로. 기록이 없을 때만(주소로 바로 들어옴, 결제창에서 돌아옴) 갈 만한 곳으로.
   // 홈은 옆의 집 버튼으로 따로 가요.
   const back = () => {
     const sp = new URLSearchParams(location.search);
     const wizardStep = pathname === '/rehearsal/new' && (Number(sp.get('step')) > 0 || !!sp.get('view'));
     if (moved.current > 0 || wizardStep) { router.back(); return; }
-    router.push(pathname.startsWith('/me/pay') || pathname.startsWith('/me/subscribe') ? '/me/plan' : '/');
+    router.push(pathname.startsWith('/me/pay') || pathname.startsWith('/me/subscribe') ? '/me/plan' : home);
   };
 
   return (
@@ -72,8 +74,8 @@ export function Navbar() {
             <span className="sr">뒤로</span>
           </button>
         )}
-        {!onLanding && (
-          <Link href="/" className="nav-btn nav-home" aria-label="홈으로">
+        {!onLanding && pathname !== home && (
+          <Link href={home} className="nav-btn nav-home" aria-label={user ? '내 리허설로' : '홈으로'}>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5M5.5 8.5V20h13V8.5M10 20v-6h4v6" /></svg>
           </Link>
         )}
