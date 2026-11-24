@@ -54,7 +54,7 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
   - `/me/rehearsals` 내 리허설 대시보드(사이드바 없음, 로그인하면 여기로). 기록은 제목(`topic`, 마법사 마지막 단계에서 입력, 비우면 "{상황} 리허설")별로 묶고 `/me/rehearsals/[title]` 에서 회차별 점수 비교·"이 발표 다시 연습"(`?title=`). `/me/(settings)/account|plan|support|settings` 설정(왼쪽 사이드바, 구분선 아래 톱니바퀴 "설정" = 화면 테마 시스템/라이트/다크, localStorage `ts-theme`). 랜딩에는 최근 기록 없음
   - `/dev/showtest` 보여 주기 감지 합성 테스트(개발 전용): 가리키기·복귀·가로지름·얼굴 가림·잦음·오탐(손 모음·흔들기) 시나리오. `showing.ts` 를 바꾸면 결과가 그대로인지 볼 것
   - `/dev/og` OG 이미지 원본(개발 전용)
-  - `/dev/promo` 1분 소개 영상 원본(개발 전용, 1920×1080). 60초 타임라인 하나에 CSS 애니메이션 지연으로 걸려 있고 `?render=1` + `window.__seek(t)` 로 프레임마다 캡처 → ffmpeg 로 mp4
+  - `/dev/promo` 30초 광고 원본(개발 전용, 1920×1080, 밝은 배경). "정답은 상황마다 다르다" → 1회→4회 나아짐(nv-a→nv-b 실제 분석 값) → 행동 유도. 음악은 `node scripts/promo-beat.mjs out.wav`(직접 만든 딥 하우스 120BPM, 한 마디 2초) — 컷은 마디 첫 박, 등장은 박자 단위라 템포를 바꾸면 화면 타이밍도 같이. `?render=1` + `window.__seek(t)` 로 프레임마다 캡처 → ffmpeg 로 음악과 합쳐 mp4
   - `/dev/eval` 정확도 검증(개발 서버 전용, 배포는 404): 영상 + 같은 이름 정답 .json → 앱과 같은 코드로 분석해 정답과 비교. 합격선은 `lib/eval/compare.ts`, 실행은 `lib/eval/run.ts`(첫 3초는 조용히 렌즈 보기)
   - `/auth/callback` OAuth 코드 교환, `/api/account` 계정 삭제(secret key, 서버 전용)
 - `src/components`
