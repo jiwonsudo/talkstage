@@ -982,6 +982,23 @@ table.self { width: 100%; border-collapse: collapse; font-size: 14px; min-width:
 .soc-kakao svg path { fill: #191919; stroke: none; }
 .soc-naver svg path { fill: #03c75a; stroke: none; }
 .soc-google svg path { stroke: none; }
+.soc { position: relative; }
+/* 최근에 쓴 소셜 로그인: 버튼 위 말풍선 */
+.soc-last { position: absolute; top: -11px; right: 12px; padding: 3px 9px; border-radius: 999px; background: var(--ink); color: var(--bg); font-size: 11px; font-weight: 800; line-height: 1.3; pointer-events: none; animation: soc-pop .35s var(--spring) both; }
+.soc-last::after { content: ""; position: absolute; left: 50%; bottom: -4px; width: 8px; height: 8px; margin-left: -4px; background: inherit; border-radius: 0 0 2px 0; transform: rotate(45deg); }
+@keyframes soc-pop { from { opacity: 0; transform: translateY(4px) scale(.9); } }
+/* 최근 로그인한 이메일 계정 */
+.recent-acct { display: grid; gap: 6px; }
+.recent-acct > small { font-size: 13px; font-weight: 700; color: var(--ink-2); }
+.recent-acct > div { display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 10px; border-radius: var(--r-md); background: var(--surface-2); }
+.recent-acct .avatar { flex: none; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--blue); color: #fff; font-weight: 800; font-size: 15px; }
+.recent-t { display: grid; flex: 1; min-width: 0; }
+.recent-t b { font-size: 15px; font-weight: 800; }
+.recent-t span { font-size: 13px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recent-forget { justify-self: start; border: 0; background: none; padding: 2px 0; font-size: 12px; color: var(--ink-3); cursor: pointer; }
+.recent-forget:hover { color: var(--ink-2); text-decoration: underline; }
+.soc:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+.soc-soon { font-style: normal; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: rgba(0,0,0,.08); }
 .soc-note { font-size: 13px; color: var(--ink-2); background: var(--surface-2); border-radius: 12px; padding: 10px 12px; line-height: 1.5; }
 .or { display: flex; align-items: center; gap: 12px; margin: 6px 0 2px; font-size: 12px; color: var(--ink-3); }
 .or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
@@ -2155,3 +2172,4 @@ p, li, .catch-sub, .lead2, .display-sub, small { word-break: keep-all; text-wrap
 }
 @supports (corner-shape: squircle) { .nvd-report { corner-shape: squircle; border-radius: 48px; } }
 @media (prefers-reduced-motion: reduce) { .nvd-in { animation: none; } .nvd-tag::before { animation: none; } }
+.hero-copy .lede, .hero-copy .display-sub { word-break: keep-all; }

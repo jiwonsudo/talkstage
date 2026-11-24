@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase/client';
 import { supabaseReady } from '@/lib/supabase/config';
+import { useSocialEnabled, type Social } from '@/lib/supabase/providers';
 import { PatternArt } from '@/components/ui/PatternArt';
+import { forgetLast, loadLast, markSocialPending, rememberEmailLogin, type LastLogin } from '@/lib/auth/lastLogin';
 
 export type AuthMode = 'in' | 'up';
 
@@ -38,14 +40,22 @@ export function AuthDialog({ open, mode: initialMode, reason, next, onClose, onS
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [closing, setClosing] = useState(false);
+  // 이 기기에서 마지막으로 로그인한 계정: 이메일이면 비밀번호만, 소셜이면 그 버튼에 말풍선
+  const [last, setLast] = useState<LastLogin | null>(null);
+  const [other, setOther] = useState(false);
+  const pwRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
     if (open && !d.open) {
+      const l = loadLast();
       setMode(initialMode); setErr(''); setNote(''); formRef.current?.reset();
+      setLast(l); setOther(false);
       d.showModal();
-      d.focus(); // 첫 포커스를 닫기 버튼이 아니라 창에(버튼 둘레 파란 테두리 방지)
+      // 최근 이메일 계정이면 비밀번호 칸에 바로, 아니면 창에(버튼 둘레 파란 테두리 방지)
+      if (initialMode === 'in' && l?.method === 'email' && l.email) setTimeout(() => pwRef.current?.focus(), 60);
+      else d.focus();
     } else if (!open && d.open) {
       setClosing(true);
       setTimeout(() => { setClosing(false); d.close(); }, 220);
@@ -53,6 +63,8 @@ export function AuthDialog({ open, mode: initialMode, reason, next, onClose, onS
   }, [open, initialMode]);
 
   const up = mode === 'up';
+  const recent = !up && !other && last?.method === 'email' && last.email ? last : null;
+  const lastSocial = !up && (last?.method === 'kakao' || last?.method === 'google') ? last.method : null;
 
   // 오류가 나면 메시지를 띄우고 입력 폼을 좌우로 흔들어요(예전 버전의 shake).
   const fail = (msg: string) => {
@@ -89,6 +101,7 @@ export function AuthDialog({ open, mode: initialMode, reason, next, onClose, onS
       } else {
         const { error } = await sb.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        rememberEmailLogin(email);
       }
       onSignedIn();
     } catch (x) {
@@ -98,9 +111,12 @@ export function AuthDialog({ open, mode: initialMode, reason, next, onClose, onS
     }
   }
 
-  async function social(provider: 'kakao' | 'google') {
+  const socOn = useSocialEnabled();
+
+  async function social(provider: Social) {
     const sb = getSupabase();
     if (!sb) return;
+    markSocialPending(provider);
     const { error } = await sb.auth.signInWithOAuth({
       provider,
       options: { redirectTo: `${location.origin}/auth/callback?next=${encodeURIComponent(next ?? pathname)}` },
@@ -133,12 +149,14 @@ export function AuthDialog({ open, mode: initialMode, reason, next, onClose, onS
           <p className="soc-note">로그인 서버(Supabase)가 아직 연결되지 않았어요. <code>.env.local</code>에 프로젝트 URL과 공개 키를 넣어 주세요.</p>
         )}
         <div className="social" role="group" aria-label="소셜 계정으로 계속하기">
-          <button type="button" className="soc soc-kakao" onClick={() => social('kakao')} disabled={!supabaseReady}>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4C7 4 3 7.1 3 11c0 2.5 1.7 4.7 4.2 6l-1 3.6c-.1.3.3.6.6.4l4.3-2.8c.3 0 .6.1.9.1 5 0 9-3.1 9-7s-4-7.3-9-7.3z" /></svg>카카오로 계속하기
+          <button type="button" className="soc soc-kakao" onClick={() => social('kakao')} disabled={!socOn?.kakao}>
+            {lastSocial === 'kakao' && <span className="soc-last">최근 사용</span>}
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4C7 4 3 7.1 3 11c0 2.5 1.7 4.7 4.2 6l-1 3.6c-.1.3.3.6.6.4l4.3-2.8c.3 0 .6.1.9.1 5 0 9-3.1 9-7s-4-7.3-9-7.3z" /></svg>카카오로 계속하기{socOn && !socOn.kakao && <em className="soc-soon">준비 중</em>}
           </button>
           <div className="soc-row">
-            <button type="button" className="soc soc-google" onClick={() => social('google')} disabled={!supabaseReady}>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.5 12.3c0-.8-.1-1.5-.2-2.2H12v4.2h5.9a5 5 0 0 1-2.2 3.3v2.7h3.5c2.1-1.9 3.3-4.7 3.3-8z" /><path fill="#34A853" d="M12 23c3 0 5.5-1 7.2-2.7l-3.5-2.7c-1 .7-2.2 1.1-3.7 1.1-2.9 0-5.3-1.9-6.2-4.5H2.2v2.8A11 11 0 0 0 12 23z" /><path fill="#FBBC05" d="M5.8 14.2a6.6 6.6 0 0 1 0-4.4V7H2.2a11 11 0 0 0 0 10z" /><path fill="#EA4335" d="M12 5.4c1.6 0 3.1.6 4.2 1.6l3.2-3.2A11 11 0 0 0 2.2 7l3.6 2.8C6.7 7.3 9.1 5.4 12 5.4z" /></svg>Google로 계속하기
+            <button type="button" className="soc soc-google" onClick={() => social('google')} disabled={!socOn?.google}>
+              {lastSocial === 'google' && <span className="soc-last">최근 사용</span>}
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.5 12.3c0-.8-.1-1.5-.2-2.2H12v4.2h5.9a5 5 0 0 1-2.2 3.3v2.7h3.5c2.1-1.9 3.3-4.7 3.3-8z" /><path fill="#34A853" d="M12 23c3 0 5.5-1 7.2-2.7l-3.5-2.7c-1 .7-2.2 1.1-3.7 1.1-2.9 0-5.3-1.9-6.2-4.5H2.2v2.8A11 11 0 0 0 12 23z" /><path fill="#FBBC05" d="M5.8 14.2a6.6 6.6 0 0 1 0-4.4V7H2.2a11 11 0 0 0 0 10z" /><path fill="#EA4335" d="M12 5.4c1.6 0 3.1.6 4.2 1.6l3.2-3.2A11 11 0 0 0 2.2 7l3.6 2.8C6.7 7.3 9.1 5.4 12 5.4z" /></svg>Google로 계속하기{socOn && !socOn.google && <em className="soc-soon">준비 중</em>}
             </button>
           </div>
           <div className="or"><span>또는 이메일로</span></div>
@@ -148,9 +166,22 @@ export function AuthDialog({ open, mode: initialMode, reason, next, onClose, onS
           <div className="fold" data-open={up} aria-hidden={!up}>
             <div><label className="field"><span>이름</span><input name="name" autoComplete="name" placeholder="홍길동" disabled={!up} /></label></div>
           </div>
-          <label className="field"><span>이메일</span><input name="email" type="email" autoComplete="email" placeholder="name@example.com" required /></label>
+          {recent ? (
+            <div className="recent-acct">
+              <small>최근 로그인한 계정</small>
+              <div>
+                <span className="avatar" aria-hidden="true">{(recent.name || recent.email).slice(0, 1).toUpperCase()}</span>
+                <span className="recent-t"><b>{recent.name || recent.email.split('@')[0]}</b><span>{recent.email}</span></span>
+                <button type="button" className="link-btn" onClick={() => setOther(true)}>다른 계정</button>
+              </div>
+              <input type="hidden" name="email" value={recent.email} />
+              <button type="button" className="recent-forget" onClick={() => { forgetLast(); setLast(null); }}>이 기기에서 기록 지우기</button>
+            </div>
+          ) : (
+            <label className="field"><span>이메일</span><input name="email" type="email" autoComplete="email" placeholder="name@example.com" required /></label>
+          )}
         </div>
-        <label className="field"><span>비밀번호</span><input name="password" type="password" autoComplete={up ? 'new-password' : 'current-password'} placeholder="8자 이상" required /></label>
+        <label className="field"><span>비밀번호</span><input ref={pwRef} name="password" type="password" autoComplete={up ? 'new-password' : 'current-password'} placeholder="8자 이상" required /></label>
         <p className="auth-err" role="alert">{err}</p>
         {note && <p className="soc-note" role="status">{note}</p>}
         <button type="submit" className="btn-fill btn-block" disabled={busy || !supabaseReady}><span key={mode} className="swap-in">{up ? '가입하고 시작하기' : '로그인'}</span></button>

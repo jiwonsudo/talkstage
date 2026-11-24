@@ -12,5 +12,7 @@ export async function GET(request: NextRequest) {
     const { error } = (await supabase?.auth.exchangeCodeForSession(code)) ?? { error: new Error('no supabase') };
     if (!error) return NextResponse.redirect(`${origin}${safeNext}`);
   }
-  return NextResponse.redirect(`${origin}/?login=1&error=callback`);
+  // 취소했거나(카카오·구글 동의 화면에서 취소) 교환에 실패하면 로그인 창을 다시 열고, 원래 가려던 화면은 그대로 기억해요.
+  const cancelled = searchParams.get('error') === 'access_denied';
+  return NextResponse.redirect(`${origin}/?login=1&error=${cancelled ? 'cancelled' : 'social'}&next=${encodeURIComponent(safeNext)}`);
 }
