@@ -3,11 +3,20 @@
 녹화 한 번으로 말 빠르기·쉼·톤·시선·자세·제스처·군더더기 말·내용 구조·시간을 분석해 코칭해 주는 **리허설 코칭 웹앱**.
 사용자: 대학생, 취업 준비생, 직장인, 그리고 B2B(학교·회사 단체 요금제).
 
+## 제품 방향(가장 중요)
+
+- **주 목적은 "이번 한 번의 발표를 이기게" 하는 것**, 발표 실력 향상은 부 목적. 프로젝트마다 보통 발표는 한 번이고, 그 발표가 프로젝트의 발목을 잡지 않고 세일즈·장점을 최대로 보여 주게 돕는다. 그래서 **같은 발표를 3~4번 연습**하며 회차마다 나아지는 구조(제목 = 한 발표, `/me/rehearsals/[title]` 회차 비교).
+- **좋은 발표 방법은 목적마다 180도 다르다.** "정면만 보면 좋음" 같은 일괄 기준 금지.
+  - 면접: 앉아서, 손은 작게·간단히, 면접관 여러 명에게 시선을 나눔.
+  - IR 피칭·시제품 시연·제품 소개: 화면·폰·제품을 **직접 가리키고 들어 보이며** 강조하는 게 중요. 그 순간 화면을 보는 건 감점이 아님.
+  - 그 밖의 상황도 목적별 기준(`scenarios.ts`)으로 따로 판단.
+- 실제로 팔 수 있는 수준의 정확도·디테일이 목표. 애매한 기준·제품 판단은 사용자에게 물어보고, 누가 봐도 나은 방향은 알아서 고도화.
+
 ## 작업 규칙
 
 - **답변은 한국어로.** UI 문구도 한국어, 부드러운 존댓말(~해요).
 - 제품 용어는 **"리허설"**. "프레젠테이션"이라고 쓰지 않는다. ("발표"는 상황을 말할 때만.)
-- 디자인: 밝은 배경, 원색(파랑·노랑·분홍·빨강·초록·주황·보라) 스퀴클 카드, 깔끔한 내비. **AI 느낌 나는 장식 금지**(보라 그라디언트 남발, 반짝이 이모지 등).
+- 디자인: 밝은 배경, 원색(파랑·노랑·분홍·빨강·초록·주황·보라) 스퀴클 카드, 깔끔한 내비. **AI 느낌 나는 장식 금지**(보라 그라디언트 남발, 반짝이 이모지, 회색 타일 그리드, 색 테두리 카드, 반투명 유리 알약, 전부 100점 같은 인위적 숫자). 원색은 카드마다 포인트로만, 큰 면을 원색으로 칠하지 않기(눈 아픔). 항목 색은 `lib/colors.ts` 고정.
 - 이 프로젝트는 **Next.js + TypeScript** 로 간다. 새 기능을 plain JS·전역 스크립트로 박지 말 것(이 때문에 한 번 전부 다시 짰음).
 - 패키지 매니저는 **pnpm** (`packageManager` 고정). npm/yarn lockfile 만들지 말 것.
 - 바꾼 뒤에는 `pnpm exec tsc --noEmit`, `pnpm lint`, 필요하면 `pnpm build` 까지 통과시킬 것.
@@ -42,17 +51,20 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
 - `src/app`
   - `/` 랜딩 — `page.tsx` 가 `components/landing/*` 섹션을 조립
   - `/rehearsal/new` 리허설 — `RehearsalEntry`(ssr:false) → `RehearsalFlow`: 마법사 → (대본 점검) → 녹화 → 리포트. `?purpose=&posture=&step=` 지원
-  - `/me/rehearsals` 내 리허설 대시보드(사이드바 없음, 로그인하면 여기로). `/me/(settings)/account|plan|support|settings` 설정(왼쪽 사이드바, 구분선 아래 톱니바퀴 "설정" = 화면 테마 시스템/라이트/다크, localStorage `ts-theme`). 랜딩에는 최근 기록 없음
+  - `/me/rehearsals` 내 리허설 대시보드(사이드바 없음, 로그인하면 여기로). 기록은 제목(`topic`, 마법사 마지막 단계에서 입력, 비우면 "{상황} 리허설")별로 묶고 `/me/rehearsals/[title]` 에서 회차별 점수 비교·"이 발표 다시 연습"(`?title=`). `/me/(settings)/account|plan|support|settings` 설정(왼쪽 사이드바, 구분선 아래 톱니바퀴 "설정" = 화면 테마 시스템/라이트/다크, localStorage `ts-theme`). 랜딩에는 최근 기록 없음
+  - `/dev/showtest` 보여 주기 감지 합성 테스트(개발 전용): 가리키기·복귀·가로지름·얼굴 가림·잦음·오탐(손 모음·흔들기) 시나리오. `showing.ts` 를 바꾸면 결과가 그대로인지 볼 것
   - `/dev/eval` 정확도 검증(개발 서버 전용, 배포는 404): 영상 + 같은 이름 정답 .json → 앱과 같은 코드로 분석해 정답과 비교. 합격선은 `lib/eval/compare.ts`, 실행은 `lib/eval/run.ts`(첫 3초는 조용히 렌즈 보기)
   - `/auth/callback` OAuth 코드 교환, `/api/account` 계정 삭제(secret key, 서버 전용)
 - `src/components`
   - `landing/` 서버 컴포넌트 섹션 + 작은 클라이언트 아일랜드(`HeroDial`, `Timeline`, `NvFrame`, `Plans`, `Reveal`, `actions.tsx`)
   - `auth/` `AuthProvider`(useAuth, requireAuth, 로그인 모달 상태), `AuthDialog`
   - `rehearsal/` `Wizard`, `ScriptCheck`, `Studio`(카메라·녹화), `Report`
-  - `ui/` `BrandMark`(로고), `Picto`, `Toast`, `PatternArt`
+  - `ui/` `BrandMark`(로고), `Picto`, `Toast`, `PatternArt`, `Confirm`(useConfirm, window.confirm 대신), `SegPill`(.seg 토글 알약)
 - `src/lib`
-  - `coach/` 분석 엔진: `audio`, `vision`, `analysis`(점수·문제 구간·하이라이트), `coach`(코칭 문구·근거), `script`(대본 분석·읽기), `timeline`, `media`
+  - `coach/` 분석 엔진: `audio`, `vision`, `analysis`(점수·문제 구간·하이라이트), `showing`(화면·제품 가리키기/들어 보이기 감지·채점), `coach`(코칭 문구·근거), `script`(대본 분석·읽기), `timeline`, `media`
   - `rehearsal/draft.ts` 마법사 설정(localStorage `rc-setup-v2`) → `toSetup()`
+  - `delivery.ts` 목적별 전달 방식: 마법사 "보여 주는 것" 단계(`AidId`: 면접 panel/video, 그 밖 slidesL/R·product·device·none), 청중 종류(room = 카메라가 청중 가운데·옆을 봐도 시선 OK·시선 분배 코칭 / camera = 렌즈 하나), 가리키기 적정 횟수·신호어·목적별 문구
+  - `colors.ts` 항목·상황별 고정 원색
   - `scenarios.ts` 발표 상황(interview, ir, report, lecture, conference, capstone, speech)·목표·기준값
   - `plans.ts` 요금제, `data/` Supabase 읽기·쓰기, `supabase/` 클라이언트 생성
 - `supabase/migrations/` 0001 스키마+RLS, 0002 권한(GRANT) — 원격 적용 완료. 0003 크레딧 사용 내역(`credit_ledger`, `credits_left()`, `record_rehearsal()`) — 원격 적용 완료. 0004 요금제 크레딧 조정(`plan_credits()` 120/360) — 원격 적용 완료. 0005 회차 구매(`orders`, `create_order()`, 서버 전용 `order_for_confirm()`·`complete_order()`, 산 크레딧 `bonus_left()`, 20초 미만 저장 거절) — 원격 적용 완료. 0006 월 요금제 정기결제(`billing_cards`·`subscriptions`·`subscription_payments`, `profiles.plan` 은 서버만 수정) — 원격 적용 완료.
@@ -61,7 +73,7 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
 ## 제품 규칙(이미 구현됨, 바꿀 때 지킬 것)
 
 - 리허설 설정(마법사)은 로그인 없이 고를 수 있고, 첫 단계에 "녹화할 때 로그인" 안내를 띄움. 마지막 단계 버튼("로그인하고 녹화 준비/대본 분석하기")에서 로그인 모달 → 로그인 후 그대로 이어감(소셜 로그인은 `?step=5&resume=1` 로 돌아옴). `/me` 만 proxy 가 막음.
-- 마법사: 지난 설정·기본값은 체크로 안 보여 줌(이번에 직접 고른 단계만 체크). 단계마다 history 를 쌓아서 내비 뒤로 화살표·폰 뒤로 가기가 이전 단계로 감. "그만두기"는 홈으로. 로그인 후 내비: "새 리허설 +" CTA + 메뉴(내 리허설 / 계정 관리 / 요금제 관리 / 지원 받기 / 로그아웃).
+- 마법사: 지난 설정·기본값은 체크로 안 보여 줌(이번에 직접 고른 단계만 체크). 단계마다 history 를 쌓아서 내비 뒤로 화살표·폰 뒤로 가기가 이전 단계로 감. 그만두기 버튼은 없음(내비의 홈 버튼 사용). 로그인 후 내비: "새 리허설 +" CTA + 메뉴(내 리허설 / 계정 관리 / 요금제 관리 / 지원 받기 / 로그아웃).
 - 요금제: Opening 36크레딧(무료), Spotlight 120(월 4,900원, 연 3,900원), Headliner 360(월 9,900원, 연 7,900원), 대학·팀·기업 단체 요금제는 문의. 리허설 1회 = 12크레딧.
 - 결제(토스페이먼츠 결제위젯, 지금은 테스트 키 `test_gck`/`test_gsk`): 회차 구매만(3회 36크레딧 1,500원, 6회 72크레딧 2,500원 — `plans.ts` `PACKS` 와 SQL `pack_info()` 둘 다). 금액은 DB 가 정하고, `/api/payments/confirm` 이 DB 금액과 대조 → 토스 승인(멱등 키 `confirm-{orderId}`) → `complete_order()`(service_role 만). 산 크레딧은 매달 초기화 안 되고, 이번 달 크레딧을 먼저 씀. 환경 변수 `NEXT_PUBLIC_TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY`(NEXT_PUBLIC_ 금지) — Vercel 에도 넣어 둠. 사업자등록 전이라 실결제(live 키) 불가.
 - 월 요금제 정기결제(토스 자동결제·빌링): 결제위젯 키가 아니라 **API 개별 연동 키**(`NEXT_PUBLIC_TOSS_BILLING_CLIENT_KEY`=test_ck, `TOSS_BILLING_SECRET_KEY`=test_sk). `/me/subscribe?plan=` 에서 카드 등록(`requestBillingAuth`) → `/me/subscribe/success` → `/api/billing/start` 가 빌링키 발급·저장 후 결제(금액은 SQL `sub_new_payment`, 업그레이드는 남은 날만큼 차감). 토스는 자동으로 매달 결제하지 않아서 Vercel Cron(`vercel.json`, 매일 UTC 0시)이 `/api/billing/cron`(Bearer `CRON_SECRET`)을 불러 결제일 지난 구독을 결제. 실패하면 하루 한 번 3번까지 재시도 후 Opening. 해지는 예약(기간 끝까지 사용), 낮은 유료 요금제는 다음 결제일부터. 빌링키는 서버 전용 표에만, 계정 삭제 때 토스에서도 지움. 가격을 바꾸면 `plans.ts` `PLAN_PRICE` 와 SQL `plan_price()` 둘 다. 연 결제는 아직 없음.
@@ -76,6 +88,25 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
 - 대본 단계: "대본이 없나요?"가 입력칸 위, 예시는 placeholder 로만, 지원 형식 `.txt · .md · .docx` 표시.
 - 히어로 다이얼: 카드 부채꼴, 베젤과 동기화, 잡으면 멈춤, 넓은 화면에선 오른쪽.
 - 로고: 네 조각으로 갈라진 말풍선(`ui/BrandMark.tsx`). 모든 모서리 반지름 3 으로 둥글게, 광택은 아주 약하게(너무 글로시하면 안 됨). 마우스를 올리면 조각이 벌어짐.
+
+## 목적별 비언어 분석(바꿀 때 지킬 것)
+
+- 보여 주기(`showing`): 가리키는 중·끝난 뒤 1.2초는 시선 채점에서 뺌. 대신 가리킨 뒤 3초 안에 청중 복귀, 숫자·목적별 신호어 문장에서 가리켰는지, 몸 가로질러 가리키기·제품이 얼굴 가림·너무 짧게(<1.5초), 분당 횟수(목적별 범위)를 봄. 30초 미만 녹화에서 0회면 채점 안 함. 보여 줄 것 없는 발표는 리포트에서 카드 숨김.
+- 청중이 여럿(room)이면 고개를 옆으로(0.11~0.32) 돌린 것도 청중을 본 것. 15초 이상 측정되면 가운데만(옆 10% 미만)·한쪽만(균형 0.25 미만) 코칭·감점.
+- "이 발표 다시 연습"은 `?again=1&title=` → 설정 단계 건너뛰고 대본·녹화 단계로, 같은 제목이면 이 기기의 대본 유지. 뒤로 가면 발표 기록 화면으로 바로 나감(앞 단계 기록 채우지 않음).
+- 기록 삭제(회차·발표 통째) 확인 문구는 `DELETE_BODY`: 통계에서 빠짐 + 되돌릴 수 없음 + 크레딧 안 돌아옴.
+
+## UI 디테일 규칙
+
+- `window.alert/confirm/prompt` 금지. 확인은 `useConfirm()`(ui/Confirm) 모달로.
+- `.seg` 토글에는 `<SegPill />` 을 넣어 고른 칸으로 미끄러지게. 상태가 바뀌는 곳은 뚝 바뀌지 않게 전환 모션을 넣을 것.
+- `<dialog>` 는 열 때 창 자체에 포커스(`tabIndex={-1}` + `focus()`) — 첫 버튼에 파란 포커스 링이 뜨지 않게.
+- 테마 변경은 `setThemeAnimated`(누른 자리에서 원으로 번짐, View Transitions).
+
+## 랜딩 실제 분석 예시
+
+- `landing/NvDemo`: `public/media/nv-a|nv-b.mp4`(AI로 만든 영상, 워터마크 없게 가운데 576×720 으로 자름)을 누르면 프레임별 인식(`nv-*.track.json`)을 겹쳐 그리고 리포트 요약(`landing/demoData.ts`)을 보여 줌. 수치·문구는 앱과 같은 분석 코드로 원본 영상을 실제로 돌린 결과 — 손으로 고치지 말고, 분석 코드를 바꾸면 다시 뽑을 것(좌표는 x' = (x·1280−352)/576). "AI 영상이지만 실제 분석" 문구는 지우지 말 것.
+- 얼굴이 작게 찍히면(서서 발표) `vision.detect` 가 자세로 찾은 머리 둘레를 확대해서 얼굴 인식에 넣음.
 
 ## 이미 겪은 함정
 
@@ -92,5 +123,4 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
 - [ ] 로그인한 사용자로 기록 저장·크레딧 차감·삭제·문의 저장 실제 확인 (이메일 가입, Confirm email 켜져 있음)
 - [ ] 실제 카메라로 녹화 → 리포트 전체 흐름 확인(StrictMode 카메라 정리 수정 포함)
 - [ ] 카카오·Google OAuth: 각 콘솔에서 앱 만들고 Supabase Providers 에 키 등록
-- [ ] 랜딩 예시 영상 `public/media/nv-a.mp4`, `nv-b.mp4` 없음(지금은 "예시 영상 자리" 표시, 404)
 - [ ] 단체 문의 폼은 localStorage(`rc-leads-v1`)에만 저장됨 → 서버 저장 필요

@@ -46,20 +46,27 @@ export function RehearsalFlow() {
   // ?resume=1 은 로그인(소셜 로그인 리다이렉트) 뒤 돌아온 경우라 적어 둔 대본·설명을 그대로 둬요.
   // 이 컴포넌트는 브라우저에서만 그려서(ssr:false) localStorage 를 바로 읽어도 돼요.
   const resume = params.get('resume') === '1';
+  // ?again=1&title=…: 같은 발표를 다시 연습. 설정 단계를 건너뛰고 바로 대본·녹화 단계로 가요.
+  // 이 기기에 남은 설정이 같은 발표면 대본까지 그대로 쓰고, 뒤로 가면 단계를 거꾸로 밟지 않고 왔던 화면(발표 기록)으로 나가요.
+  const again = params.get('again') === '1' && !!params.get('title');
   const [draft, setDraft] = useState<Draft>(() => {
-    let d = resume ? loadDraft() : clearText(loadDraft());
+    const saved = loadDraft();
+    const same = again && saved.title.trim() === params.get('title')!.trim();
+    let d = resume || same ? saved : clearText(saved);
     const pid = params.get('purpose');
     if (pid && PURPOSE_BY_ID[pid]) d = withPurpose(d, pid);
     const posture = params.get('posture');
     if (posture === 'seated' || posture === 'standing') d = { ...d, posture: posture as PostureId };
+    const title = params.get('title'); // '이 발표 다시 연습'에서 같은 제목으로 이어 가요
+    if (title) d = { ...d, title: title.slice(0, 60) };
     return d;
   });
-  const [step, setStep] = useState(() => stepOf(params));
+  const [step, setStep] = useState(() => (again ? STEPS.length - 1 : stepOf(params)));
   const stepRef = useRef(step);
   useEffect(() => { stepRef.current = step; }, [step]);
   // 이번에 직접 고른 단계. 지난번 설정이나 기본값은 체크로 보여 주지 않아요(체크돼 있는데 안 넘어가는 혼란 방지).
   const [chosen, setChosen] = useState<ReadonlySet<StepId>>(() => {
-    if (resume) return new Set(STEPS);
+    if (resume || again) return new Set(STEPS);
     const s = new Set<StepId>();
     if (params.get('purpose') && PURPOSE_BY_ID[params.get('purpose')!]) s.add('purpose');
     if (params.get('posture')) s.add('posture');
@@ -89,12 +96,13 @@ export function RehearsalFlow() {
     setStep(n);
   }, []);
 
-  // 중간 단계로 바로 들어오면(랜딩의 상황 카드 → step=1, 다시 연습 → step=2, 로그인 후 복귀 등) 앞 단계 기록을 채워서
+  // 중간 단계로 바로 들어오면(랜딩의 상황 카드 → step=1, 다시 연습 → step=3, 로그인 후 복귀 등) 앞 단계 기록을 채워서
   // 뒤로 가기가 홈이 아니라 이전 단계(결국 발표 목적 고르기)로 가게 해요. StrictMode 두 번 실행에 대비해 ref 로 한 번만.
   const seeded = useRef(false);
   useEffect(() => {
     const n = stepRef.current;
-    if (seeded.current || n === 0 || new URLSearchParams(location.search).get('view')) return;
+    const sp0 = new URLSearchParams(location.search);
+    if (seeded.current || n === 0 || sp0.get('again') === '1' || sp0.get('view')) return;
     seeded.current = true;
     const u = new URL(location.href);
     u.searchParams.delete('resume');
@@ -246,7 +254,6 @@ export function RehearsalFlow() {
       return (
         <Wizard draft={draft} update={update} step={step} go={go} paid={isPaidPlan(user?.plan)}
           guest={!user} chosen={chosen} mark={mark}
-          onExit={() => router.push('/')}
           onAnalyzeScript={() => signedIn(() => { pushView(stepRef.current, 'script'); setStage('script'); top(); })}
           onRecord={() => signedIn(() => toStudio())} />
       );

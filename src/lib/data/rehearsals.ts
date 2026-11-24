@@ -50,3 +50,11 @@ export async function deleteRehearsal(id: string) {
   if (error) throw error;
   changed();
 }
+
+/** 한 발표(같은 제목)의 회차를 한꺼번에 지워요. 이미 쓴 크레딧은 돌아오지 않아요. */
+export async function deleteRehearsals(ids: string[]) {
+  if (!ids.length) return;
+  const { error } = await db().from('rehearsals').delete().in('id', ids);
+  if (error) throw error;
+  changed();
+}

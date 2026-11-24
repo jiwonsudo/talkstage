@@ -1,4 +1,5 @@
 'use client';
+import { SegPill } from '@/components/ui/SegPill';
 import { createContext, useCallback, useContext, useRef, useState } from 'react';
 
 type Kind = 'biz' | 'edu';
@@ -18,6 +19,7 @@ export function ContactProvider({ children }: { children: React.ReactNode }) {
   const open = useCallback((k: Kind = 'biz') => {
     formRef.current?.reset(); setErr(''); setDone(false); setKind(k);
     ref.current?.showModal();
+    ref.current?.focus(); // 첫 포커스는 창에(닫기 버튼 파란 테두리 방지)
     setTimeout(() => (formRef.current?.elements.namedItem('org') as HTMLInputElement | null)?.focus(), 60);
   }, []);
   const close = () => ref.current?.close();
@@ -40,7 +42,7 @@ export function ContactProvider({ children }: { children: React.ReactNode }) {
   return (
     <Ctx.Provider value={open}>
       {children}
-      <dialog ref={ref} className="auth contact" aria-labelledby="ctTitle" onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
+      <dialog ref={ref} className="auth contact" tabIndex={-1} aria-labelledby="ctTitle" onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
         <form ref={formRef} onSubmit={submit} noValidate>
           <button type="button" className="dlg-x" aria-label="닫기" onClick={close}><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" /></svg></button>
           <div className="ct-body" hidden={done}>
@@ -49,6 +51,7 @@ export function ContactProvider({ children }: { children: React.ReactNode }) {
             <div className="seg" role="tablist" aria-label="기관 종류">
               <button type="button" role="tab" aria-selected={!edu} onClick={() => setKind('biz')}>기업</button>
               <button type="button" role="tab" aria-selected={edu} onClick={() => setKind('edu')}>대학 · 교육기관</button>
+              <SegPill />
             </div>
             <label className="field"><span>{edu ? '학교 · 기관명' : '회사명'}</span><input name="org" autoComplete="organization" required /></label>
             <div className="field-row">

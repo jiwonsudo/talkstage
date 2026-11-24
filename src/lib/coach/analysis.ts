@@ -3,6 +3,8 @@ import { syllables } from './audio';
 import { CAT_LABEL, type CatId, type PostureId, type Purpose, type Range } from '@/lib/scenarios';
 import type { AudioFrame, FinalText, TranscriptResult } from './audio';
 import type { FaceFrame, PoseFrame, VisionFrame } from './vision';
+import { analyzeShowing, type ShowingResult } from './showing';
+import { aidOf, audienceOf, deliveryOf, isShowing, type Audience } from '@/lib/delivery';
 import type { CatResult, Check, Dir, Highlight, Issue, PickedOutcome, Setup, Status } from './types';
 
 type Run = { t0: number; t1: number };
@@ -72,10 +74,15 @@ function rangeScore(v: number, r: Range, soft: number): number;
 function rangeScore(v: number | null | undefined, r: Range, soft: number): number | null;
 function rangeScore(v: number | null | undefined, [lo, hi]: Range, soft: number) {
   if (v == null || !isFinite(v)) return null;
-  if (v < lo) return clamp(100 * (1 - (lo - v) / soft), 0, 100);
-  if (v > hi) return clamp(100 * (1 - (v - hi) / soft), 0, 100);
-  return 100;
+  // 범위 밖: 경계 85점에서 soft 만큼 벗어나면 0점
+  if (v < lo) return clamp(IN_RANGE_MIN * (1 - (lo - v) / soft), 0, 100);
+  if (v > hi) return clamp(IN_RANGE_MIN * (1 - (v - hi) / soft), 0, 100);
+  // 범위 안: 가운데(이상적인 값)에 가까울수록 100, 경계면 85. 범위 안이면 모두 100이던 계단식이라 결과가 획일적이었어요.
+  const d = hi > lo ? Math.abs(v - (lo + hi) / 2) / ((hi - lo) / 2) : 0;
+  return IN_RANGE_MIN + (100 - IN_RANGE_MIN) * (1 - d ** 0.7);
 }
+/** 목표 범위 경계에서의 점수(그래도 '좋음' 80 이상) */
+const IN_RANGE_MIN = 85;
 const dirOf = (v: number | null | undefined, [lo, hi]: Range): Dir => (v == null ? null : v < lo ? 'low' : v > hi ? 'high' : 'ok');
 const statusOf = (s: number | null | undefined): Status => (s == null ? 'na' : s >= 80 ? 'good' : s >= 55 ? 'warn' : 'bad');
 
@@ -96,15 +103,21 @@ export function buildCalibration(audioFrames: AudioFrame[], visionFrames: Vision
   };
 }
 
-export type FrameClass = { gaze: boolean | null; lookDown: boolean; bad: boolean | null; reasons: string[] };
-export function classifyFrame(f: VisionFrame, calib: Calibration, posture: PostureId) {
-  const c: FrameClass = { gaze: null, lookDown: false, bad: null, reasons: [] };
+/** zone: 청중이 여럿(room)일 때 본 방향. C = 가운데(카메라), S1/S2 = 양옆(어느 쪽인지는 영상 좌우 기준) */
+export type FrameClass = { gaze: boolean | null; lookDown: boolean; bad: boolean | null; reasons: string[]; zone: 'C' | 'S1' | 'S2' | null };
+export function classifyFrame(f: VisionFrame, calib: Calibration, posture: PostureId, audience: Audience = 'camera') {
+  const c: FrameClass = { gaze: null, lookDown: false, bad: null, reasons: [], zone: null };
   if (f.face) {
     const dy = f.yawP - calib.yaw0;
     const dp = f.pitchP - calib.pitch0;
     const ed = f.eyeDown - calib.eyeDown0;
     c.lookDown = dp > 0.09 || ed > 0.32;
-    c.gaze = Math.abs(dy) < 0.11 && Math.abs(dp) < 0.09 && f.eyeH < 0.55 && ed < 0.32;
+    const level = Math.abs(dp) < 0.09 && ed < 0.32;
+    c.gaze = Math.abs(dy) < 0.11 && level && f.eyeH < 0.55;
+    if (c.gaze) c.zone = 'C';
+    // 청중이 여럿이면(대면 면접·서서 하는 발표) 고개를 옆으로 돌려 옆 사람을 보는 것도 청중을 보는 거예요.
+    // 고개를 크게(0.32 넘게) 돌리면 청중 밖(창밖·화면)으로 봐요.
+    else if (audience === 'room' && level && Math.abs(dy) < 0.32) { c.gaze = true; c.zone = dy > 0 ? 'S1' : 'S2'; }
   }
   if (f.pose) {
     const r = [];
@@ -439,7 +452,9 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
   // ---------- 영상: 시선 · 자세 · 제스처 ----------
   const V = vision;
   const dtV = V.length > 1 ? median(V.slice(1).map((f, i) => f.t - V[i].t)) || 0.1 : 0.1;
-  const cls = V.map((f) => classifyFrame(f, calib, posture));
+  const aid = aidOf(purpose.id, setup.aid);
+  const audience = audienceOf(aid, posture);
+  const cls = V.map((f) => classifyFrame(f, calib, posture, audience));
   const faceFrames = V.filter((f) => f.face).length;
   const poseFrames = V.filter((f) => f.pose).length;
   const faceOK = V.length > 0 && faceFrames / V.length >= 0.4;
@@ -448,6 +463,14 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
   else {
     if (!faceOK) limits.push('얼굴이 화면에서 자주 사라져 시선 분석이 정확하지 않을 수 있어요. 조명을 얼굴 정면에 두세요.');
     if (!poseOK) limits.push(posture === 'seated' ? '어깨가 화면에 잘 잡히지 않아 자세 분석을 생략했어요.' : '상체가 화면에 잘 잡히지 않아 자세 분석을 생략했어요.');
+  }
+  // 보여 주기(화면·제품): 가리키는 중·직후의 시선은 채점에서 빼요(그때 화면을 보는 건 자연스러워요)
+  let showing: ShowingResult | null = null;
+  if (isShowing(aid) && poseOK) {
+    showing = analyzeShowing({ V, cls, dt: dtV, dur, aid, purposeId: purpose.id, finals, score: rangeScore });
+    showing.exempt.forEach((x, i) => { if (x && cls[i].gaze === false) { cls[i].gaze = null; cls[i].lookDown = false; } });
+    showing.issues.forEach((is) => pushIssue({ ...is, cat: 'showing' }));
+    if (showing.wrongSide) limits.push('가리키는 방향이 고른 화면 위치와 반대예요. 다음 리허설에서 화면 위치를 다시 골라 주세요.');
   }
   const gazeSec: (number | null)[] = new Array(nSec).fill(null);
   const badSec: (number | null)[] = new Array(nSec).fill(null);
@@ -492,11 +515,21 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
 
   // 시선
   let gazeRatio = null, downRatio = 0;
+  let spread: { side: number; balance: number; issue?: 'center' | 'oneSide' | null } | null = null;
   if (faceOK) {
     const gf = cls.filter((c) => c.gaze != null);
     gazeRatio = gf.filter((c) => c.gaze).length / gf.length;
     const off = gf.filter((c) => !c.gaze);
     downRatio = off.length ? off.filter((c) => c.lookDown).length / off.length : 0;
+    // 청중이 여럿이면 시선을 나눴는지: 옆을 본 비율, 양옆 균형
+    if (audience === 'room') {
+      const on = gf.filter((c) => c.gaze);
+      const s1 = on.filter((c) => c.zone === 'S1').length, s2 = on.filter((c) => c.zone === 'S2').length;
+      if (on.length * dtV >= 15) {
+        spread = { side: (s1 + s2) / on.length, balance: Math.max(s1, s2) ? Math.min(s1, s2) / Math.max(s1, s2) : 0 };
+        spread.issue = spread.side < 0.1 ? 'center' : spread.side >= 0.2 && spread.balance < 0.25 ? 'oneSide' : null;
+      }
+    }
     const idx = V.map((f, i) => i).filter((i) => cls[i].gaze != null);
     let offVals = idx.map((i) => !cls[i].gaze);
     offVals = smoothRuns(offVals, false, Math.round(0.4 / dtV));
@@ -512,7 +545,7 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
   }
 
   // 자세
-  let goodFrac = null, swayFrac = 0, mainIssue = null, framingPenalty = 0;
+  let goodFrac = null, briefBad = 0, swayFrac = 0, mainIssue = null, mainReason: string | null = null, framingPenalty = 0;
   if (poseOK) {
     const idx = V.map((f, i) => i).filter((i) => cls[i].bad != null);
     let vals = idx.map((i) => cls[i].bad === true);
@@ -521,6 +554,8 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
     const longBad = rs.filter((r) => r.t1 - r.t0 >= 2);
     const poseTime = idx.length * dtV;
     goodFrac = clamp(1 - sum(longBad.map((r) => r.t1 - r.t0)) / Math.max(1, poseTime), 0, 1);
+    // 2초 안 되는 짧은 흐트러짐(문제 구간엔 안 올리지만 점수엔 조금 반영)
+    briefBad = clamp(sum(rs.filter((r) => r.t1 - r.t0 < 2).map((r) => r.t1 - r.t0)) / Math.max(1, poseTime), 0, 1);
     const reasonTotals: Record<string, number> = {};
     longBad.filter((r) => r.t1 - r.t0 >= 3).forEach((r) => {
       const counts: Record<string, number> = {};
@@ -531,7 +566,7 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
       pushIssue({ t0: r.t0, t1: r.t1, cat: 'posture', sev: d >= 8 ? 3 : d >= 5 ? 2 : 1, title: `${REASON_TEXT[top]} 자세`, detail: `${d.toFixed(1)}초 동안 이어졌어요.`, reason: top });
     });
     const topReason = Object.entries(reasonTotals).sort((a, b) => b[1] - a[1])[0]?.[0];
-    if (topReason) mainIssue = `${REASON_TEXT[topReason]} 자세가 보인`;
+    if (topReason) { mainIssue = `${REASON_TEXT[topReason]} 자세가 보인`; mainReason = topReason; }
 
     // 좌우 흔들림
     const P = V.filter((f): f is PoseFrame => f.pose);
@@ -603,21 +638,38 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
   } else mk('tone', null, null, null, null, `${T.pitch[0]}–${T.pitch[1]}반음`);
   // 시선
   if (gazeRatio != null) {
-    const s = gazeRatio >= T.gaze ? 100 : clamp(100 - ((T.gaze - gazeRatio) / T.gaze) * 120, 0, 100);
-    mk('gaze', s, gazeRatio >= T.gaze ? 'ok' : 'low', `${Math.round(gazeRatio * 100)}%`, gazeRatio, `${Math.round(T.gaze * 100)}% 이상`, { downRatio, smileRatio });
+    // 목표를 넘으면 85→100(늘 렌즈를 보면 100), 못 미치면 85 에서 깎여요
+    const ideal = 1;
+    const s = gazeRatio >= T.gaze
+      ? IN_RANGE_MIN + (100 - IN_RANGE_MIN) * Math.min(1, (gazeRatio - T.gaze) / (ideal - T.gaze))
+      : clamp(IN_RANGE_MIN - ((T.gaze - gazeRatio) / T.gaze) * 102, 0, 100);
+    // 청중이 여럿인데 한 사람(또는 한쪽)만 봤으면 감점
+    const spreadPen = spread?.issue === 'center' ? 10 : spread?.issue === 'oneSide' ? 8 : 0;
+    mk('gaze', clamp(s - spreadPen, 0, 100), gazeRatio >= T.gaze ? 'ok' : 'low', `${Math.round(gazeRatio * 100)}%`, gazeRatio, `${Math.round(T.gaze * 100)}% 이상`, { downRatio, smileRatio, audience, spread });
   } else mk('gaze', null, null, null, null, `${Math.round(T.gaze * 100)}% 이상`);
   // 자세
   if (goodFrac != null) {
-    const s = 100 * goodFrac - Math.min(25, swayFrac * 60) - framingPenalty;
-    mk('posture', clamp(s, 0, 100), null, `${Math.round(goodFrac * 100)}%`, goodFrac, '바른 자세 85% 이상', { swayFrac, mainIssue });
+    // 목표(85%) 이상이면 85→100 사이로, 못 미치면 비율 그대로. 짧은 흐트러짐·흔들림·구도는 감점.
+    const base = goodFrac >= 0.85 ? IN_RANGE_MIN + (100 - IN_RANGE_MIN) * (goodFrac - 0.85) / 0.15 : 100 * goodFrac;
+    const s = base - Math.min(10, briefBad * 80) - Math.min(25, swayFrac * 60) - framingPenalty;
+    mk('posture', clamp(s, 0, 100), null, `${Math.round(goodFrac * 100)}%`, goodFrac, '바른 자세 85% 이상', { swayFrac, mainIssue, mainReason });
   } else mk('posture', null, null, null, null, '');
   // 제스처
   if (gestureRatio != null) {
     mk('gesture', rangeScore(gestureRatio, gRange, 0.2), dirOf(gestureRatio, gRange), `${Math.round(gestureRatio * 100)}%`, gestureRatio, `${Math.round(gRange[0] * 100)}–${Math.round(gRange[1] * 100)}%`);
   } else mk('gesture', null, null, null, null, '');
+  // 보여 주기
+  // 30초 안 되는 녹화에서 한 번도 안 가리켰다고 "적다"고 하긴 일러요
+  if (showing && (showing.events.length || dur >= 30)) {
+    const r = deliveryOf(purpose.id).show;
+    mk('showing', showing.score, showing.perMin < r[0] ? 'low' : showing.perMin > r[1] ? 'high' : 'ok', `${showing.events.length}회`, showing.perMin, `분당 ${r[0]}–${r[1]}회`,
+      { aid, main: showing.main, perMin: showing.perMin, returnRate: showing.returnRate, keyCover: showing.keyCover, keys: showing.keys, cross: showing.cross, face: showing.face, brief: showing.brief });
+  } else mk('showing', null, null, null, null, '', { aid });
   // 군더더기
   if (fillerPerMin != null) {
-    const s = fillerPerMin <= T.filler ? 100 : clamp(100 - (fillerPerMin - T.filler) * 15, 0, 100);
+    const s = fillerPerMin <= T.filler
+      ? 100 - (100 - IN_RANGE_MIN) * (T.filler > 0 ? fillerPerMin / T.filler : 0)
+      : clamp(IN_RANGE_MIN - (fillerPerMin - T.filler) * 13, 0, 100);
     const top = Object.entries(fillerCount).sort((a, b) => b[1] - a[1]);
     mk('filler', s, fillerPerMin > T.filler ? 'high' : 'ok', round(fillerPerMin, 1), fillerPerMin, `분당 ${T.filler}번 이하`, { top, count: fillerN });
   } else mk('filler', null, null, null, null, `분당 ${T.filler}번 이하`);
@@ -630,7 +682,7 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
   {
     const tgt = setup.targetSec;
     const dev = (dur - tgt) / tgt;
-    const s = Math.abs(dev) <= 0.1 ? 100 : clamp(100 - ((Math.abs(dev) - 0.1) / 0.4) * 100, 0, 100);
+    const s = Math.abs(dev) <= 0.1 ? 100 - (100 - IN_RANGE_MIN) * (Math.abs(dev) / 0.1) : clamp(IN_RANGE_MIN * (1 - (Math.abs(dev) - 0.1) / 0.4), 0, 100);
     mk('time', s, dev > 0.1 ? 'high' : dev < -0.1 ? 'low' : 'ok', Math.round(dur), dur, `${Math.round(tgt)}초 ±10%`, { overSec: Math.round(dur - tgt), underSec: Math.round(tgt - dur) });
   }
 

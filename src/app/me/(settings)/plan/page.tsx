@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useContact } from '@/components/contact/ContactProvider';
 import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/Confirm';
 import { cancelPlan, fetchSubscription, resumePlan, schedulePlan, shortDate, type Subscription } from '@/lib/data/billing';
 import { useCredits } from '@/lib/data/useCredits';
 import Link from 'next/link';
@@ -12,6 +13,7 @@ import { CREDIT_PER_REHEARSAL, PACKS, PLANS, won, type PackId, type PlanId } fro
 export default function Plan() {
   const { user, refresh } = useAuth();
   const toast = useToast();
+  const confirm = useConfirm();
   const contact = useContact();
   const sp = useSearchParams();
   const pick = sp.get('pick'), fromWizard = sp.get('from') === 'wizard';
@@ -40,8 +42,11 @@ export default function Plan() {
     catch (e) { toast((e as Error).message); }
     finally { setBusy(false); }
   }
-  const cancel = () => {
-    if (!confirm(end ? `해지할까요? ${end}까지는 ${cur}를 그대로 쓰고, 그 뒤 Opening(무료)으로 바뀌어요.` : 'Opening(무료)으로 바꿀까요?')) return;
+  const cancel = async () => {
+    const ok = await confirm(end
+      ? { title: `${cur}를 해지할까요?`, body: `${end}까지는 ${cur}를 그대로 쓰고, 그 뒤 Opening(무료)으로 바뀌어요. 그전에 언제든 해지를 취소할 수 있어요.`, ok: '해지하기', cancel: '계속 쓰기', danger: true }
+      : { title: 'Opening(무료)으로 바꿀까요?', ok: '바꾸기' });
+    if (!ok) return;
     act(cancelPlan, end ? `해지를 예약했어요. ${end}까지 ${cur}를 쓸 수 있어요.` : 'Opening(무료)으로 바꿨어요.');
   };
 

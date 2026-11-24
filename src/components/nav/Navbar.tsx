@@ -66,8 +66,9 @@ export function Navbar() {
   };
 
   return (
-    <header className="navbar" data-screen={onLanding ? 'home' : 'page'}>
-      <Link className="brand" href="/" aria-label="Talkstage 홈"><BrandMark /><span>Talkstage</span></Link>
+    <header className="navbar" data-screen={onLanding ? 'home' : 'page'} data-brand={!onLanding && pathname === home ? '' : undefined}>
+      {/* 대시보드(로그인 홈)에선 화면 제목 대신 로고만 */}
+      <Link className="brand" href={home} aria-label={user ? 'Talkstage · 내 리허설' : 'Talkstage 홈'}><BrandMark /><span>Talkstage</span></Link>
       <div className="nav-l">
         {!onLanding && pathname !== home && (
           <button type="button" className="nav-btn" onClick={back}>

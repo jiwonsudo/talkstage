@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter } from '@/lib/nav';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/Confirm';
 import { changePassword, deleteAccount, updateName } from '@/lib/data/profile';
 
 const val = (f: HTMLFormElement, n: string) => String(new FormData(f).get(n) ?? '');
@@ -10,6 +11,7 @@ const val = (f: HTMLFormElement, n: string) => String(new FormData(f).get(n) ?? 
 export default function Account() {
   const { user, refresh } = useAuth();
   const toast = useToast();
+  const confirm = useConfirm();
   const router = useRouter();
   const [pwErr, setPwErr] = useState('');
   const [delErr, setDelErr] = useState('');
@@ -26,7 +28,7 @@ export default function Account() {
       }}>
         <h2>프로필</h2>
         <label className="field"><span>이름</span><input name="name" type="text" maxLength={20} defaultValue={user.name} required /></label>
-        <label className="field"><span>이메일</span><input type="email" value={user.email} disabled /></label>
+        <label className="field field-locked"><span>이메일 <small>로그인에 쓰는 주소라 바꿀 수 없어요</small></span><input type="email" value={user.email} readOnly disabled /></label>
         <button className="btn-fill btn-sm">저장</button>
       </form>
       <form className="hub-card" onSubmit={async (e) => {
@@ -43,8 +45,9 @@ export default function Account() {
       </form>
       <form className="hub-card hub-danger" onSubmit={async (e) => {
         e.preventDefault();
-        if (!confirm('정말 계정을 삭제할까요? 리허설 기록도 함께 지워지고 되돌릴 수 없어요.')) return;
-        try { await deleteAccount(user.email, val(e.currentTarget, 'password')); toast('계정을 삭제했어요.'); router.push('/'); }
+        const form = e.currentTarget;
+        if (!(await confirm({ title: '정말 계정을 삭제할까요?', body: '리허설 기록도 함께 지워지고 되돌릴 수 없어요.', ok: '계정 삭제', danger: true }))) return;
+        try { await deleteAccount(user.email, val(form, 'password')); toast('계정을 삭제했어요.'); router.push('/'); }
         catch (x) { setDelErr((x as Error).message); }
       }}>
         <h2>계정 삭제</h2>

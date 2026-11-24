@@ -3,6 +3,7 @@ import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
 import './globals.css';
 import { AuthProvider } from '@/components/auth/AuthProvider';
 import { ToastProvider } from '@/components/ui/Toast';
+import { ConfirmProvider } from '@/components/ui/Confirm';
 import { Navbar } from '@/components/nav/Navbar';
 import { ContactProvider } from '@/components/contact/ContactProvider';
 import { Suspense } from 'react';
@@ -31,7 +32,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="ko" suppressHydrationWarning>
       <head><script dangerouslySetInnerHTML={{ __html: JS_FLAG + ';' + THEME_SCRIPT }} /></head>
-      <body><ToastProvider><Suspense><AuthProvider><ContactProvider><Navbar /><ScreenTransition /><main>{children}</main></ContactProvider></AuthProvider></Suspense></ToastProvider></body>
+      <body><ToastProvider><ConfirmProvider><Suspense><AuthProvider><ContactProvider><Navbar /><ScreenTransition /><main>{children}</main></ContactProvider></AuthProvider></Suspense></ConfirmProvider></ToastProvider></body>
     </html>
   );
 }

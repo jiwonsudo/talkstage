@@ -30,10 +30,15 @@ export function Teams() {
             <div><span>목표 시간 준수</span><b>82</b><small>%</small></div>
           </div>
           <div className="dash-chart">
-            <svg viewBox="0 0 300 70" preserveAspectRatio="none">
-              <path className="dc-area" d="M0 58 L30 54 L60 56 L90 47 L120 49 L150 40 L180 36 L210 38 L240 28 L270 24 L300 18 V70 H0Z" />
-              <path className="dc-line" d="M0 58 L30 54 L60 56 L90 47 L120 49 L150 40 L180 36 L210 38 L240 28 L270 24 L300 18" />
+            <p className="dash-h">평균 점수 · 주별</p>
+            <div className="dc-plot">
+            <svg viewBox="0 0 300 80" preserveAspectRatio="none">
+              <path className="dc-grid" d="M0 20H300M0 45H300M0 70H300" />
+              <path className="dc-line" d="M0 62 L37.5 58 L75 60 L112.5 51 L150 53 L187.5 44 L225 40 L262.5 36 L300 28" />
             </svg>
+            <span className="dc-dot" style={{ '--x': '100%', '--y': '35%' }}><b>76</b></span>
+            </div>
+            <div className="dc-ticks"><span>1주</span><span>2주</span><span>3주</span><span>4주</span></div>
           </div>
           <p className="dash-h">팀에서 자주 나오는 약점</p>
           <ul className="dash-bars">
