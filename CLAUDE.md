@@ -87,7 +87,7 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
 - 마법사 중간 단계로 바로 들어와도(`?step=N`) 앞 단계 기록을 채워서 뒤로 가기가 이전 단계로 감. 첫 단계(목적 고르기)에서 내비 뒤로는 홈.
 - 목표는 목적별로 다르고 최대 3개. 권장 시간은 목적+목표에 따라 달라짐.
 - 대본 단계: "대본이 없나요?"가 입력칸 위, 예시는 placeholder 로만, 지원 형식 `.txt · .md · .docx` 표시.
-- 히어로 다이얼: 카드 부채꼴, 베젤과 동기화, 잡으면 멈춤, 넓은 화면에선 오른쪽.
+- 히어로 다이얼: 카드 부채꼴, 베젤과 동기화, 잡으면 멈춤, 마우스를 올리면 스프링으로 살짝 튕기며 멈춤(내리면 다시 흐름), 넓은 화면에선 오른쪽.
 - 로고: 네 조각으로 갈라진 말풍선(`ui/BrandMark.tsx`). 모든 모서리 반지름 3 으로 둥글게, 광택은 아주 약하게(너무 글로시하면 안 됨). 마우스를 올리면 조각이 벌어짐.
 
 ## 목적별 비언어 분석(바꿀 때 지킬 것)
@@ -100,12 +100,13 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
 ## 로그인
 
 - 최근 로그인(`lib/auth/lastLogin.ts`, localStorage `ts-last-login`, 비밀번호는 저장 안 함): 이메일이면 로그인 창에 "최근 로그인한 계정" 카드 + 비밀번호만(다른 계정·이 기기에서 기록 지우기), 카카오·Google 이면 그 버튼에 "최근 사용" 말풍선. 소셜은 떠나기 전에 `ts-login-pending` 에 방법을 적고 돌아와서 확정.
-- 소셜로만 가입한 계정(`user.hasPassword === false`)은 비밀번호가 없어서 계정 관리에서 비밀번호 바꾸기 대신 "로그인 방법" 안내, 계정 삭제는 "계정 삭제" 문구 입력으로 확인. 삭제하면 `/api/account` 가 카카오 연결 끊기(`KAKAO_ADMIN_KEY` 있을 때) → 사용자 삭제, 앱은 최근 로그인 기록도 지움. 카카오 프로필 사진은 Supabase 가 항상 요청하는 범위라 동의항목에서 끄면 KOE205 → "선택 동의"로 두고 앱에서는 안 씀.
+- 소셜로만 가입한 계정(`user.hasPassword === false`)은 비밀번호가 없어서 계정 관리에서 비밀번호 바꾸기 대신 "로그인 방법" 안내, 계정 삭제는 버튼 → 확인 창에서 "계정을 삭제하겠습니다" 입력(비밀번호 있는 계정은 비밀번호도, `useAsk` 의 fields/check). 삭제하면 `/api/account` 가 카카오 연결 끊기(`KAKAO_ADMIN_KEY` 있을 때) → 사용자 삭제, 앱은 최근 로그인 기록도 지움. 카카오 프로필 사진은 Supabase 가 항상 요청하는 범위라 동의항목에서 끄면 KOE205 → "선택 동의"로 두고 앱에서는 안 씀.
+- Supabase Site URL 은 운영 주소, Redirect URLs 는 `https://talkstage-three.vercel.app/**`·`http://localhost:5180/**` 처럼 `**` 로(콜백에 `?next=` 가 붙어서 정확히 일치하는 주소만 넣으면 Site URL 로 튕김). 랜딩에 `?code=`·`#error=` 가 남아 돌아오면 `AuthProvider` 가 콜백으로 넘기거나 이유를 보여 줌.
 - 소셜 로그인 취소·실패는 `/?login=1&error=cancelled|social&next=` 로 돌아와 이유를 보여 주고 원래 화면을 기억.
 
 ## UI 디테일 규칙
 
-- `window.alert/confirm/prompt` 금지. 확인은 `useConfirm()`(ui/Confirm) 모달로.
+- `window.alert/confirm/prompt` 금지. 확인은 `useConfirm()`, 입력이 필요한 확인은 `useAsk()`(ui/Confirm, fields·match·check) 모달로.
 - `.seg` 토글에는 `<SegPill />` 을 넣어 고른 칸으로 미끄러지게. 상태가 바뀌는 곳은 뚝 바뀌지 않게 전환 모션을 넣을 것.
 - `<dialog>` 는 열 때 창 자체에 포커스(`tabIndex={-1}` + `focus()`) — 첫 버튼에 파란 포커스 링이 뜨지 않게.
 - 테마 변경은 `setThemeAnimated`(누른 자리에서 원으로 번짐, View Transitions).

@@ -71,6 +71,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => sub.subscription.unsubscribe();
   }, [load]);
 
+  // 로그인 서버가 /auth/callback 대신 사이트 첫 화면으로 돌려보내는 경우(주소 검증 실패·흐름 만료 등)
+  // ?code= 나 #error= 가 랜딩에 그대로 남아 "아무 일도 없던 것처럼" 보여요. 이어받아서 콜백으로 넘기거나 이유를 보여 줘요.
+  useEffect(() => {
+    if (location.pathname !== '/') return;
+    const q = new URLSearchParams(location.search), h = new URLSearchParams(location.hash.slice(1));
+    const code = q.get('code');
+    if (code) { location.replace(`/auth/callback?code=${encodeURIComponent(code)}&next=%2Fme%2Frehearsals`); return; }
+    const err = q.get('error') ?? h.get('error');
+    if (!err || q.get('login') === '1') return;
+    const detail = q.get('error_description') ?? h.get('error_description') ?? '';
+    const why = err === 'access_denied' ? 'cancelled' : /email/i.test(detail) ? 'email' : 'social';
+    location.replace(`/?login=1&error=${why}&next=%2Fme%2Frehearsals`);
+  }, []);
+
   // proxy 가 보낸 ?login=1&next=/... 이면 로그인 창을 열어요. 한 번 닫으면 같은 주소에서는 다시 열지 않아요.
   const urlKey = params.get('login') === '1' ? params.toString() : null;
   const [urlHandled, setUrlHandled] = useState<string | null>(null);
@@ -80,7 +94,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       open: true, mode: 'in', next: params.get('next') ?? undefined,
       reason: params.get('error') === 'cancelled'
         ? '소셜 로그인을 취소했어요. 다른 방법으로 계속하거나 다시 시도해 주세요.'
-        : params.get('error')
+        : params.get('error') === 'email'
+          ? '소셜 계정에서 이메일을 받지 못했어요. 이메일 제공에 동의했는지, 그 계정의 이메일이 인증돼 있는지 확인해 주세요.'
+          : params.get('error')
           ? '소셜 로그인을 마치지 못했어요. 잠시 뒤 다시 시도하거나 이메일로 로그인해 주세요.'
           : '이 화면은 로그인한 뒤에 볼 수 있어요.',
     }
