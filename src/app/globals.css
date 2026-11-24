@@ -2173,3 +2173,14 @@ p, li, .catch-sub, .lead2, .display-sub, small { word-break: keep-all; text-wrap
 @supports (corner-shape: squircle) { .nvd-report { corner-shape: squircle; border-radius: 48px; } }
 @media (prefers-reduced-motion: reduce) { .nvd-in { animation: none; } .nvd-tag::before { animation: none; } }
 .hero-copy .lede, .hero-copy .display-sub { word-break: keep-all; }
+
+/* ───────── OG 이미지 원본(/dev/og, 개발 전용) ───────── */
+.og { position: fixed; inset: 0 auto auto 0; z-index: 10000; width: 1200px; height: 630px; overflow: hidden; background: #f7f8fa; color: #0e0f14; font-family: inherit; }
+.og-brand { position: absolute; left: 80px; top: 70px; display: flex; align-items: center; gap: 13px; font-size: 32px; font-weight: 800; letter-spacing: -0.04em; }
+.og-brand .mark { width: 46px; height: 46px; }
+.og h1 { position: absolute; left: 80px; top: 186px; margin: 0; font-size: 84px; font-weight: 800; line-height: 1.1; letter-spacing: -0.05em; }
+.og h1 em { font-style: normal; color: var(--blue); }
+.og-card { position: absolute; width: 222px; height: 282px; border-radius: 30px; padding: 24px 24px 20px; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 24px 44px -18px rgba(10,10,20,.45); }
+.og-card b { font-size: 29px; font-weight: 800; letter-spacing: -0.035em; line-height: 1.15; }
+.og-card span { font-size: 16px; font-weight: 600; opacity: .8; }
+.og-card > .picto { position: absolute; left: 16%; right: 16%; bottom: 8%; width: 68%; height: auto; }
