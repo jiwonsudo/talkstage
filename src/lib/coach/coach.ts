@@ -157,6 +157,30 @@ const pl = (cat: CatId, dir: string, purposeId: string) => {
 };
 
 // 항목 결과(c)를 받아 코칭 문장과 근거를 반환합니다.
+/** 자세 문제별 조언(analysis 의 REASON_TEXT 키). */
+const POSTURE_ADVICE: Record<string, Record<'seated' | 'standing', string>> = {
+  slouch: {
+    seated: '원고나 화면을 내려다보느라 고개가 앞으로 나와요. 원고는 눈높이 가까이 두고, 등받이에 허리를 붙인 채 어깨를 펴세요.',
+    standing: '원고를 내려다보느라 등이 굽고 고개가 앞으로 나와요. 원고는 가슴 높이로 들고 키워드만 확인한 뒤, 어깨를 편 채 정면을 보며 말하세요.',
+  },
+  shoulderTilt: {
+    seated: '한쪽 팔걸이나 책상에 기대면 어깨가 기울어요. 양팔을 책상 위에 고르게 올리세요.',
+    standing: '체중이 한쪽 다리에 실리면 어깨가 기울어요. 발을 어깨너비로 벌리고 양발에 고르게 서세요.',
+  },
+  headTilt: {
+    seated: '고개가 옆으로 기울면 자신 없어 보일 수 있어요. 카메라를 눈높이에 두고 턱을 수평으로 유지하세요.',
+    standing: '고개가 옆으로 기울면 자신 없어 보일 수 있어요. 턱을 수평으로 두고 청중 쪽을 똑바로 보세요.',
+  },
+  crossed: {
+    seated: '팔짱이나 팔로 몸을 막으면 닫힌 인상을 줘요. 손을 책상 위에 펴서 올려 두세요.',
+    standing: '팔짱이나 팔로 몸을 막으면 닫힌 인상을 줘요. 손은 배꼽 높이에서 가볍게 모으세요.',
+  },
+  offCenter: {
+    seated: '화면 가장자리로 벗어났어요. 녹화 전에 얼굴이 화면 가운데 오도록 자리를 맞추세요.',
+    standing: '화면 가장자리로 벗어났어요. 서 있을 자리를 표시해 두고 그 안에서 움직이세요.',
+  },
+};
+
 export function coachFor(c: CatResult, purpose: Purpose, setup: Setup): Coaching {
   const id = c.id;
   const P = purpose.id;
@@ -235,9 +259,10 @@ export function coachFor(c: CatResult, purpose: Purpose, setup: Setup): Coaching
       out.evidence = ['ambady1993'];
       if (c.score != null && c.score < 80) {
         out.headline = c.extra?.mainIssue ? `${c.extra.mainIssue} 순간이 있어요` : '자세가 흐트러지는 구간이 있어요';
-        out.advice = setup.posture === 'seated'
+        // 가장 오래 보인 문제에 맞는 조언. 문제를 못 고르면(흔들림 등) 자세 기본 조언.
+        out.advice = POSTURE_ADVICE[c.extra?.mainReason as string]?.[setup.posture] ?? (setup.posture === 'seated'
           ? '의자 깊숙이 앉아 등받이에 허리를 붙이고, 정수리를 위에서 실로 당긴다는 느낌으로 앉으세요.'
-          : '발을 어깨너비로 벌려 체중을 양발에 고르게 싣고, 이동할 때는 의도적으로 몇 걸음 옮긴 뒤 멈추세요.';
+          : '발을 어깨너비로 벌려 체중을 양발에 고르게 싣고, 이동할 때는 의도적으로 몇 걸음 옮긴 뒤 멈추세요.');
         out.drill = setup.posture === 'seated'
           ? '녹화 전에 어깨를 귀까지 올렸다 툭 떨어뜨리는 동작을 3번 하고 시작하세요.'
           : '바닥에 테이프로 서 있을 자리를 표시하고, 문단이 바뀔 때만 위치를 옮기세요.';

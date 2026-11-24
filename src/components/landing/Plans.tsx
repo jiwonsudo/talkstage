@@ -1,4 +1,5 @@
 'use client';
+import { SegPill } from '@/components/ui/SegPill';
 import { createContext, useContext, useRef, useState } from 'react';
 
 type Which = 'solo' | 'team';
@@ -16,6 +17,7 @@ export function PlanSwitch() {
     <div className="seg cmp-switch rv" role="tablist" aria-label="요금제 종류">
       <button type="button" role="tab" aria-selected={which === 'solo'} onClick={() => set('solo')}>개인</button>
       <button type="button" role="tab" aria-selected={which === 'team'} onClick={() => set('team')}>대학 · 팀 · 기업</button>
+      <SegPill />
     </div>
   );
 }

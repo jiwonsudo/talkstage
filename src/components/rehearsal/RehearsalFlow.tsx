@@ -246,7 +246,6 @@ export function RehearsalFlow() {
       return (
         <Wizard draft={draft} update={update} step={step} go={go} paid={isPaidPlan(user?.plan)}
           guest={!user} chosen={chosen} mark={mark}
-          onExit={() => router.push('/')}
           onAnalyzeScript={() => signedIn(() => { pushView(stepRef.current, 'script'); setStage('script'); top(); })}
           onRecord={() => signedIn(() => toStudio())} />
       );

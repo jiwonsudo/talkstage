@@ -512,7 +512,7 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
   }
 
   // 자세
-  let goodFrac = null, swayFrac = 0, mainIssue = null, framingPenalty = 0;
+  let goodFrac = null, swayFrac = 0, mainIssue = null, mainReason: string | null = null, framingPenalty = 0;
   if (poseOK) {
     const idx = V.map((f, i) => i).filter((i) => cls[i].bad != null);
     let vals = idx.map((i) => cls[i].bad === true);
@@ -531,7 +531,7 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
       pushIssue({ t0: r.t0, t1: r.t1, cat: 'posture', sev: d >= 8 ? 3 : d >= 5 ? 2 : 1, title: `${REASON_TEXT[top]} 자세`, detail: `${d.toFixed(1)}초 동안 이어졌어요.`, reason: top });
     });
     const topReason = Object.entries(reasonTotals).sort((a, b) => b[1] - a[1])[0]?.[0];
-    if (topReason) mainIssue = `${REASON_TEXT[topReason]} 자세가 보인`;
+    if (topReason) { mainIssue = `${REASON_TEXT[topReason]} 자세가 보인`; mainReason = topReason; }
 
     // 좌우 흔들림
     const P = V.filter((f): f is PoseFrame => f.pose);
@@ -609,7 +609,7 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
   // 자세
   if (goodFrac != null) {
     const s = 100 * goodFrac - Math.min(25, swayFrac * 60) - framingPenalty;
-    mk('posture', clamp(s, 0, 100), null, `${Math.round(goodFrac * 100)}%`, goodFrac, '바른 자세 85% 이상', { swayFrac, mainIssue });
+    mk('posture', clamp(s, 0, 100), null, `${Math.round(goodFrac * 100)}%`, goodFrac, '바른 자세 85% 이상', { swayFrac, mainIssue, mainReason });
   } else mk('posture', null, null, null, null, '');
   // 제스처
   if (gestureRatio != null) {

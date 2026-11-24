@@ -50,12 +50,53 @@ export async function loadVision(): Promise<VisionModels> {
 }
 
 let lastTs = 0;
+/** 얼굴 확대용 캔버스(브라우저에서 처음 쓸 때 만들어요) */
+let zoomCanvas: HTMLCanvasElement | null = null;
+const ZOOM_PX = 320;
+/** 머리 상자가 화면 짧은 변의 이 비율보다 작으면(멀리 서 있음) 확대해서 얼굴을 찾아요 */
+const SMALL_HEAD = 0.42;
+
+/**
+ * 자세 인식으로 찾은 머리 둘레 정사각형(픽셀). 얼굴 인식 모델은 가까운 얼굴(셀카 거리)용이라,
+ * 서서 발표할 때처럼 얼굴이 작게 찍히면 못 찾아요. 그래서 머리 주변만 잘라 키워서 넣어요.
+ */
+function headBox(pose: PoseLandmarkerResult, W: number, H: number) {
+  const lm = pose.landmarks?.[0];
+  if (!lm) return null;
+  const vis = (i: number) => (lm[i].visibility ?? 1) > 0.5;
+  if (!vis(0) || !vis(11) || !vis(12)) return null;
+  const px = (i: number) => ({ x: lm[i].x * W, y: lm[i].y * H });
+  const nose = px(0), ls = px(11), rs = px(12);
+  const shoulder = Math.hypot(ls.x - rs.x, ls.y - rs.y);
+  const ear = vis(7) && vis(8) ? Math.hypot(px(7).x - px(8).x, px(7).y - px(8).y) : 0;
+  const side = Math.max(shoulder * 1.25, ear * 3, 48);
+  const cx = nose.x, cy = nose.y - side * 0.08;
+  return { x: cx - side / 2, y: cy - side / 2, side };
+}
+
 export function detect(models: VisionModels, video: HTMLVideoElement): VisionResult {
   let ts = performance.now();
   if (ts <= lastTs) ts = lastTs + 1;
   lastTs = ts;
   const pose = models.pose.detectForVideo(video, ts);
-  const face = models.face.detectForVideo(video, ts);
+  const W = video.videoWidth, H = video.videoHeight;
+  const box = W && H ? headBox(pose, W, H) : null;
+  if (!box || box.side > Math.min(W, H) * SMALL_HEAD) {
+    return { pose, face: models.face.detectForVideo(video, ts) };
+  }
+  // 멀리 있는 얼굴: 머리 둘레를 잘라 키운 그림에서 찾고, 좌표를 원래 화면 기준으로 되돌려요.
+  zoomCanvas ??= document.createElement('canvas');
+  zoomCanvas.width = zoomCanvas.height = ZOOM_PX;
+  const ctx = zoomCanvas.getContext('2d');
+  if (!ctx) return { pose, face: models.face.detectForVideo(video, ts) };
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, ZOOM_PX, ZOOM_PX);
+  ctx.drawImage(video, box.x, box.y, box.side, box.side, 0, 0, ZOOM_PX, ZOOM_PX);
+  const f = models.face.detectForVideo(zoomCanvas, ts);
+  const face: FaceLandmarkerResult = {
+    ...f,
+    faceLandmarks: f.faceLandmarks.map((pts) => pts.map((p) => ({ ...p, x: (box.x + p.x * box.side) / W, y: (box.y + p.y * box.side) / H }))),
+  };
   return { pose, face };
 }
 

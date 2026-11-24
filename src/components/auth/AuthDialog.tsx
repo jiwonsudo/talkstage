@@ -1,4 +1,5 @@
 'use client';
+import { SegPill } from '@/components/ui/SegPill';
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase/client';
@@ -44,6 +45,7 @@ export function AuthDialog({ open, mode: initialMode, reason, next, onClose, onS
     if (open && !d.open) {
       setMode(initialMode); setErr(''); setNote(''); formRef.current?.reset();
       d.showModal();
+      d.focus(); // 첫 포커스를 닫기 버튼이 아니라 창에(버튼 둘레 파란 테두리 방지)
     } else if (!open && d.open) {
       setClosing(true);
       setTimeout(() => { setClosing(false); d.close(); }, 220);
@@ -110,6 +112,7 @@ export function AuthDialog({ open, mode: initialMode, reason, next, onClose, onS
     <dialog
       ref={ref}
       className={`auth${closing ? ' closing' : ''}`}
+      tabIndex={-1}
       aria-labelledby="authTitle"
       onCancel={(e) => { e.preventDefault(); onClose(); }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -119,11 +122,12 @@ export function AuthDialog({ open, mode: initialMode, reason, next, onClose, onS
         <button type="button" className="dlg-x" aria-label="닫기" onClick={onClose}>
           <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" /></svg>
         </button>
-        <h2 id="authTitle">{up ? '회원가입' : '로그인'}</h2>
+        <h2 id="authTitle"><span key={mode} className="swap-in">{up ? '회원가입' : '로그인'}</span></h2>
         <p className="auth-sub">{reason ?? DEFAULT_SUB}</p>
         <div className="seg" role="tablist" aria-label="로그인 또는 회원가입">
           <button type="button" role="tab" aria-selected={!up} onClick={() => { setMode('in'); setErr(''); }}>로그인</button>
           <button type="button" role="tab" aria-selected={up} onClick={() => { setMode('up'); setErr(''); }}>회원가입</button>
+          <SegPill />
         </div>
         {!supabaseReady && (
           <p className="soc-note">로그인 서버(Supabase)가 아직 연결되지 않았어요. <code>.env.local</code>에 프로젝트 URL과 공개 키를 넣어 주세요.</p>
@@ -139,14 +143,17 @@ export function AuthDialog({ open, mode: initialMode, reason, next, onClose, onS
           </div>
           <div className="or"><span>또는 이메일로</span></div>
         </div>
-        {up && (
-          <label className="field"><span>이름</span><input name="name" autoComplete="name" placeholder="홍길동" /></label>
-        )}
-        <label className="field"><span>이메일</span><input name="email" type="email" autoComplete="email" placeholder="name@example.com" required /></label>
+        {/* 회원가입일 때만 이름 칸이 부드럽게 펼쳐져요(높이·투명도 전환). 접히면 틈도 0 이 되게 이메일 칸과 한 묶음 */}
+        <div className="fold-group">
+          <div className="fold" data-open={up} aria-hidden={!up}>
+            <div><label className="field"><span>이름</span><input name="name" autoComplete="name" placeholder="홍길동" disabled={!up} /></label></div>
+          </div>
+          <label className="field"><span>이메일</span><input name="email" type="email" autoComplete="email" placeholder="name@example.com" required /></label>
+        </div>
         <label className="field"><span>비밀번호</span><input name="password" type="password" autoComplete={up ? 'new-password' : 'current-password'} placeholder="8자 이상" required /></label>
         <p className="auth-err" role="alert">{err}</p>
         {note && <p className="soc-note" role="status">{note}</p>}
-        <button type="submit" className="btn-fill btn-block" disabled={busy || !supabaseReady}>{up ? '가입하고 시작하기' : '로그인'}</button>
+        <button type="submit" className="btn-fill btn-block" disabled={busy || !supabaseReady}><span key={mode} className="swap-in">{up ? '가입하고 시작하기' : '로그인'}</span></button>
       </form>
     </dialog>
   );

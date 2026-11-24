@@ -1,4 +1,4 @@
-import { NvFrame } from './NvFrame';
+import { NvDemo } from './NvDemo';
 
 export function Nonverbal() {
   return (
@@ -24,31 +24,7 @@ export function Nonverbal() {
         <p>소리를 끈 <em>30초</em>짜리 강의 영상만 보고도,<br />사람들은 학기 말 강의 평가를 꽤 정확하게 맞혔어요.</p>
         <cite>Ambady &amp; Rosenthal, 1993 · ‘thin slices’ 연구</cite>
       </blockquote>
-      <p className="nv-try rv">직접 확인해 보세요. 두 영상 모두 소리를 껐어요.</p>
-      <div className="nv-pair">
-        <figure className="nv-vid nv-a rv">
-          <NvFrame src="/media/nv-a.mp4">
-            <div className="nv-empty"><span>예시 영상 자리</span><small>media/nv-a.mp4</small></div>
-          </NvFrame>
-          <figcaption><b>대본만 읽은 발표</b><span>같은 내용, 같은 사람</span></figcaption>
-          <ul className="nv-meter">
-            <li style={{ '--c': 'var(--blue)' }}><b>시선</b>렌즈 22%</li>
-            <li style={{ '--c': 'var(--green)' }}><b>자세</b>기울기 8°</li>
-            <li style={{ '--c': 'var(--orange)' }}><b>손</b>움직임 없음</li>
-          </ul>
-        </figure>
-        <figure className="nv-vid nv-b rv">
-          <NvFrame src="/media/nv-b.mp4">
-            <div className="nv-empty"><span>예시 영상 자리</span><small>media/nv-b.mp4</small></div>
-          </NvFrame>
-          <figcaption><b>전달한 발표</b><span>Talkstage 코칭 세 번 뒤</span></figcaption>
-          <ul className="nv-meter">
-            <li style={{ '--c': 'var(--blue)' }}><b>시선</b>렌즈 71%</li>
-            <li style={{ '--c': 'var(--green)' }}><b>자세</b>수평</li>
-            <li style={{ '--c': 'var(--orange)' }}><b>손</b>강조 3회</li>
-          </ul>
-        </figure>
-      </div>
+      <NvDemo />
     </section>
   );
 }

@@ -49,7 +49,7 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
   - `landing/` 서버 컴포넌트 섹션 + 작은 클라이언트 아일랜드(`HeroDial`, `Timeline`, `NvFrame`, `Plans`, `Reveal`, `actions.tsx`)
   - `auth/` `AuthProvider`(useAuth, requireAuth, 로그인 모달 상태), `AuthDialog`
   - `rehearsal/` `Wizard`, `ScriptCheck`, `Studio`(카메라·녹화), `Report`
-  - `ui/` `BrandMark`(로고), `Picto`, `Toast`, `PatternArt`
+  - `ui/` `BrandMark`(로고), `Picto`, `Toast`, `PatternArt`, `Confirm`(useConfirm, window.confirm 대신), `SegPill`(.seg 토글 알약)
 - `src/lib`
   - `coach/` 분석 엔진: `audio`, `vision`, `analysis`(점수·문제 구간·하이라이트), `coach`(코칭 문구·근거), `script`(대본 분석·읽기), `timeline`, `media`
   - `rehearsal/draft.ts` 마법사 설정(localStorage `rc-setup-v2`) → `toSetup()`
@@ -61,7 +61,7 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
 ## 제품 규칙(이미 구현됨, 바꿀 때 지킬 것)
 
 - 리허설 설정(마법사)은 로그인 없이 고를 수 있고, 첫 단계에 "녹화할 때 로그인" 안내를 띄움. 마지막 단계 버튼("로그인하고 녹화 준비/대본 분석하기")에서 로그인 모달 → 로그인 후 그대로 이어감(소셜 로그인은 `?step=5&resume=1` 로 돌아옴). `/me` 만 proxy 가 막음.
-- 마법사: 지난 설정·기본값은 체크로 안 보여 줌(이번에 직접 고른 단계만 체크). 단계마다 history 를 쌓아서 내비 뒤로 화살표·폰 뒤로 가기가 이전 단계로 감. "그만두기"는 홈으로. 로그인 후 내비: "새 리허설 +" CTA + 메뉴(내 리허설 / 계정 관리 / 요금제 관리 / 지원 받기 / 로그아웃).
+- 마법사: 지난 설정·기본값은 체크로 안 보여 줌(이번에 직접 고른 단계만 체크). 단계마다 history 를 쌓아서 내비 뒤로 화살표·폰 뒤로 가기가 이전 단계로 감. 그만두기 버튼은 없음(내비의 홈 버튼 사용). 로그인 후 내비: "새 리허설 +" CTA + 메뉴(내 리허설 / 계정 관리 / 요금제 관리 / 지원 받기 / 로그아웃).
 - 요금제: Opening 36크레딧(무료), Spotlight 120(월 4,900원, 연 3,900원), Headliner 360(월 9,900원, 연 7,900원), 대학·팀·기업 단체 요금제는 문의. 리허설 1회 = 12크레딧.
 - 결제(토스페이먼츠 결제위젯, 지금은 테스트 키 `test_gck`/`test_gsk`): 회차 구매만(3회 36크레딧 1,500원, 6회 72크레딧 2,500원 — `plans.ts` `PACKS` 와 SQL `pack_info()` 둘 다). 금액은 DB 가 정하고, `/api/payments/confirm` 이 DB 금액과 대조 → 토스 승인(멱등 키 `confirm-{orderId}`) → `complete_order()`(service_role 만). 산 크레딧은 매달 초기화 안 되고, 이번 달 크레딧을 먼저 씀. 환경 변수 `NEXT_PUBLIC_TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY`(NEXT_PUBLIC_ 금지) — Vercel 에도 넣어 둠. 사업자등록 전이라 실결제(live 키) 불가.
 - 월 요금제 정기결제(토스 자동결제·빌링): 결제위젯 키가 아니라 **API 개별 연동 키**(`NEXT_PUBLIC_TOSS_BILLING_CLIENT_KEY`=test_ck, `TOSS_BILLING_SECRET_KEY`=test_sk). `/me/subscribe?plan=` 에서 카드 등록(`requestBillingAuth`) → `/me/subscribe/success` → `/api/billing/start` 가 빌링키 발급·저장 후 결제(금액은 SQL `sub_new_payment`, 업그레이드는 남은 날만큼 차감). 토스는 자동으로 매달 결제하지 않아서 Vercel Cron(`vercel.json`, 매일 UTC 0시)이 `/api/billing/cron`(Bearer `CRON_SECRET`)을 불러 결제일 지난 구독을 결제. 실패하면 하루 한 번 3번까지 재시도 후 Opening. 해지는 예약(기간 끝까지 사용), 낮은 유료 요금제는 다음 결제일부터. 빌링키는 서버 전용 표에만, 계정 삭제 때 토스에서도 지움. 가격을 바꾸면 `plans.ts` `PLAN_PRICE` 와 SQL `plan_price()` 둘 다. 연 결제는 아직 없음.
@@ -76,6 +76,18 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
 - 대본 단계: "대본이 없나요?"가 입력칸 위, 예시는 placeholder 로만, 지원 형식 `.txt · .md · .docx` 표시.
 - 히어로 다이얼: 카드 부채꼴, 베젤과 동기화, 잡으면 멈춤, 넓은 화면에선 오른쪽.
 - 로고: 네 조각으로 갈라진 말풍선(`ui/BrandMark.tsx`). 모든 모서리 반지름 3 으로 둥글게, 광택은 아주 약하게(너무 글로시하면 안 됨). 마우스를 올리면 조각이 벌어짐.
+
+## UI 디테일 규칙
+
+- `window.alert/confirm/prompt` 금지. 확인은 `useConfirm()`(ui/Confirm) 모달로.
+- `.seg` 토글에는 `<SegPill />` 을 넣어 고른 칸으로 미끄러지게. 상태가 바뀌는 곳은 뚝 바뀌지 않게 전환 모션을 넣을 것.
+- `<dialog>` 는 열 때 창 자체에 포커스(`tabIndex={-1}` + `focus()`) — 첫 버튼에 파란 포커스 링이 뜨지 않게.
+- 테마 변경은 `setThemeAnimated`(누른 자리에서 원으로 번짐, View Transitions).
+
+## 랜딩 실제 분석 예시
+
+- `landing/NvDemo`: `public/media/nv-a|nv-b.mp4`(AI로 만든 영상, 워터마크 없게 가운데 576×720 으로 자름)을 누르면 프레임별 인식(`nv-*.track.json`)을 겹쳐 그리고 리포트 요약(`landing/demoData.ts`)을 보여 줌. 수치·문구는 앱과 같은 분석 코드로 원본 영상을 실제로 돌린 결과 — 손으로 고치지 말고, 분석 코드를 바꾸면 다시 뽑을 것(좌표는 x' = (x·1280−352)/576). "AI 영상이지만 실제 분석" 문구는 지우지 말 것.
+- 얼굴이 작게 찍히면(서서 발표) `vision.detect` 가 자세로 찾은 머리 둘레를 확대해서 얼굴 인식에 넣음.
 
 ## 이미 겪은 함정
 
@@ -92,5 +104,4 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
 - [ ] 로그인한 사용자로 기록 저장·크레딧 차감·삭제·문의 저장 실제 확인 (이메일 가입, Confirm email 켜져 있음)
 - [ ] 실제 카메라로 녹화 → 리포트 전체 흐름 확인(StrictMode 카메라 정리 수정 포함)
 - [ ] 카카오·Google OAuth: 각 콘솔에서 앱 만들고 Supabase Providers 에 키 등록
-- [ ] 랜딩 예시 영상 `public/media/nv-a.mp4`, `nv-b.mp4` 없음(지금은 "예시 영상 자리" 표시, 404)
 - [ ] 단체 문의 폼은 localStorage(`rc-leads-v1`)에만 저장됨 → 서버 저장 필요

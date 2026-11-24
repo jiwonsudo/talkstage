@@ -646,9 +646,42 @@ table.self { width: 100%; border-collapse: collapse; font-size: 14px; min-width:
 .dlg-x { position: absolute; top: -78px; right: 16px; width: 38px; height: 38px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .92); color: #111; display: grid; place-items: center; transition: transform .3s var(--spring); }
 .dlg-x:hover { transform: rotate(90deg); }
 .dlg-x svg { width: 18px; height: 18px; }
+.dlg-x:focus { outline: none; }
+.dlg-x:focus-visible { box-shadow: 0 0 0 3px color-mix(in oklab, var(--ink) 30%, transparent); }
+.auth:focus, .cfm:focus { outline: none; }
+/* 로그인 ↔ 회원가입: 바뀐 글자는 살짝 올라오며 나타나고, 이름 칸은 높이째 펼쳐져요 */
+.swap-in { display: inline-block; animation: swap-in .35s var(--ease); }
+@keyframes swap-in { from { opacity: 0; transform: translateY(6px); filter: blur(2px); } }
+.fold-group { display: flex; flex-direction: column; }
+.fold { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .4s var(--ease), opacity .3s var(--ease); }
+.fold > div { min-height: 0; overflow: hidden; }
+.fold > div > .field { padding-bottom: 12px; }
+.fold[data-open="true"] { grid-template-rows: 1fr; opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .swap-in { animation: none; } .fold { transition: none; } }
+
+/* 확인 창(ui/Confirm, window.confirm 대신) */
+.cfm { width: min(400px, calc(100vw - 32px)); padding: 0; border: 0; border-radius: var(--r-xl); background: var(--surface); color: var(--ink); box-shadow: 0 40px 80px -20px rgba(10, 10, 20, .45); }
+.cfm[open] { animation: dlg-in .45s var(--spring); }
+.cfm.closing { animation: dlg-out .2s ease-in forwards; }
+.cfm::backdrop { background: rgba(12, 12, 20, .45); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); animation: fade .3s ease; }
+.cfm.closing::backdrop { animation: fade .2s ease reverse forwards; }
+.cfm-box { padding: 26px 26px 22px; display: grid; gap: 10px; }
+.cfm h2 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.03em; word-break: keep-all; }
+.cfm-body { margin: 0; font-size: 14px; line-height: 1.6; color: var(--ink-2); word-break: keep-all; }
+.cfm-act { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.cfm-act button { margin: 0; }
+.cfm-danger { background: var(--danger) !important; color: #fff !important; }
+@supports (corner-shape: squircle) { .cfm { corner-shape: squircle; border-radius: 44px; } }
 .auth h2 { font-size: 28px; font-weight: 800; letter-spacing: -0.04em; }
 .auth-sub { color: var(--ink-2); font-size: 14px; margin-top: -6px; }
 .seg { display: grid; grid-template-columns: 1fr 1fr; padding: 4px; border-radius: 999px; background: var(--surface-2); margin: 4px 0; }
+/* 고른 칸으로 미끄러지는 알약(ui/SegPill). 알약이 있으면 버튼 배경은 투명하게 */
+.seg { position: relative; isolation: isolate; }
+.seg-pill { position: absolute; top: 4px; bottom: 4px; left: 0; width: 0; border-radius: 999px; background: var(--surface); box-shadow: var(--shadow); z-index: -1; pointer-events: none; }
+.seg-pill[data-ready] { transition: transform .45s var(--spring), width .45s var(--spring); }
+.seg:has(> .seg-pill) > button[aria-selected="true"], .seg:has(> .seg-pill) > button[aria-checked="true"] { background: transparent !important; box-shadow: none !important; }
+.seg button { position: relative; }
+@media (prefers-reduced-motion: reduce) { .seg-pill[data-ready] { transition: none; } }
 .seg button { border: 0; background: transparent; height: 38px; border-radius: 999px; font-weight: 700; font-size: 14px; color: var(--ink-2); transition: background .25s, color .25s, box-shadow .25s; }
 .seg button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
 .field { display: grid; gap: 6px; }
@@ -1785,6 +1818,7 @@ p, li, .catch-sub, .lead2, .display-sub, small { word-break: keep-all; text-wrap
 
 .menu-row { display: contents; }
 
+
 /* 시선·자세·손 수치: 영상 위가 아니라 캡션 아래 한 줄로, 작게 */
 .nv-meter { position: static; margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; }
 .nv-meter li { display: inline-flex; align-items: center; gap: 5px; padding: 0; border: 0; border-radius: 0; background: none; font-size: 13px; font-weight: 700; color: var(--ink); white-space: nowrap; }
@@ -1942,3 +1976,65 @@ p, li, .catch-sub, .lead2, .display-sub, small { word-break: keep-all; text-wrap
 .sub-other { justify-self: center; }
 .pay-wait-line { margin: 20px 0 0; font-size: 14px; color: var(--ink-3); }
 @supports (corner-shape: squircle) { .sub-box { corner-shape: squircle; border-radius: 40px; } }
+
+/* 테마 전환: 누른 자리에서 새 테마가 원으로 번져요(lib/theme setThemeAnimated) */
+::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+
+/* ───── 랜딩 실제 분석 예시(landing/NvDemo) ───── */
+.nvd-pick { all: unset; box-sizing: border-box; display: grid; gap: 10px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.nvd-pick .nv-frame { display: block; transition: box-shadow .35s var(--ease), transform .35s var(--spring), filter .35s; }
+.nv-b .nv-frame { box-shadow: none; }
+.nvd-pick[aria-pressed="false"] .nv-frame { filter: saturate(.55) brightness(.85); }
+.nvd-pick[aria-pressed="false"]:hover .nv-frame { filter: none; transform: translateY(-3px); }
+.nvd-pick[aria-pressed="true"] .nv-frame { box-shadow: 0 0 0 4px var(--blue), 0 24px 48px -20px color-mix(in oklab, var(--blue) 60%, transparent); }
+.nvd-pick:focus-visible .nv-frame { outline: 3px solid var(--ink); outline-offset: 4px; }
+.nvd-ov { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.nvd-live, .nvd-tag { opacity: 0; transition: opacity .3s; }
+.nvd-pick[aria-pressed="true"] .nvd-live, .nvd-pick[aria-pressed="true"] .nvd-tag { opacity: 1; }
+.nvd-tag { position: absolute; left: 10px; top: 10px; padding: 5px 9px; border-radius: 9px; background: rgba(0,0,0,.6); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: -0.01em; backdrop-filter: blur(6px); }
+.nvd-tag::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--red); vertical-align: 1px; animation: nvd-rec 1.2s ease-in-out infinite; }
+@keyframes nvd-rec { 50% { opacity: .25; } }
+.nvd-live { position: absolute; left: 10px; right: 10px; bottom: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+.nvd-live i { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 9px; background: rgba(0,0,0,.6); color: #fff; font-style: normal; font-size: 12px; font-weight: 700; backdrop-filter: blur(6px); border-left: 3px solid var(--red); transition: border-color .2s; }
+.nvd-live i[data-ok="true"] { border-left-color: var(--green); }
+.nvd-live b { font-weight: 600; opacity: .7; }
+.nvd-cap { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 2px 8px; text-align: center; }
+.nvd-cap b { font-size: 16px; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); transition: color .3s; }
+.nvd-cap small { font-size: 12px; color: var(--ink-3); }
+.nvd-pick[aria-pressed="true"] .nvd-cap b { color: var(--blue); }
+
+.nvd-report { max-width: 680px; margin: 22px auto 0; border-radius: var(--r-xl); background: var(--surface); box-shadow: var(--shadow); overflow: hidden; }
+.nvd-in { padding: clamp(20px, 3.2vw, 30px); display: grid; gap: 18px; animation: swap-in .4s var(--ease); }
+.nvd-head { display: grid; gap: 4px; }
+.nvd-kicker { font-size: 12px; font-weight: 800; color: var(--blue); }
+.nvd-head h3 { margin: 0; font-size: clamp(20px, 2.4vw, 24px); font-weight: 800; letter-spacing: -0.03em; }
+.nvd-disc { margin: 4px 0 0; padding: 8px 12px; border-radius: 12px; background: var(--surface-2); font-size: 12.5px; line-height: 1.5; color: var(--ink-2); word-break: keep-all; }
+.nvd-scores { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.nvd-scores li { display: grid; gap: 2px; padding: 12px; border-radius: 16px; background: var(--surface-2); border-top: 3px solid var(--c); }
+.nvd-scores span { font-size: 12px; font-weight: 700; color: var(--ink-2); }
+.nvd-scores b { font-size: 26px; font-weight: 800; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.nvd-scores li[data-status="bad"] b { color: var(--danger); }
+.nvd-scores li[data-status="warn"] b { color: var(--orange); }
+.nvd-scores small { font-size: 11px; color: var(--ink-3); line-height: 1.35; }
+.nvd-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.nvd-cols h4 { margin: 0 0 8px; font-size: 13px; font-weight: 800; color: var(--ink-3); }
+.nvd-tips { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+.nvd-tips li { display: grid; gap: 3px; padding-left: 12px; border-left: 3px solid var(--c); }
+.nvd-tips b { font-size: 14px; font-weight: 800; letter-spacing: -0.02em; word-break: keep-all; }
+.nvd-tips span { font-size: 13px; line-height: 1.55; color: var(--ink-2); word-break: keep-all; }
+.nvd-issues { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.nvd-issues button { all: unset; box-sizing: border-box; width: 100%; display: grid; gap: 2px; padding: 10px 12px; border-radius: 14px; background: var(--surface-2); border-left: 3px solid var(--c); cursor: pointer; transition: transform .25s var(--spring), background .2s; }
+.nvd-issues button:hover { transform: translateX(3px); }
+.nvd-issues button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.nvd-issues em { font-style: normal; font-size: 11px; font-weight: 800; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.nvd-issues b { font-size: 13.5px; font-weight: 800; }
+.nvd-issues small { font-size: 12px; color: var(--ink-2); }
+.nvd-none { margin: 0; font-size: 13px; color: var(--ink-2); }
+.nvd-foot { margin: 0; padding-top: 14px; border-top: 1px solid var(--line); font-size: 12px; line-height: 1.55; color: var(--ink-3); word-break: keep-all; }
+@media (max-width: 640px) {
+  .nvd-scores { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .nvd-cols { grid-template-columns: 1fr; }
+  .nvd-live i { font-size: 10.5px; padding: 4px 7px; } .nvd-tag { font-size: 10px; }
+}
+@supports (corner-shape: squircle) { .nvd-report { corner-shape: squircle; border-radius: 48px; } .nvd-scores li, .nvd-issues button { corner-shape: squircle; border-radius: 22px; } }
+@media (prefers-reduced-motion: reduce) { .nvd-in { animation: none; } .nvd-tag::before { animation: none; } }

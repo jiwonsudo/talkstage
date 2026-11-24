@@ -1,6 +1,7 @@
 'use client';
+import { SegPill } from '@/components/ui/SegPill';
 import { useState } from 'react';
-import { getTheme, setTheme, type Theme } from '@/lib/theme';
+import { getTheme, setThemeAnimated, type Theme } from '@/lib/theme';
 
 const OPTIONS: { id: Theme; label: string }[] = [
   { id: 'system', label: '시스템 설정' },
@@ -16,8 +17,13 @@ export function ThemePicker() {
       <h2>화면 테마</h2>
       <div className="seg seg-3" role="radiogroup" aria-label="화면 테마">
         {OPTIONS.map((o) => (
-          <button key={o.id} type="button" role="radio" aria-checked={cur === o.id} onClick={() => { setTheme(o.id); setCur(o.id); }}>{o.label}</button>
+          <button key={o.id} type="button" role="radio" aria-checked={cur === o.id} onClick={(e) => {
+            const b = e.currentTarget.getBoundingClientRect();
+            setThemeAnimated(o.id, e.clientX || b.left + b.width / 2, e.clientY || b.top + b.height / 2);
+            setCur(o.id);
+          }}>{o.label}</button>
         ))}
+        <SegPill />
       </div>
       <p className="hub-hint">시스템 설정을 고르면 기기의 라이트·다크 모드를 그대로 따라가요. 이 기기에만 저장돼요.</p>
     </section>

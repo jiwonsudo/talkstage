@@ -30,13 +30,12 @@ type Props = {
   chosen: ReadonlySet<StepId>;
   /** id 를 골랐다고 표시하고, drop 에 있는 단계(앞의 선택에 따라 바뀌는 단계)는 다시 고르게 해요. */
   mark: (id: StepId, drop?: StepId[]) => void;
-  onExit: () => void;
   onAnalyzeScript: () => void;
   onRecord: () => void;
 };
 type ChoiceProps = Pick<Props, 'draft' | 'update' | 'go' | 'paid' | 'chosen' | 'mark'>;
 
-export function Wizard({ draft, update, step, go, paid, guest, chosen, mark, onExit, onAnalyzeScript, onRecord }: Props) {
+export function Wizard({ draft, update, step, go, paid, guest, chosen, mark, onAnalyzeScript, onRecord }: Props) {
   const id = STEPS[step];
   const [dir, setDir] = useState(1);
   const prev = useRef(step);
@@ -48,9 +47,6 @@ export function Wizard({ draft, update, step, go, paid, guest, chosen, mark, onE
         <div className="wiz-progress">
           <div className="wiz-bar"><i style={{ width: `${((step + 1) / STEPS.length) * 100}%`, '--f': (step + 1) / STEPS.length }} /></div>
           <span>{step + 1}/{STEPS.length}</span>
-          <button type="button" className="wiz-exit" onClick={onExit}>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>그만두기
-          </button>
         </div>
         {guest && step === 0 && <p className="wiz-note wiz-guest">설정은 로그인 없이 골라 볼 수 있어요. 녹화를 시작할 때 로그인해 주세요.</p>}
         <div aria-live="polite" key={id} className={`step ${dir < 0 ? 'from-left' : 'from-right'}`}>

@@ -8,6 +8,7 @@ import type { Rehearsal } from '@/lib/data/types';
 import { CATS, PURPOSE_BY_ID } from '@/lib/scenarios';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/Confirm';
 import { RehearsalCell } from '@/components/me/RehearsalCell';
 
 const RECENT = 10; // 평균·항목별 점수는 최근 10회로 봐요
@@ -22,6 +23,7 @@ const day = (iso: string) => new Date(iso).toLocaleDateString('ko-KR', { month: 
 export default function MyRehearsals() {
   const router = useRouter();
   const toast = useToast();
+  const confirm = useConfirm();
   const { user } = useAuth();
   const credits = useCredits(user);
   const [rows, setRows] = useState<Rehearsal[] | null>(null);
@@ -32,7 +34,7 @@ export default function MyRehearsals() {
 
   async function remove(h: Rehearsal) {
     const name = h.topic || PURPOSE_BY_ID[h.purpose_id]?.label || '발표';
-    if (!confirm(`‘${name}’ 기록을 지울까요? 되돌릴 수 없고, 이미 쓴 크레딧도 돌아오지 않아요.`)) return;
+    if (!(await confirm({ title: `‘${name}’ 기록을 지울까요?`, body: '되돌릴 수 없고, 이미 쓴 크레딧도 돌아오지 않아요.', ok: '지우기', danger: true }))) return;
     try { await deleteRehearsal(h.id); setRows((r) => r?.filter((x) => x.id !== h.id) ?? null); toast('기록을 지웠어요.'); }
     catch { toast('기록을 지우지 못했어요.'); }
   }

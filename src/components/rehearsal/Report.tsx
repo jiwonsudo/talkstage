@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Picto } from '@/components/ui/Picto';
-import { outcomeWeight, pickOutcomes, type Analysis } from '@/lib/coach/analysis';
+import { outcomeWeight, pickOutcomes, REASON_TEXT, type Analysis } from '@/lib/coach/analysis';
 import { coachFor, EVIDENCE, NOT_USED, selfCompare, type Coaching } from '@/lib/coach/coach';
 import { download, fixDuration, makeThumbs, pickMime, seekTo } from '@/lib/coach/media';
 import { drawTimeline, TL_HEIGHT, timeAt } from '@/lib/coach/timeline';
@@ -90,7 +90,7 @@ export function Report({ result: R, videoURL, setup, purpose, prev, history, onR
     if (h.cat === 'pause' && t.includes('끊김')) extra.longRuns = 0;
     if (h.cat === 'tone' && t.includes('말끝')) { extra.fadeHigh = true; extra.fadeRatio = extra.fadeRatio ?? 0.3; }
     if (h.cat === 'gaze' && t.includes('아래')) extra.downRatio = 1;
-    if (h.cat === 'posture') extra.mainIssue = `${t.replace(/ 자세$/, '')} 자세가 보인`;
+    if (h.cat === 'posture') { extra.mainIssue = `${t.replace(/ 자세$/, '')} 자세가 보인`; extra.mainReason = Object.entries(REASON_TEXT).find(([, v]) => t.startsWith(v))?.[0] ?? null; }
     return coachFor({ ...c, dir, score: Math.min(c.score ?? 70, 70), extra }, purpose, setup);
   }, [cats, purpose, setup]);
 
