@@ -54,7 +54,7 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
   - `/me/rehearsals` 내 리허설 대시보드(사이드바 없음, 로그인하면 여기로). 기록은 제목(`topic`, 마법사 마지막 단계에서 입력, 비우면 "{상황} 리허설")별로 묶고 `/me/rehearsals/[title]` 에서 회차별 점수 비교·"이 발표 다시 연습"(`?title=`). `/me/(settings)/account|plan|support|settings` 설정(왼쪽 사이드바, 구분선 아래 톱니바퀴 "설정" = 화면 테마 시스템/라이트/다크, localStorage `ts-theme`). 랜딩에는 최근 기록 없음
   - `/dev/showtest` 보여 주기 감지 합성 테스트(개발 전용): 가리키기·복귀·가로지름·얼굴 가림·잦음·오탐(손 모음·흔들기) 시나리오. `showing.ts` 를 바꾸면 결과가 그대로인지 볼 것
   - `/dev/og` OG 이미지 원본(개발 전용)
-  - `/dev/promo` 30초 광고 원본(개발 전용, 1920×1080, 밝은 배경). "정답은 상황마다 다르다" → 1회→4회 나아짐(nv-a→nv-b 실제 분석 값) → 행동 유도. 음악은 `node scripts/promo-beat.mjs out.wav`(직접 만든 딥 하우스 120BPM, 한 마디 2초) — 컷은 마디 첫 박, 등장은 박자 단위라 템포를 바꾸면 화면 타이밍도 같이. `?render=1` + `window.__seek(t)` 로 프레임마다 캡처 → ffmpeg 로 음악과 합쳐 mp4
+  - `/dev/promo` 30초 광고 원본(개발 전용, 1920×1080, 밝은 배경). "정답은 상황마다 다르다" → 1회→4회 나아짐(nv-a→nv-b 실제 분석 값) → 행동 유도. 음악은 `node scripts/promo-beat.mjs out.wav`(직접 만든 딥 하우스 120BPM, 한 마디 2초) — 컷은 마디 첫 박, 등장은 박자 단위라 템포를 바꾸면 화면 타이밍도 같이. `?render=1` + `window.__seek(t)` 로 프레임마다 캡처 → ffmpeg 로 음악과 합쳐 mp4. `?v=1` 은 세로(1080×1920) 버전(폰 랜딩·릴스·쇼츠, 배치는 promo.css `.vert`)
   - `/dev/eval` 정확도 검증(개발 서버 전용, 배포는 404): 영상 + 같은 이름 정답 .json → 앱과 같은 코드로 분석해 정답과 비교. 합격선은 `lib/eval/compare.ts`, 실행은 `lib/eval/run.ts`(첫 3초는 조용히 렌즈 보기)
   - `/auth/callback` OAuth 코드 교환, `/api/account` 계정 삭제(secret key, 서버 전용)
 - `src/components`
@@ -119,6 +119,8 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
 - OG·트위터 이미지: `src/app/opengraph-image.png`·`twitter-image.png`(1200×630). 원본은 개발 전용 `/dev/og`(랜딩 카드·Picto 그대로) — 고치면 `.og` 요소를 캡처해 두 파일 교체. **카드에 URL·설명 문구 넣지 말 것**(주소는 바뀔 수 있음). `metadataBase` 는 `layout.tsx`.
 
 ## 랜딩 실제 분석 예시
+
+- `landing/PromoFilm`(히어로 바로 아래): 30초 광고를 소리 끈 채 반복 재생 + "소리 켜기". 스크롤하면 고정된 무대에서 카드가 화면을 채우고(바깥은 블러) 지나가면 다시 작아짐. 폰 세로는 `promo-v.mp4`(9:16), 나머지는 `promo-1080/720.mp4`(16:9), 포스터 `promo.jpg`·`promo-v.jpg`. `/dev/promo` 를 고치면 다시 렌더해서 이 파일들(crf 25–26, faststart)도 교체. "AI로 만든 예시 영상 · 점수는 실제 분석" 문구는 지우지 말 것.
 
 - `landing/NvDemo`: `public/media/nv-a|nv-b.mp4`(AI로 만든 영상, 워터마크 없게 가운데 576×720 으로 자름)을 누르면 프레임별 인식(`nv-*.track.json`)을 겹쳐 그리고 리포트 요약(`landing/demoData.ts`)을 보여 줌. 수치·문구는 앱과 같은 분석 코드로 원본 영상을 실제로 돌린 결과 — 손으로 고치지 말고, 분석 코드를 바꾸면 다시 뽑을 것(좌표는 x' = (x·1280−352)/576). "AI 영상이지만 실제 분석" 문구는 지우지 말 것.
 - 음량·음높이는 AudioWorklet(오디오 스레드, `audio.ts` 의 `WORKLET_SRC`)에서 25ms 마다 잼. 메인 스레드 setInterval 로 재면 MediaPipe 때문에 구간이 빠져 같은 녹화도 억양·쉼이 흔들렸음(워클릿 없으면 예전 방식으로 대체).

@@ -4,6 +4,7 @@
 // - 밝은 배경 하나. 상황별 정답은 한 문장 틀에서 상황·정답 낱말만 슬롯처럼 굴러 바뀌고, 옆에 상황 카드가 한 장씩 쌓여요.
 // - 분석 화면·점수는 랜딩 예시(nv-a = 1회, nv-b = 4회)를 앱 분석 코드로 실제로 돌린 값(landing/demoData.ts)이에요.
 // - /dev/promo 미리보기, /dev/promo?render=1 + window.__seek(t) 로 한 프레임씩 캡처 → ffmpeg 로 음악과 합쳐요.
+// - ?v=1 이면 세로(1080×1920) 버전: 폰 랜딩·릴스·쇼츠용. 장면 배치는 promo.css 의 .vert 규칙만 달라요.
 import { useEffect, useRef, useState } from 'react';
 import { BrandMark } from '@/components/ui/BrandMark';
 import { Picto } from '@/components/ui/Picto';
@@ -93,13 +94,15 @@ export default function Promo() {
   const stage = useRef<HTMLDivElement>(null);
   const tracks = useRef<Partial<Record<'a' | 'b', Track>>>({});
   const [render, setRender] = useState(false);
+  const [vert, setVert] = useState(false);
   const [scale, setScale] = useState(1);
   const [now, setNow] = useState(0);
 
   useEffect(() => {
-    const r = new URLSearchParams(location.search).get('render') === '1';
-    const fit = () => setScale(r ? 1 : Math.min(innerWidth / 1920, (innerHeight - 56) / 1080));
-    const id = requestAnimationFrame(() => { setRender(r); fit(); });
+    const q = new URLSearchParams(location.search), r = q.get('render') === '1', vt = q.get('v') === '1';
+    const [W, H] = vt ? [1080, 1920] : [1920, 1080];
+    const fit = () => setScale(r ? 1 : Math.min(innerWidth / W, (innerHeight - 56) / H));
+    const id = requestAnimationFrame(() => { setRender(r); setVert(vt); fit(); });
     addEventListener('resize', fit);
     (['a', 'b'] as const).forEach((k) => fetch(`/media/nv-${k}.track.json`).then((x) => x.json()).then((j: Track) => { tracks.current[k] = j; }));
     return () => { cancelAnimationFrame(id); removeEventListener('resize', fit); };
@@ -174,7 +177,7 @@ export default function Promo() {
 
   return (
     <div className={`pm-wrap${render ? ' is-render' : ''}`}>
-      <div className="pm-stage k" ref={stage} style={{ transform: `scale(${scale})` }}>
+      <div className={`pm-stage k${vert ? ' vert' : ''}`} ref={stage} style={{ transform: `scale(${scale})` }}>
         {/* 0–4초: 질문(필터가 닫힌 인트로) */}
         <div className="k-center" style={{ animation: drift(0, bar(1)) }}>
           <p className="k-h big"><Line t={0} end={bar(1)}>좋은 발표의</Line> <Line t={2 * B} end={bar(1)}>정답은</Line></p>
