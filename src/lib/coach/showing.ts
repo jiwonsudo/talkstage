@@ -48,6 +48,25 @@ function runsOf(t: number[], v: boolean[], dt: number, gap: number, min: number)
 
 const NUM = /\d|퍼센트|프로|[0-9]배|억|천만|만 ?원|위입니다|등입니다/;
 
+/** 한 프레임의 손 위치로 본 보여 주기 동작. 녹화 중 실시간 알림(Studio)과 리포트 분석이 같은 기준을 써요. */
+export function showPose(f: VisionFrame, holds: boolean) {
+  let point: 'L' | 'R' | null = null, show = false, cross = false, face = false;
+  if (f.pose && !f.armsCrossed) {
+    const mid = f.smx, sw = f.sw;
+    const dirL = Math.sign(f.ls.x - f.rs.x) || 1; // 화면 좌우가 뒤집혀 있어도 "말하는 사람의 왼쪽"을 맞춰요
+    for (const [w, own] of [[f.lw, 1], [f.rw, -1]] as const) {
+      if (!w) continue;
+      const dx = w.x - mid, toL = dx * dirL; // + 면 말하는 사람의 왼쪽
+      const high = w.y < f.smy + sw * 0.7; // 가슴 아래보다 위
+      if (high && Math.abs(dx) > sw * 1.05) point = toL > 0 ? 'L' : 'R';
+      else if (high && toL * own < 0 && Math.abs(dx) > sw * 0.35 && w.y < f.smy + sw * 0.5) cross = true;
+      if (holds && Math.abs(dx) < sw * 0.9 && w.y > f.smy - sw * 0.9 && w.y < f.smy + sw * 0.55) show = true;
+      if (holds && w.y < f.noseY && Math.abs(w.x - f.nosePx) < sw * 0.5) face = true;
+    }
+  }
+  return { point, show, cross, face };
+}
+
 export function analyzeShowing(opts: {
   V: VisionFrame[]; cls: Gaze; dt: number; dur: number; aid: AidId; purposeId: string; finals: FinalText[];
   score: (v: number, r: Range, soft: number) => number | null;
@@ -59,21 +78,8 @@ export function analyzeShowing(opts: {
   const pt: boolean[] = [], ptSide: ('L' | 'R' | null)[] = [], show: boolean[] = [], cross: boolean[] = [], face: boolean[] = [];
 
   for (const f of V) {
-    let p: 'L' | 'R' | null = null, s = false, c = false, fc = false;
-    if (f.pose && !f.armsCrossed) {
-      const mid = f.smx, sw = f.sw;
-      const dirL = Math.sign(f.ls.x - f.rs.x) || 1; // 화면 좌우가 뒤집혀 있어도 "말하는 사람의 왼쪽"을 맞춰요
-      for (const [w, own] of [[f.lw, 1], [f.rw, -1]] as const) {
-        if (!w) continue;
-        const dx = w.x - mid, toL = dx * dirL; // + 면 말하는 사람의 왼쪽
-        const high = w.y < f.smy + sw * 0.7; // 가슴 아래보다 위
-        if (high && Math.abs(dx) > sw * 1.05) p = toL > 0 ? 'L' : 'R';
-        else if (high && toL * own < 0 && Math.abs(dx) > sw * 0.35 && w.y < f.smy + sw * 0.5) c = true;
-        if (holds && Math.abs(dx) < sw * 0.9 && w.y > f.smy - sw * 0.9 && w.y < f.smy + sw * 0.55) s = true;
-        if (holds && w.y < f.noseY && Math.abs(w.x - f.nosePx) < sw * 0.5) fc = true;
-      }
-    }
-    pt.push(p != null); ptSide.push(p); show.push(s); cross.push(c && p == null); face.push(fc);
+    const q = showPose(f, holds);
+    pt.push(q.point != null); ptSide.push(q.point); show.push(q.show); cross.push(q.cross && q.point == null); face.push(q.face);
   }
 
   const pointRuns = runsOf(t, pt, dt, 0.3, 0.4);
