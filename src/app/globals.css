@@ -165,6 +165,10 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 .nav-btn:hover { transform: translateX(-3px); }
 .nav-btn:active { transform: scale(.92); }
 .nav-btn svg { width: 20px; height: 20px; }
+.nav-l { display: flex; gap: 8px; }
+.nav-home { text-decoration: none; }
+.nav-home:hover { transform: translateY(-2px); }
+.nav-home svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .nav-title { font-weight: 800; font-size: 18px; letter-spacing: -0.02em; flex: 1; min-width: 0; }
 .navbar[data-screen="home"] .nav-title { display: none; }
 .nav-r { margin-left: auto; }
@@ -1927,3 +1931,14 @@ p, li, .catch-sub, .lead2, .display-sub, small { word-break: keep-all; text-wrap
 .pay-err { padding: 20px; border-radius: 20px; background: var(--surface); color: var(--ink); }
 .pay-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
 @supports (corner-shape: squircle) { .pay-box { corner-shape: squircle; border-radius: 40px; } }
+/* 월 요금제 정기결제 */
+.hp-sub { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 12px; margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--line); font-size: 13px; color: var(--ink-2); }
+.hp-sub.is-warn span { color: var(--red); font-weight: 700; }
+.sub-box { display: grid; gap: 12px; margin-top: 20px; padding: 22px; border-radius: 24px; background: var(--surface); border: 1.5px solid var(--line); }
+.sub-sum { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 4px 12px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.sub-sum span { font-size: 14px; color: var(--ink-2); }
+.sub-sum b { font-size: 24px; font-variant-numeric: tabular-nums; }
+.sub-sum small { grid-column: 1 / -1; font-size: 12px; color: var(--ink-3); }
+.sub-other { justify-self: center; }
+.pay-wait-line { margin: 20px 0 0; font-size: 14px; color: var(--ink-3); }
+@supports (corner-shape: squircle) { .sub-box { corner-shape: squircle; border-radius: 40px; } }

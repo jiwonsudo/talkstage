@@ -36,6 +36,11 @@ export function Navbar() {
   const credits = useCredits(user);
 
   const onLanding = pathname === '/';
+  // 이 탭에서 앱 안 이동이 몇 번 있었는지(처음 그린 화면은 빼요). 0이면 뒤로 갈 앱 안 화면이 없어요.
+  // (개발 모드는 effect 를 두 번 돌려서 횟수 대신 주소가 바뀌었는지로 세요)
+  const moved = useRef(0);
+  const lastPath = useRef(pathname);
+  useEffect(() => { if (lastPath.current !== pathname) { lastPath.current = pathname; moved.current++; } }, [pathname]);
   const title = Object.entries(TITLES).find(([p]) => pathname.startsWith(p))?.[1] ?? '';
 
   useEffect(() => {
@@ -48,12 +53,13 @@ export function Navbar() {
   }, [open, setOpen]);
 
   const start = () => router.push('/rehearsal/new');
-  // 내 정보(/me) 화면 사이에서는 기록이 쌓이지 않게, 뒤로는 바로 홈으로 가요. 리허설 설정은 이전 단계로 가요.
-  // /me 화면과 새 리허설 첫 단계(발표 목적 고르기)에서는 홈으로, 그 밖에는 이전 화면(설정 단계)으로 가요.
+  // 뒤로: 앱 안에서 옮겨 다닌 기록이 있으면 바로 전 화면으로. 기록이 없을 때만(주소로 바로 들어옴, 결제창에서 돌아옴) 갈 만한 곳으로.
+  // 홈은 옆의 집 버튼으로 따로 가요.
   const back = () => {
     const sp = new URLSearchParams(location.search);
-    const firstStep = pathname === '/rehearsal/new' && !Number(sp.get('step')) && !sp.get('view');
-    if (pathname.startsWith('/me') || firstStep) router.push('/'); else router.back();
+    const wizardStep = pathname === '/rehearsal/new' && (Number(sp.get('step')) > 0 || !!sp.get('view'));
+    if (moved.current > 0 || wizardStep) { router.back(); return; }
+    router.push(pathname.startsWith('/me/pay') || pathname.startsWith('/me/subscribe') ? '/me/plan' : '/');
   };
 
   return (
@@ -65,6 +71,11 @@ export function Navbar() {
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
             <span className="sr">뒤로</span>
           </button>
+        )}
+        {!onLanding && (
+          <Link href="/" className="nav-btn nav-home" aria-label="홈으로">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5M5.5 8.5V20h13V8.5M10 20v-6h4v6" /></svg>
+          </Link>
         )}
       </div>
       <div className="nav-title">{title}</div>

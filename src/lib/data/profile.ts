@@ -21,12 +21,6 @@ export async function updateName(id: string, name: string) {
   if (error) throw error;
 }
 
-/** 프로토타입 전용: 결제 없이 요금제를 바꿔요. */
-export async function setPlan(id: string, plan: PlanId) {
-  const { error } = await db().from('profiles').update({ plan }).eq('id', id);
-  if (error) throw error;
-}
-
 /** 지금 비밀번호로 한 번 더 확인한 뒤 바꿔요. 세션만 있으면 바뀌는 걸 막아요. */
 export async function changePassword(email: string, current: string, next: string) {
   if (next.length < 8) throw new Error('새 비밀번호는 8자 이상으로 정해 주세요.');

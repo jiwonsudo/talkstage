@@ -19,4 +19,8 @@ export const won = (n: number) => `${n.toLocaleString('ko-KR')}원`;
 /** 리허설 한 번(녹화 10분 + 대본 점검)에 쓰는 크레딧 */
 export const CREDIT_PER_REHEARSAL = 12;
 
+/** 월 요금제 가격(원). 바꾸면 SQL plan_price() 도 같이 바꿔요(0006). */
+export const PLAN_PRICE: Record<PlanId, number> = { Opening: 0, Spotlight: 4900, Headliner: 9900 };
+export const isPlanId = (v: string | null): v is PlanId => v === 'Opening' || v === 'Spotlight' || v === 'Headliner';
+
 export const isPaidPlan = (plan: PlanId | undefined) => !!plan && plan !== 'Opening';
