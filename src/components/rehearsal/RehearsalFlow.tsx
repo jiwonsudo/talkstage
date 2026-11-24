@@ -52,6 +52,8 @@ export function RehearsalFlow() {
     if (pid && PURPOSE_BY_ID[pid]) d = withPurpose(d, pid);
     const posture = params.get('posture');
     if (posture === 'seated' || posture === 'standing') d = { ...d, posture: posture as PostureId };
+    const title = params.get('title'); // '이 발표 다시 연습'에서 같은 제목으로 이어 가요
+    if (title) d = { ...d, title: title.slice(0, 60) };
     return d;
   });
   const [step, setStep] = useState(() => stepOf(params));

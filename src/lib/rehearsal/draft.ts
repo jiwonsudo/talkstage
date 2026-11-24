@@ -16,12 +16,14 @@ export type Draft = {
   hasScript: 'yes' | 'no';
   script: string;
   key: string;
+  /** 리허설 제목. 같은 제목끼리 한 발표의 연습 회차로 묶어요. */
+  title: string;
 };
 
 const KEY = 'rc-setup-v2';
 const DEFAULT: Draft = {
   purposeId: 'interview', posture: 'seated', customPurpose: null, customGoal: null, outcomeIdxs: [0],
-  targetSec: null, worry: null, prompt: '', hasScript: 'yes', script: '', key: '',
+  targetSec: null, worry: null, prompt: '', hasScript: 'yes', script: '', key: '', title: '',
 };
 
 export function loadDraft(): Draft {
@@ -37,7 +39,9 @@ export function saveDraft(d: Draft) {
   try { localStorage.setItem(KEY, JSON.stringify(d)); } catch { /* 저장 못 해도 이번 리허설은 계속돼요 */ }
 }
 /** 새 리허설은 지난 대본·메모를 비우고 시작해요. 예시는 placeholder 로만 보여 줘요. */
-export const clearText = (d: Draft): Draft => ({ ...d, script: '', key: '', prompt: '', hasScript: 'yes' });
+export const clearText = (d: Draft): Draft => ({ ...d, script: '', key: '', prompt: '', hasScript: 'yes', title: '' });
+/** 제목을 비워 두면 쓰는 이름(같은 상황끼리 묶여요) */
+export const defaultTitle = (d: Draft) => `${d.customPurpose?.name || purposeOf(d).label} 리허설`;
 /** 발표 유형을 바꾸면 그 유형에 묶인 목표·시간을 처음 값으로 돌려요. */
 export const withPurpose = (d: Draft, purposeId: string): Draft =>
   purposeId === d.purposeId ? d : { ...d, purposeId, outcomeIdxs: [0], customGoal: null, targetSec: null };
@@ -115,7 +119,7 @@ export function toSetup(d: Draft): Setup {
     outcomeIdxs: d.outcomeIdxs,
     customGoal: d.customGoal,
     targetSec: targetSecOf(d),
-    topic: parsed?.topic || d.customPurpose?.name || '',
+    topic: d.title.trim() || defaultTitle(d),
     keyMessage: (d.hasScript === 'yes' ? d.key : parsed?.keyMessage) || '',
     outcomeText: parsed?.outcomeText || '',
     profile: profileFrom(d.worry),

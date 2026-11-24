@@ -1,6 +1,8 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { DEMO, type DemoIssue } from './demoData';
+import { CAT_COLOR } from '@/lib/colors';
+import type { CatId } from '@/lib/scenarios';
 
 type Key = 'a' | 'b';
 type Frame = { t: number; p: number[] | null; f: number[] | null; g: boolean | null; d: boolean; b: boolean | null; w: string[] };
@@ -10,7 +12,6 @@ const CLIPS: Record<Key, { src: string; poster: string; track: string; title: st
   a: { src: '/media/nv-a.mp4', poster: '/media/nv-a.jpg', track: '/media/nv-a.track.json', title: '원고만 내려다본 발표', sub: '피드백 전' },
   b: { src: '/media/nv-b.mp4', poster: '/media/nv-b.jpg', track: '/media/nv-b.track.json', title: '피드백대로 다시 한 발표', sub: '피드백 후' },
 };
-const CAT_COLOR: Record<string, string> = { gaze: 'var(--blue)', posture: 'var(--green)', gesture: 'var(--orange)', tone: 'var(--pink)', pause: 'var(--purple)' };
 const POSE_PAIRS = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [24, 26], [25, 27], [26, 28], [0, 2], [0, 5], [2, 7], [5, 8]];
 const JOINTS = [0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26];
 const WHY: Record<string, string> = { slouch: '등 굽음', shoulderTilt: '어깨 기욺', headTilt: '고개 기욺', crossed: '팔짱', offCenter: '가장자리' };
@@ -92,7 +93,15 @@ export function NvDemo() {
     return () => { alive = false; cancelAnimationFrame(raf); const ctx = cv.getContext('2d'); ctx?.clearRect(0, 0, cv.width, cv.height); };
   }, [sel]);
 
-  const seek = (i: DemoIssue) => { const v = vids.current[sel]; if (v) { v.currentTime = i.t0; v.play().catch(() => {}); } };
+  const seek = (i: DemoIssue) => {
+    const v = vids.current[sel];
+    if (!v) return;
+    v.currentTime = i.t0;
+    v.play().catch(() => {});
+    // 세로로 긴 화면에선 영상이 위로 밀려나 있으니 영상이 보이게 올려 줘요
+    const r = v.getBoundingClientRect();
+    if (r.top < 70 || r.bottom > innerHeight) v.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+  };
   const d = DEMO[sel];
   const tips = [...d.cats].filter((c) => c.headline).sort((x, y) => (x.score ?? 100) - (y.score ?? 100)).slice(0, 2);
 
@@ -124,9 +133,12 @@ export function NvDemo() {
             <h3>{CLIPS[sel].title}</h3>
             <p className="nvd-disc">영상은 AI로 만든 예시예요. 분석은 실제 Talkstage 분석기에 그대로 넣어 나온 결과예요.</p>
           </header>
+          <div className="nvd-body">
+          <div>
+          <h4>항목 점수</h4>
           <ul className="nvd-scores">
             {d.cats.map((c) => (
-              <li key={c.id} data-status={c.status} style={{ '--c': CAT_COLOR[c.id] }}>
+              <li key={c.id} data-status={c.status} style={{ '--c': CAT_COLOR[c.id as CatId] }}>
                 <span>{c.label}</span>
                 <span className="nvd-meter" aria-hidden="true"><i style={{ width: `${c.score ?? 0}%` }} /></span>
                 <b>{c.score ?? '–'}</b>
@@ -134,12 +146,12 @@ export function NvDemo() {
               </li>
             ))}
           </ul>
-          <div className="nvd-cols">
+          </div>
             <div>
               <h4>코칭</h4>
               <ol className="nvd-tips">
                 {tips.map((c) => (
-                  <li key={c.id}><i className="nvd-chip" style={{ '--c': CAT_COLOR[c.id] }} data-on-light={c.id === 'posture' ? '' : undefined}>{c.label}</i><b>{c.headline}</b><span>{c.advice}</span></li>
+                  <li key={c.id}><i className="nvd-chip" style={{ '--c': CAT_COLOR[c.id as CatId] }} data-on-light={c.id === 'posture' ? '' : undefined}>{c.label}</i><b>{c.headline}</b><span>{c.advice}</span></li>
                 ))}
               </ol>
             </div>

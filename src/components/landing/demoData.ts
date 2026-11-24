@@ -6,12 +6,12 @@ export type DemoIssue = { cat: string; t0: number; t1: number; title: string; de
 export type DemoClip = { dur: number; cats: DemoCat[]; issues: DemoIssue[] };
 export const DEMO: Record<'a' | 'b', DemoClip> = {
   "a": {
-    "dur": 10.091,
+    "dur": 10.114,
     "cats": [
       {
         "id": "gaze",
         "label": "시선",
-        "score": 8,
+        "score": 7,
         "status": "bad",
         "value": "14%",
         "target": "60% 이상",
@@ -31,9 +31,9 @@ export const DEMO: Record<'a' | 'b', DemoClip> = {
       {
         "id": "gesture",
         "label": "제스처",
-        "score": 100,
+        "score": 88,
         "status": "good",
-        "value": "12%",
+        "value": "9%",
         "target": "5–30%",
         "headline": "손짓을 적절하게 쓰고 있어요",
         "advice": "말의 내용과 손짓이 맞아떨어지는지 하이라이트 영상으로 확인해 보세요."
@@ -41,9 +41,9 @@ export const DEMO: Record<'a' | 'b', DemoClip> = {
       {
         "id": "tone",
         "label": "톤·억양",
-        "score": 100,
+        "score": 94,
         "status": "good",
-        "value": 2.7,
+        "value": 2.2,
         "target": "1.8–4반음",
         "headline": "억양에 적당한 변화가 있어요",
         "advice": "핵심 문장에서 음을 바꿔 강조하는 습관을 유지하세요."
@@ -51,9 +51,9 @@ export const DEMO: Record<'a' | 'b', DemoClip> = {
       {
         "id": "pause",
         "label": "호흡·쉼",
-        "score": 100,
+        "score": 98,
         "status": "good",
-        "value": "19%",
+        "value": "21%",
         "target": "14–26%",
         "headline": "쉼을 적절하게 쓰고 있어요",
         "advice": "핵심 메시지 직후의 쉼을 조금 더 길게 가져가 보세요."
@@ -61,32 +61,39 @@ export const DEMO: Record<'a' | 'b', DemoClip> = {
     ],
     "issues": [
       {
+        "cat": "posture",
+        "t0": 0,
+        "t1": 4,
+        "title": "몸이 좌우로 흔들림",
+        "detail": "같은 자리에서 반복적으로 흔들리면 불안해 보일 수 있어요."
+      },
+      {
         "cat": "gaze",
-        "t0": 0.4,
-        "t1": 8.999,
+        "t0": 0.403,
+        "t1": 9.118,
         "title": "아래(원고)를 내려다봄",
-        "detail": "8.6초 동안 시선이 아래를 향했어요."
+        "detail": "8.7초 동안 시선이 아래를 향했어요."
       },
       {
         "cat": "posture",
-        "t0": 0.598,
-        "t1": 8.999,
+        "t0": 0.602,
+        "t1": 9.019,
         "title": "등이 굽고 고개가 앞으로 나온 자세",
         "detail": "8.4초 동안 이어졌어요."
       }
     ]
   },
   "b": {
-    "dur": 10.217,
+    "dur": 10.234,
     "cats": [
       {
         "id": "gaze",
         "label": "시선",
-        "score": 100,
+        "score": 97,
         "status": "good",
-        "value": "89%",
+        "value": "93%",
         "target": "60% 이상",
-        "headline": "시선 처리가 안정적이에요 (89%)",
+        "headline": "시선 처리가 안정적이에요 (93%)",
         "advice": "문장이 끝날 때까지 시선을 유지하는 지금 습관을 이어가세요."
       },
       {
@@ -102,9 +109,9 @@ export const DEMO: Record<'a' | 'b', DemoClip> = {
       {
         "id": "gesture",
         "label": "제스처",
-        "score": 100,
+        "score": 97,
         "status": "good",
-        "value": "18%",
+        "value": "16%",
         "target": "5–30%",
         "headline": "손짓을 적절하게 쓰고 있어요",
         "advice": "말의 내용과 손짓이 맞아떨어지는지 하이라이트 영상으로 확인해 보세요."
@@ -112,9 +119,9 @@ export const DEMO: Record<'a' | 'b', DemoClip> = {
       {
         "id": "tone",
         "label": "톤·억양",
-        "score": 100,
+        "score": 87,
         "status": "good",
-        "value": 2.8,
+        "value": 4.1,
         "target": "1.8–4반음",
         "headline": "억양에 적당한 변화가 있어요",
         "advice": "핵심 문장에서 음을 바꿔 강조하는 습관을 유지하세요."
@@ -122,7 +129,7 @@ export const DEMO: Record<'a' | 'b', DemoClip> = {
       {
         "id": "pause",
         "label": "호흡·쉼",
-        "score": 100,
+        "score": 94,
         "status": "good",
         "value": "16%",
         "target": "14–26%",

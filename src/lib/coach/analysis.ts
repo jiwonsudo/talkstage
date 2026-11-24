@@ -72,10 +72,15 @@ function rangeScore(v: number, r: Range, soft: number): number;
 function rangeScore(v: number | null | undefined, r: Range, soft: number): number | null;
 function rangeScore(v: number | null | undefined, [lo, hi]: Range, soft: number) {
   if (v == null || !isFinite(v)) return null;
-  if (v < lo) return clamp(100 * (1 - (lo - v) / soft), 0, 100);
-  if (v > hi) return clamp(100 * (1 - (v - hi) / soft), 0, 100);
-  return 100;
+  // 범위 밖: 경계 85점에서 soft 만큼 벗어나면 0점
+  if (v < lo) return clamp(IN_RANGE_MIN * (1 - (lo - v) / soft), 0, 100);
+  if (v > hi) return clamp(IN_RANGE_MIN * (1 - (v - hi) / soft), 0, 100);
+  // 범위 안: 가운데(이상적인 값)에 가까울수록 100, 경계면 85. 범위 안이면 모두 100이던 계단식이라 결과가 획일적이었어요.
+  const d = hi > lo ? Math.abs(v - (lo + hi) / 2) / ((hi - lo) / 2) : 0;
+  return IN_RANGE_MIN + (100 - IN_RANGE_MIN) * (1 - d ** 0.7);
 }
+/** 목표 범위 경계에서의 점수(그래도 '좋음' 80 이상) */
+const IN_RANGE_MIN = 85;
 const dirOf = (v: number | null | undefined, [lo, hi]: Range): Dir => (v == null ? null : v < lo ? 'low' : v > hi ? 'high' : 'ok');
 const statusOf = (s: number | null | undefined): Status => (s == null ? 'na' : s >= 80 ? 'good' : s >= 55 ? 'warn' : 'bad');
 
@@ -512,7 +517,7 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
   }
 
   // 자세
-  let goodFrac = null, swayFrac = 0, mainIssue = null, mainReason: string | null = null, framingPenalty = 0;
+  let goodFrac = null, briefBad = 0, swayFrac = 0, mainIssue = null, mainReason: string | null = null, framingPenalty = 0;
   if (poseOK) {
     const idx = V.map((f, i) => i).filter((i) => cls[i].bad != null);
     let vals = idx.map((i) => cls[i].bad === true);
@@ -521,6 +526,8 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
     const longBad = rs.filter((r) => r.t1 - r.t0 >= 2);
     const poseTime = idx.length * dtV;
     goodFrac = clamp(1 - sum(longBad.map((r) => r.t1 - r.t0)) / Math.max(1, poseTime), 0, 1);
+    // 2초 안 되는 짧은 흐트러짐(문제 구간엔 안 올리지만 점수엔 조금 반영)
+    briefBad = clamp(sum(rs.filter((r) => r.t1 - r.t0 < 2).map((r) => r.t1 - r.t0)) / Math.max(1, poseTime), 0, 1);
     const reasonTotals: Record<string, number> = {};
     longBad.filter((r) => r.t1 - r.t0 >= 3).forEach((r) => {
       const counts: Record<string, number> = {};
@@ -603,12 +610,18 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
   } else mk('tone', null, null, null, null, `${T.pitch[0]}–${T.pitch[1]}반음`);
   // 시선
   if (gazeRatio != null) {
-    const s = gazeRatio >= T.gaze ? 100 : clamp(100 - ((T.gaze - gazeRatio) / T.gaze) * 120, 0, 100);
+    // 목표를 넘으면 85→100(늘 렌즈를 보면 100), 못 미치면 85 에서 깎여요
+    const ideal = 1;
+    const s = gazeRatio >= T.gaze
+      ? IN_RANGE_MIN + (100 - IN_RANGE_MIN) * Math.min(1, (gazeRatio - T.gaze) / (ideal - T.gaze))
+      : clamp(IN_RANGE_MIN - ((T.gaze - gazeRatio) / T.gaze) * 102, 0, 100);
     mk('gaze', s, gazeRatio >= T.gaze ? 'ok' : 'low', `${Math.round(gazeRatio * 100)}%`, gazeRatio, `${Math.round(T.gaze * 100)}% 이상`, { downRatio, smileRatio });
   } else mk('gaze', null, null, null, null, `${Math.round(T.gaze * 100)}% 이상`);
   // 자세
   if (goodFrac != null) {
-    const s = 100 * goodFrac - Math.min(25, swayFrac * 60) - framingPenalty;
+    // 목표(85%) 이상이면 85→100 사이로, 못 미치면 비율 그대로. 짧은 흐트러짐·흔들림·구도는 감점.
+    const base = goodFrac >= 0.85 ? IN_RANGE_MIN + (100 - IN_RANGE_MIN) * (goodFrac - 0.85) / 0.15 : 100 * goodFrac;
+    const s = base - Math.min(10, briefBad * 80) - Math.min(25, swayFrac * 60) - framingPenalty;
     mk('posture', clamp(s, 0, 100), null, `${Math.round(goodFrac * 100)}%`, goodFrac, '바른 자세 85% 이상', { swayFrac, mainIssue, mainReason });
   } else mk('posture', null, null, null, null, '');
   // 제스처
@@ -617,7 +630,9 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
   } else mk('gesture', null, null, null, null, '');
   // 군더더기
   if (fillerPerMin != null) {
-    const s = fillerPerMin <= T.filler ? 100 : clamp(100 - (fillerPerMin - T.filler) * 15, 0, 100);
+    const s = fillerPerMin <= T.filler
+      ? 100 - (100 - IN_RANGE_MIN) * (T.filler > 0 ? fillerPerMin / T.filler : 0)
+      : clamp(IN_RANGE_MIN - (fillerPerMin - T.filler) * 13, 0, 100);
     const top = Object.entries(fillerCount).sort((a, b) => b[1] - a[1]);
     mk('filler', s, fillerPerMin > T.filler ? 'high' : 'ok', round(fillerPerMin, 1), fillerPerMin, `분당 ${T.filler}번 이하`, { top, count: fillerN });
   } else mk('filler', null, null, null, null, `분당 ${T.filler}번 이하`);
@@ -630,7 +645,7 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
   {
     const tgt = setup.targetSec;
     const dev = (dur - tgt) / tgt;
-    const s = Math.abs(dev) <= 0.1 ? 100 : clamp(100 - ((Math.abs(dev) - 0.1) / 0.4) * 100, 0, 100);
+    const s = Math.abs(dev) <= 0.1 ? 100 - (100 - IN_RANGE_MIN) * (Math.abs(dev) / 0.1) : clamp(IN_RANGE_MIN * (1 - (Math.abs(dev) - 0.1) / 0.4), 0, 100);
     mk('time', s, dev > 0.1 ? 'high' : dev < -0.1 ? 'low' : 'ok', Math.round(dur), dur, `${Math.round(tgt)}초 ±10%`, { overSec: Math.round(dur - tgt), underSec: Math.round(tgt - dur) });
   }
 

@@ -339,7 +339,7 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
   }
 
   const rows: [string, string][] = [
-    ['주제', setup.topic || '—'],
+    ['제목', setup.topic || '—'],
     ['핵심 메시지', setup.keyMessage ? `“${setup.keyMessage}”` : '—'],
     ['원하는 결과', setup.outcomeText || outcomeLabel(draft)],
     ['목표 시간', fmtTime(setup.targetSec)],

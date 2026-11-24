@@ -7,7 +7,7 @@ import { useToast } from '@/components/ui/Toast';
 import { syllables } from '@/lib/coach/audio';
 import { readScriptFile } from '@/lib/coach/script';
 import {
-  CUSTOM_WARN, EXAMPLES, PROMPT_COPY, SCRIPT_EXAMPLES, WORRIES,
+  CUSTOM_WARN, defaultTitle, EXAMPLES, PROMPT_COPY, SCRIPT_EXAMPLES, WORRIES,
   outcomeLabel, parsePrompt, purposeOf, recommendTime, targetSecOf, timeOpts, withPurpose, type Draft,
 } from '@/lib/rehearsal/draft';
 import { CAT_LABEL, POSTURES, PURPOSES, fmtMin, fmtTime, type CatId } from '@/lib/scenarios';
@@ -248,6 +248,12 @@ function PromptStep({ draft, update, guest, onAnalyzeScript, onRecord }: Pick<Pr
     catch (e) { setErr((e as Error).message || '파일을 읽지 못했어요.'); }
   }
 
+  const titleField = (
+    <label className="field w-title"><span>리허설 제목 <small>(같은 제목끼리 연습 기록이 모여요)</small></span>
+      <input type="text" maxLength={60} value={draft.title} onChange={(e) => update((d) => ({ ...d, title: e.target.value }))} placeholder={defaultTitle(draft)} />
+    </label>
+  );
+
   const rows: [string, string][] = [
     ['주제', parsed.topic],
     ['핵심 메시지', parsed.keyMessage ? `“${parsed.keyMessage}”` : ''],
@@ -264,6 +270,7 @@ function PromptStep({ draft, update, guest, onAnalyzeScript, onRecord }: Pick<Pr
       <p className="subtitle">{copy.sub}</p>
       {has === 'yes' ? (
         <div className="wiz-pane">
+          {titleField}
           <button type="button" className="alt-path" onClick={() => update((d) => ({ ...d, hasScript: 'no' }))}>
             <b>대본이 없나요?</b><span>한두 줄 설명만 적고 바로 녹화해요</span>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7" /></svg>
@@ -288,6 +295,7 @@ function PromptStep({ draft, update, guest, onAnalyzeScript, onRecord }: Pick<Pr
         </div>
       ) : (
         <div className="wiz-pane">
+          {titleField}
           <button type="button" className="back-path" onClick={() => update((d) => ({ ...d, hasScript: 'yes' }))}>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 5l-7 7 7 7" /></svg>대본이 있어요
           </button>
