@@ -96,17 +96,22 @@ export function HeroDial() {
     arc.addEventListener('pointerup', release);
     arc.addEventListener('pointercancel', release);
     if (!reduce) hero?.addEventListener('pointermove', tilt);
-    const enter = () => {
-      if (!fine.matches || reduce || dragging) return;
+    // 카드 위에 올라갔을 때만 멈춰요(카드 사이를 옮겨 다니면 계속 멈춘 채로), 카드에서 나가면 바로 다시 흘러요.
+    const onCard = (t: EventTarget | null) => t instanceof Element && !!t.closest('.wc') && ring.contains(t);
+    const enter = (e: PointerEvent) => {
+      if (!fine.matches || reduce || dragging || hover || !onCard(e.target)) return;
       hover = true;
       if (snapTo !== null) return; // 놓은 뒤 자리 맞추는 중이면 그대로 두고 멈추기만
       // 흐르던 속도(초당 -FLOW도)를 이어받아 1.6도 앞에서 멈추게: 살짝 밀렸다가 튕겨 돌아와요
       sv = -FLOW * 6; bounce = ang - 1.6;
       bsv = -FLOW * 6; bezBounce = bez - 1.6;
     };
-    const leave = () => { hover = false; bounce = null; bezBounce = null; holdUntil = performance.now() + 250; };
-    arc.addEventListener('pointerenter', enter);
-    arc.addEventListener('pointerleave', leave);
+    const leave = (e: PointerEvent) => {
+      if (!hover || onCard(e.relatedTarget)) return;
+      hover = false; bounce = null; bezBounce = null; holdUntil = 0;
+    };
+    ring.addEventListener('pointerover', enter);
+    ring.addEventListener('pointerout', leave);
     render();
     raf = requestAnimationFrame((t) => { lastFrame = t; tick(t); });
     return () => {
@@ -116,8 +121,8 @@ export function HeroDial() {
       arc.removeEventListener('pointerup', release);
       arc.removeEventListener('pointercancel', release);
       hero?.removeEventListener('pointermove', tilt);
-      arc.removeEventListener('pointerenter', enter);
-      arc.removeEventListener('pointerleave', leave);
+      ring.removeEventListener('pointerover', enter);
+      ring.removeEventListener('pointerout', leave);
     };
   }, []);
 
