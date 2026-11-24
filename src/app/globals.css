@@ -2108,15 +2108,13 @@ p, li, .catch-sub, .lead2, .display-sub, small { word-break: keep-all; text-wrap
 .nvd-ov { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .nvd-live, .nvd-tag { opacity: 0; transition: opacity .3s; }
 .nvd-pick[aria-pressed="true"] .nvd-live, .nvd-pick[aria-pressed="true"] .nvd-tag { opacity: 1; }
-.nvd-tag { position: absolute; left: 10px; top: 10px; padding: 3px 7px; border-radius: 4px; background: #111; color: #fff; font-size: 10.5px; font-weight: 700; letter-spacing: 0.01em; font-variant-numeric: tabular-nums; }
-.nvd-tag::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 5px; border-radius: 50%; background: var(--red); vertical-align: 1px; animation: nvd-rec 1.2s ease-in-out infinite; }
-@keyframes nvd-rec { 50% { opacity: .25; } }
-/* 프레임별 판정: 흰 단색 라벨 + 상태 점(유리 알약·색 막대 대신) */
+.nvd-tag { position: absolute; left: 10px; top: 10px; padding: 5px 10px; border-radius: 9px; background: #111; color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 0.01em; }
+/* 프레임별 판정: 상태색 단색 스퀴클 라벨(깜빡이는 점·유리 알약 없이) */
 .nvd-live { position: absolute; left: 10px; bottom: 10px; display: flex; flex-wrap: wrap; gap: 4px; }
-.nvd-live i { display: inline-flex; align-items: center; gap: 6px; padding: 3px 7px; border-radius: 4px; background: #fff; color: #111; font-style: normal; font-size: 11.5px; font-weight: 700; line-height: 1.3; }
-.nvd-live i::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--red); transition: background .2s; }
-.nvd-live i[data-ok="true"]::before { background: var(--green); }
-.nvd-live b { font-weight: 600; color: #777; }
+.nvd-live i { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 9px; background: var(--red); color: #fff; font-style: normal; font-size: 11.5px; font-weight: 700; line-height: 1.3; transition: background-color .25s, color .25s; }
+.nvd-live i[data-ok="true"] { background: var(--green); color: #0b2015; }
+.nvd-live b { font-weight: 600; opacity: .72; }
+@supports (corner-shape: squircle) { .nvd-live i, .nvd-tag { corner-shape: squircle; border-radius: 14px; } }
 .nvd-cap { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 2px 8px; text-align: center; }
 .nvd-cap b { font-size: 16px; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); transition: color .3s; }
 .nvd-cap small { font-size: 12px; color: var(--ink-3); }
@@ -2168,10 +2166,10 @@ p, li, .catch-sub, .lead2, .display-sub, small { word-break: keep-all; text-wrap
 @media (max-width: 640px) {
   .nvd-body { grid-template-columns: 1fr; }
   .nvd-body > div:nth-child(3) { border-left: 0; padding-left: 0; }
-  .nvd-live i { font-size: 10.5px; padding: 3px 6px; } .nvd-tag { font-size: 10px; }
+  .nvd-live i { font-size: 10.5px; padding: 4px 8px; } .nvd-tag { font-size: 10px; }
 }
 @supports (corner-shape: squircle) { .nvd-report { corner-shape: squircle; border-radius: 48px; } }
-@media (prefers-reduced-motion: reduce) { .nvd-in { animation: none; } .nvd-tag::before { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .nvd-in { animation: none; } }
 .hero-copy .lede, .hero-copy .display-sub { word-break: keep-all; }
 
 /* ───────── OG 이미지 원본(/dev/og, 개발 전용) ───────── */

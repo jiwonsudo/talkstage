@@ -25,9 +25,10 @@ export function syllables(text: string) {
   return h + lat * 2 + dig;
 }
 
-// 정규화 자기상관으로 기본 주파수 추정 (70–450Hz)
+// 정규화 자기상관으로 기본 주파수 추정 (70–450Hz). 창의 앞 절반(n)을 뒤로 밀어 가며 비교해요.
+// AudioWorklet 안에서도 그대로 쓰려고 바깥 변수를 쓰지 않는 순수 함수로 둬요(toString 으로 옮겨 감).
 function detectPitch(buf: Float32Array, sr: number, pre: Float64Array) {
-  const n = 1024;
+  const n = buf.length >> 1;
   const minLag = Math.floor(sr / 450);
   const maxLag = Math.min(Math.floor(sr / 70), buf.length - n - 1);
   let m = 0;
@@ -63,45 +64,139 @@ function detectPitch(buf: Float32Array, sr: number, pre: Float64Array) {
   return 0;
 }
 
+/**
+ * 오디오 스레드(AudioWorklet)에서 25ms 마다 음량·음높이를 재요. 메인 스레드는 MediaPipe 가 프레임마다 오래 붙잡아서
+ * setInterval 로 AnalyserNode 를 들여다보면 구간이 빠지거나 몰려서, 같은 녹화도 억양·쉼 결과가 흔들렸어요.
+ * 워클릿은 모든 샘플을 받아 오디오 시계로 시간을 찍으니 빠지는 구간이 없어요.
+ * 창 2048 샘플·홉 25ms 는 예전 값 그대로(기준값을 맞춰 둔 값), 음높이는 48kHz 면 절반으로 줄여 계산량을 1/4 로.
+ */
+const HOP_SEC = 0.025;
+const WORKLET_SRC = () => `
+const DP = ${detectPitch.toString()};
+class TalkstageMeter extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    this.N = 2048; this.ring = new Float32Array(this.N); this.lin = new Float32Array(this.N);
+    this.w = 0; this.filled = 0; this.since = 0; this.hop = Math.max(1, Math.round(sampleRate * ${HOP_SEC}));
+    this.dec = sampleRate >= 32000 ? 2 : 1; this.dbuf = new Float32Array(this.N / this.dec); this.pre = new Float64Array(this.N / this.dec + 2);
+    this.gate = -50; this.out = [];
+    this.port.onmessage = (e) => { if (typeof e.data.gate === 'number') this.gate = e.data.gate; };
+  }
+  frame(t) {
+    const N = this.N; let s = 0;
+    for (let k = 0; k < N; k++) { const v = this.ring[(this.w + k) % N]; this.lin[k] = v; s += v * v; }
+    const db = 20 * Math.log10(Math.sqrt(s / N) + 1e-9);
+    let pitch = 0;
+    if (db > this.gate) {
+      const d = this.dec, m = N / d;
+      for (let k = 0; k < m; k++) { let a = 0; for (let j = 0; j < d; j++) a += this.lin[k * d + j]; this.dbuf[k] = a / d; }
+      pitch = DP(this.dbuf, sampleRate / d, this.pre);
+    }
+    this.out.push(t, db, pitch);
+  }
+  process(inputs) {
+    const ch = inputs[0] && inputs[0][0];
+    if (ch) {
+      for (let i = 0; i < ch.length; i++) {
+        this.ring[this.w] = ch[i]; this.w = (this.w + 1) % this.N;
+        if (this.filled < this.N) this.filled++;
+        if (++this.since >= this.hop) { this.since = 0; if (this.filled >= this.N) this.frame(currentTime + (i + 1) / sampleRate); }
+      }
+      if (this.out.length >= 6) { this.port.postMessage(this.out); this.out = []; }
+    }
+    return true;
+  }
+}
+registerProcessor('talkstage-meter', TalkstageMeter);
+`;
+
 export class AudioMeter {
   ctx: AudioContext;
   src: MediaStreamAudioSourceNode;
-  an: AnalyserNode;
-  buf: Float32Array<ArrayBuffer>;
-  pre: Float64Array;
   level = -90;
   frames: AudioFrame[] | null = null;
-  pitchGate = -50;
   t0 = 0;
-  timer: ReturnType<typeof setInterval>;
+  /** 오디오 시계(초) 와 performance.now() 기준 t0 사이의 차이 */
+  audioT0 = 0;
+  /** 워클릿을 못 쓰는 브라우저용 예전 방식 */
+  an: AnalyserNode | null = null;
+  buf: Float32Array<ArrayBuffer> | null = null;
+  pre: Float64Array | null = null;
+  timer: ReturnType<typeof setInterval> | null = null;
+  node: AudioWorkletNode | null = null;
+  sink: GainNode | null = null;
+  ready: Promise<void>;
+  private gate = -50;
   constructor(stream: MediaStream) {
     const Ctx = window.AudioContext || (window as SpeechWindow).webkitAudioContext!;
     this.ctx = new Ctx();
     this.src = this.ctx.createMediaStreamSource(stream);
+    this.ready = this.setupWorklet().catch(() => this.setupFallback());
+  }
+  get pitchGate() { return this.gate; }
+  set pitchGate(v: number) { this.gate = v; this.node?.port.postMessage({ gate: v }); }
+
+  private async setupWorklet() {
+    if (!this.ctx.audioWorklet || typeof AudioWorkletNode === 'undefined') throw new Error('no worklet');
+    const url = URL.createObjectURL(new Blob([WORKLET_SRC()], { type: 'text/javascript' }));
+    try { await this.ctx.audioWorklet.addModule(url); } finally { URL.revokeObjectURL(url); }
+    const node = new AudioWorkletNode(this.ctx, 'talkstage-meter', { numberOfInputs: 1, numberOfOutputs: 1, channelCount: 1, channelCountMode: 'explicit' });
+    node.port.postMessage({ gate: this.gate });
+    node.port.onmessage = (e: MessageEvent<number[]>) => {
+      const d = e.data;
+      for (let i = 0; i < d.length; i += 3) {
+        this.level = d[i + 1];
+        if (this.frames) {
+          const t = d[i] - this.audioT0;
+          if (t >= 0) this.frames.push({ t, db: d[i + 1], pitch: d[i + 2] });
+        }
+      }
+    };
+    // 소리는 내지 않지만 그래프가 계속 돌도록 무음으로 출력에 이어 둬요
+    const sink = this.ctx.createGain(); sink.gain.value = 0;
+    this.src.connect(node); node.connect(sink); sink.connect(this.ctx.destination);
+    this.node = node; this.sink = sink;
+  }
+  private setupFallback() {
     this.an = this.ctx.createAnalyser();
     this.an.fftSize = 2048;
     this.src.connect(this.an);
     this.buf = new Float32Array(this.an.fftSize);
     this.pre = new Float64Array(this.an.fftSize + 2);
-    this.timer = setInterval(() => this.tick(), 25);
+    this.timer = setInterval(() => this.tick(), HOP_SEC * 1000);
   }
-  resume() { return this.ctx.state === 'suspended' ? this.ctx.resume() : Promise.resolve(); }
+  async resume() {
+    await this.ready;
+    if (this.ctx.state === 'suspended') await this.ctx.resume();
+  }
   tick() {
+    if (!this.an || !this.buf || !this.pre) return;
     this.an.getFloatTimeDomainData(this.buf);
     let s = 0;
     for (let i = 0; i < this.buf.length; i++) s += this.buf[i] * this.buf[i];
-    const rms = Math.sqrt(s / this.buf.length);
-    const db = 20 * Math.log10(rms + 1e-9);
+    const db = 20 * Math.log10(Math.sqrt(s / this.buf.length) + 1e-9);
     this.level = db;
     if (this.frames) {
       const t = (performance.now() - this.t0) / 1000;
-      const pitch = db > this.pitchGate ? detectPitch(this.buf, this.ctx.sampleRate, this.pre) : 0;
+      const pitch = db > this.gate ? detectPitch(this.buf, this.ctx.sampleRate, this.pre) : 0;
       this.frames.push({ t, db, pitch });
     }
   }
-  begin(t0: number) { this.t0 = t0; this.frames = []; }
+  /** t0 = performance.now() 기준 시작 시각. 오디오 시계를 같은 기준으로 맞춰요. */
+  begin(t0: number) {
+    this.t0 = t0;
+    const ts = this.ctx.getOutputTimestamp?.();
+    this.audioT0 = ts && ts.contextTime != null && ts.performanceTime
+      ? ts.contextTime - (ts.performanceTime - t0) / 1000
+      : this.ctx.currentTime - (performance.now() - t0) / 1000;
+    this.frames = [];
+  }
   end() { const f = this.frames || []; this.frames = null; return f; }
-  close() { clearInterval(this.timer); try { this.ctx.close(); } catch {} }
+  close() {
+    if (this.timer) clearInterval(this.timer);
+    try { this.node?.disconnect(); this.sink?.disconnect(); this.src.disconnect(); } catch {}
+    try { this.ctx.close(); } catch {}
+  }
 }
 
 // Chrome의 Web Speech API. 음성이 Google 서버로 전송되므로 사용자가 끌 수 있게 합니다.

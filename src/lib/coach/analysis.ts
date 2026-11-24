@@ -480,6 +480,16 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
   const acc = (arr: (Acc | undefined)[], s: number, v: number) => { if (s < 0 || s >= nSec) return; if (!arr[s]) arr[s] = { n: 0, s: 0 }; arr[s].n++; arr[s].s += v; };
   const gA: (Acc | undefined)[] = [], bA: (Acc | undefined)[] = [], geA: (Acc | undefined)[] = [], smA: (Acc | undefined)[] = [];
 
+  // 원고(종이)를 두 손으로 들고 있는 프레임: 두 손목이 가까이 붙어 가슴 높이에 있음.
+  // 이때 손이 함께 흔들리는 건 종이가 움직이는 거지 손짓이 아니라서 제스처로 세지 않아요.
+  // 제품·기기를 들고 보여 주는 발표는 들고 있는 게 정상이라 빼요(보여 주기에서 따로 봐요).
+  const holdsThing = aid === 'product' || aid === 'device';
+  const heldScript = V.map((f) => {
+    if (holdsThing || !f.pose || !f.lw || !f.rw || !f.sw) return false;
+    const dx = Math.abs(f.lw.x - f.rw.x) / f.sw, dy = Math.abs(f.lw.y - f.rw.y) / f.sw;
+    const h = ((f.lw.y + f.rw.y) / 2 - f.smy) / f.sw; // 어깨선 아래로 얼마나(어깨 너비 단위)
+    return dx < 1.3 && dy < 0.5 && h > -0.1 && h < 0.62;
+  });
   // 손 움직임 속도
   const active = V.map(() => false);
   for (let i = 1; i < V.length; i++) {
@@ -495,7 +505,7 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
       if (posture === 'standing' && a.y > hipY) continue;
       sp = Math.max(sp, Math.hypot(a.x - b.x, a.y - b.y) / f.sw / dt);
     }
-    active[i] = sp > 0.8;
+    active[i] = sp > 0.8 && !heldScript[i];
   }
   for (let i = 0; i < V.length; i++) {
     const s = Math.floor(V[i].t);
@@ -601,8 +611,17 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
   // 제스처
   let gestureRatio = null;
   const gRange = T.gesture[posture];
+  let scriptHeld = 0;
   if (poseOK) {
     gestureRatio = active.filter((a, i) => V[i].pose && a).length / Math.max(1, poseFrames);
+    scriptHeld = heldScript.filter(Boolean).length / Math.max(1, poseFrames);
+    if (scriptHeld >= 0.5) {
+      const heldN = new Array(nSec).fill(0);
+      V.forEach((f, i) => { const s = Math.floor(f.t); if (heldScript[i] && s >= 0 && s < nSec) heldN[s]++; });
+      secRuns((s) => heldN[s] >= 2, 4).slice(0, 1).forEach((r) => pushIssue({
+        t0: r.t0, t1: r.t1, cat: 'gesture', sev: 2, title: '원고를 두 손으로 든 채 말함', detail: `${r.t1 - r.t0}초 동안 두 손이 원고에 묶여 손짓을 쓰지 못했어요.`,
+      }));
+    }
     if (gRange[0] >= 0.1) {
       secRuns((s) => gestSec[s] != null && gestSec[s] === 0 && voicedSec[s] > 0.4, 20).slice(0, 2).forEach((r) => pushIssue({
         t0: r.t0, t1: r.t1, cat: 'gesture', sev: 1, title: '손이 오래 멈춰 있음', detail: `${r.t1 - r.t0}초 동안 손짓 없이 말했어요.`,
@@ -656,7 +675,11 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
   } else mk('posture', null, null, null, null, '');
   // 제스처
   if (gestureRatio != null) {
-    mk('gesture', rangeScore(gestureRatio, gRange, 0.2), dirOf(gestureRatio, gRange), `${Math.round(gestureRatio * 100)}%`, gestureRatio, `${Math.round(gRange[0] * 100)}–${Math.round(gRange[1] * 100)}%`);
+    // 원고를 들고 있던 시간만큼 손짓을 쓸 수 없었던 거라 깎아요(대부분 들고 있었으면 크게)
+    const held = scriptHeld >= 0.5 ? 45 * Math.min(1, (scriptHeld - 0.3) / 0.6) : 0;
+    mk('gesture', clamp(rangeScore(gestureRatio, gRange, 0.2) - held, 0, 100), scriptHeld >= 0.5 ? 'low' : dirOf(gestureRatio, gRange),
+      scriptHeld >= 0.5 ? `원고 든 시간 ${Math.round(scriptHeld * 100)}%` : `${Math.round(gestureRatio * 100)}%`, gestureRatio,
+      scriptHeld >= 0.5 ? `손이 자유로운 상태로 손짓 ${Math.round(gRange[0] * 100)}–${Math.round(gRange[1] * 100)}%` : `${Math.round(gRange[0] * 100)}–${Math.round(gRange[1] * 100)}%`, { scriptHeld });
   } else mk('gesture', null, null, null, null, '');
   // 보여 주기
   // 30초 안 되는 녹화에서 한 번도 안 가리켰다고 "적다"고 하긴 일러요

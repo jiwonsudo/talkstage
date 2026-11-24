@@ -336,7 +336,12 @@ export function coachFor(c: CatResult, purpose: Purpose, setup: Setup): Coaching
     case 'posture':
       out.evidence = ['ambady1993'];
       if (c.score != null && c.score < 80) {
-        out.headline = c.extra?.mainIssue ? `${c.extra.mainIssue} 순간이 있어요` : '자세가 흐트러지는 구간이 있어요';
+        // 얼마나 오래였는지에 맞게: 바른 자세가 절반도 안 되면 "순간"이 아니라 "대부분"
+        const good = c.raw ?? 1;
+        const how = good < 0.5 ? `대부분(${100 - pct(good)}%)` : good < 0.75 ? `자주(${100 - pct(good)}%)` : '순간';
+        out.headline = c.extra?.mainIssue
+          ? how === '순간' ? `${c.extra.mainIssue} 순간이 있어요` : `${c.extra.mainIssue} 시간이 ${how}이에요`
+          : how === '순간' ? '자세가 흐트러지는 구간이 있어요' : `자세가 흐트러진 시간이 ${how}이에요`;
         // 가장 오래 보인 문제에 맞는 조언. 문제를 못 고르면(흔들림 등) 자세 기본 조언.
         out.advice = POSTURE_ADVICE[c.extra?.mainReason as string]?.[setup.posture] ?? (setup.posture === 'seated'
           ? '의자 깊숙이 앉아 등받이에 허리를 붙이고, 정수리를 위에서 실로 당긴다는 느낌으로 앉으세요.'
@@ -351,7 +356,11 @@ export function coachFor(c: CatResult, purpose: Purpose, setup: Setup): Coaching
       break;
     case 'gesture':
       out.evidence = ['goldinmeadow2003', 'vanedwards'];
-      if (d === 'low') {
+      if (((c.extra?.scriptHeld as number) ?? 0) >= 0.5) {
+        out.headline = `원고를 두 손으로 든 채 말했어요 (${pct(c.extra?.scriptHeld as number)}% 시간)`;
+        out.advice = '두 손이 원고에 묶이면 손짓을 쓸 수 없고 원고를 내려다보게 돼요. 원고는 한 손에 접어 들거나 내려놓고, 다른 손은 숫자·순서를 말할 때 써 보세요.';
+        out.drill = '원고를 카드 3장(키워드만)으로 줄이고 한 손으로만 들고 연습해 보세요.';
+      } else if (d === 'low') {
         out.headline = `손짓이 적어요 (움직임 ${pct(c.raw)}%)`;
         out.advice = setup.posture === 'seated'
           ? '손을 화면 아래로 숨기지 말고 책상 위에 올려 두세요. 숫자나 순서를 말할 때 손가락으로 함께 보여주면 자연스럽습니다.'
