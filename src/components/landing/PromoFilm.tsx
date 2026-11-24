@@ -38,10 +38,12 @@ export function PromoFilm() {
     const io = new IntersectionObserver(([e]) => {
       inView = e.isIntersecting;
       if (inView) { v.preload = 'auto'; if (started.current) v.play().catch(() => {}); }
-      else v.pause();
+      else { v.pause(); if (!v.muted) { v.muted = true; setMuted(true); } } // 화면에서 사라지면 켜 둔 소리도 꺼요
     }, { rootMargin: '120px 0px' });
     io.observe(stage);
 
+    // 화면을 채울 때마다(소리가 꺼져 있으면) 4.5초 동안 아래 가운데에 큰 "소리 켜고 보기"를 띄워요(data-hint).
+    let wasFull = false, hintUntil = 0, hintTimer = 0;
     let raf = 0;
     const update = () => {
       raf = 0;
@@ -57,6 +59,10 @@ export function PromoFilm() {
         p = smooth(sc < x0 ? clamp((sc - g0) / (g1 - g0)) : 1 - clamp((sc - x0) / (x1 - x0)));
       }
       if (!started.current && p >= 0.75 && inView) { started.current = true; v.currentTime = 0; v.play().catch(() => {}); }
+      const full = p >= 0.75;
+      if (full && !wasFull && v.muted) { hintUntil = performance.now() + 4500; clearTimeout(hintTimer); hintTimer = window.setTimeout(kick, 4600); }
+      wasFull = full;
+      if (full && v.muted && performance.now() < hintUntil) stage.dataset.hint = ''; else delete stage.dataset.hint;
       const s = stage.style;
       s.setProperty('--w', `${w0 + (vw - w0) * p}px`);
       s.setProperty('--h', `${h0 + (vh - h0) * p}px`);
@@ -68,7 +74,7 @@ export function PromoFilm() {
     update();
     addEventListener('scroll', kick, { passive: true });
     addEventListener('resize', kick);
-    return () => { io.disconnect(); cancelAnimationFrame(raf); removeEventListener('scroll', kick); removeEventListener('resize', kick); };
+    return () => { io.disconnect(); cancelAnimationFrame(raf); clearTimeout(hintTimer); removeEventListener('scroll', kick); removeEventListener('resize', kick); };
   }, [portrait]);
 
   // 로고 플레이: 문구가 화면에 들어오면 조각이 흩어진 데서 날아와 맞물리고(data-in), 그 뒤로 가끔 말하듯 벌어졌다 모여요.
@@ -97,6 +103,7 @@ export function PromoFilm() {
     v.muted = !v.muted;
     if (!v.muted && v.paused) v.play().catch(() => {});
     setMuted(v.muted);
+    delete stageRef.current!.dataset.hint;
   };
 
   return (
@@ -114,6 +121,10 @@ export function PromoFilm() {
               <source src="/media/promo-1080.mp4" type="video/mp4" />
             </>}
           </video>
+          <button type="button" className="pf-hint" onClick={toggleSound} tabIndex={-1} aria-hidden="true">
+            <span className="pf-eq"><i /><i /><i /><i /></span>
+            <span><b>소리 켜고 보기</b><small>음악과 함께 보면 더 좋아요</small></span>
+          </button>
           <button type="button" className="pf-sound" onClick={toggleSound} aria-pressed={!muted}>
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" />
