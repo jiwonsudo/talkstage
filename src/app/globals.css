@@ -2185,3 +2185,7 @@ p, li, .catch-sub, .lead2, .display-sub, small { word-break: keep-all; text-wrap
 .og-card span { font-size: 16px; font-weight: 600; opacity: .8; }
 .og-card > .picto { position: absolute; left: 16%; right: 16%; bottom: 8%; width: 68%; height: auto; }
 .hub-note { margin: 0; font-size: 14px; color: var(--ink-2); }
+.cfm-field { margin-top: 14px; text-align: left; }
+.cfm-field span b { color: var(--red); }
+.cfm-err { margin: 10px 0 0; font-size: 13px; color: var(--red); text-align: left; }
+.cfm-act button:disabled { opacity: .45; cursor: not-allowed; }
