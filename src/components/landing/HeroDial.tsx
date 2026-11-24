@@ -31,9 +31,6 @@ export function HeroDial() {
 
     let ang = 0, vel = 0, bez = 0, dragging = false, lastX = 0, lastT = 0;
     let snapTo: number | null = null, holdUntil = 0, lastFrame = performance.now(), raf = 0;
-    // 마우스를 올리면 흐르던 속도로 살짝 더 나갔다가 튕기듯 되돌아와 멈춰요(스프링). 내리면 다시 흘러요.
-    let hover = false, bounce: number | null = null, sv = 0, bezBounce: number | null = null, bsv = 0;
-    const fine = matchMedia('(hover: hover) and (pointer: fine)');
 
     const render = () => {
       ring.style.rotate = `${ang}deg`;
@@ -46,7 +43,7 @@ export function HeroDial() {
       else if (cards[0].style.zIndex) cards.forEach((c) => { c.style.zIndex = ''; });
     };
     const down = (e: PointerEvent) => {
-      dragging = true; snapTo = null; bounce = null; bezBounce = null; vel = 0; lastX = side.matches ? -e.clientY : e.clientX; lastT = performance.now();
+      dragging = true; snapTo = null; vel = 0; lastX = side.matches ? -e.clientY : e.clientX; lastT = performance.now();
       arc.setPointerCapture(e.pointerId); arc.classList.add('grab');
     };
     const move = (e: PointerEvent) => {
@@ -68,16 +65,10 @@ export function HeroDial() {
     const tick = (now: number) => {
       const dt = Math.min(0.05, (now - lastFrame) / 1000); lastFrame = now;
       if (!dragging) {
-        if (bounce !== null) {
-          // 덜 감쇠된 스프링: 목표를 살짝 지나쳤다가 돌아와 멈춰요
-          const k = 120, c = 11;
-          sv += ((bounce - ang) * k - sv * c) * dt; ang += sv * dt;
-          if (bezBounce !== null) { bsv += ((bezBounce - bez) * k - bsv * c) * dt; bez += bsv * dt; }
-          if (Math.abs(bounce - ang) < 0.005 && Math.abs(sv) < 0.02) { ang = bounce; bounce = null; if (bezBounce !== null) bez = bezBounce; bezBounce = null; }
-        } else if (snapTo !== null) {
+        if (snapTo !== null) {
           ang += (snapTo - ang) * 0.09;
           if (Math.abs(snapTo - ang) < 0.01) { ang = snapTo; snapTo = null; }
-        } else if (!reduce && now > holdUntil && !hover) {
+        } else if (!reduce && now > holdUntil) {
           ang -= FLOW * dt; bez -= FLOW * dt;
         }
         render();
@@ -96,22 +87,6 @@ export function HeroDial() {
     arc.addEventListener('pointerup', release);
     arc.addEventListener('pointercancel', release);
     if (!reduce) hero?.addEventListener('pointermove', tilt);
-    // 카드 위에 올라갔을 때만 멈춰요(카드 사이를 옮겨 다니면 계속 멈춘 채로), 카드에서 나가면 바로 다시 흘러요.
-    const onCard = (t: EventTarget | null) => t instanceof Element && !!t.closest('.wc') && ring.contains(t);
-    const enter = (e: PointerEvent) => {
-      if (!fine.matches || reduce || dragging || hover || !onCard(e.target)) return;
-      hover = true;
-      if (snapTo !== null) return; // 놓은 뒤 자리 맞추는 중이면 그대로 두고 멈추기만
-      // 흐르던 속도(초당 -FLOW도)를 이어받아 1.6도 앞에서 멈추게: 살짝 밀렸다가 튕겨 돌아와요
-      sv = -FLOW * 6; bounce = ang - 1.6;
-      bsv = -FLOW * 6; bezBounce = bez - 1.6;
-    };
-    const leave = (e: PointerEvent) => {
-      if (!hover || onCard(e.relatedTarget)) return;
-      hover = false; bounce = null; bezBounce = null; holdUntil = 0;
-    };
-    ring.addEventListener('pointerover', enter);
-    ring.addEventListener('pointerout', leave);
     render();
     raf = requestAnimationFrame((t) => { lastFrame = t; tick(t); });
     return () => {
@@ -121,8 +96,6 @@ export function HeroDial() {
       arc.removeEventListener('pointerup', release);
       arc.removeEventListener('pointercancel', release);
       hero?.removeEventListener('pointermove', tilt);
-      ring.removeEventListener('pointerover', enter);
-      ring.removeEventListener('pointerout', leave);
     };
   }, []);
 
