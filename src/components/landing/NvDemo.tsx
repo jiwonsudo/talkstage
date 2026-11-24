@@ -128,6 +128,7 @@ export function NvDemo() {
             {d.cats.map((c) => (
               <li key={c.id} data-status={c.status} style={{ '--c': CAT_COLOR[c.id] }}>
                 <span>{c.label}</span>
+                <span className="nvd-meter" aria-hidden="true"><i style={{ width: `${c.score ?? 0}%` }} /></span>
                 <b>{c.score ?? '–'}</b>
                 <small>{c.value ?? ''}{c.target ? ` · 목표 ${c.target}` : ''}</small>
               </li>
@@ -138,7 +139,7 @@ export function NvDemo() {
               <h4>코칭</h4>
               <ol className="nvd-tips">
                 {tips.map((c) => (
-                  <li key={c.id} style={{ '--c': CAT_COLOR[c.id] }}><b>{c.headline}</b><span>{c.advice}</span></li>
+                  <li key={c.id}><i className="nvd-chip" style={{ '--c': CAT_COLOR[c.id] }} data-on-light={c.id === 'posture' ? '' : undefined}>{c.label}</i><b>{c.headline}</b><span>{c.advice}</span></li>
                 ))}
               </ol>
             </div>
@@ -148,8 +149,8 @@ export function NvDemo() {
                 <ul className="nvd-issues">
                   {d.issues.map((i) => (
                     <li key={`${i.cat}-${i.t0}`}>
-                      <button type="button" onClick={() => seek(i)} style={{ '--c': CAT_COLOR[i.cat] }}>
-                        <em>{sec(i.t0)}–{sec(i.t1)}</em><b>{i.title}</b><small>{i.detail}</small>
+                      <button type="button" onClick={() => seek(i)} aria-label={`${sec(i.t0)}부터 다시 보기`}>
+                        <em><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 1l7 4-7 4z" /></svg>{sec(i.t0)}–{sec(i.t1)}</em><b>{i.title}</b><small>{i.detail}</small>
                       </button>
                     </li>
                   ))}

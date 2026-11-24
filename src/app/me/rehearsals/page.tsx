@@ -68,8 +68,9 @@ export default function MyRehearsals() {
       </header>
 
       <div className="db-grid">
-        {/* 1줄: 숫자 네 개 */}
-        <section className="db-card db-kpi">
+        {/* 1줄: 숫자 네 개를 한 장에(칸마다 얇은 구분선) */}
+        <section className="db-card db-stats">
+        <div className="db-kpi">
           <small>남은 크레딧{plan ? ` · ${plan}` : ''}</small>
           {credits?.status === 'ok' ? (
             <>
@@ -80,9 +81,9 @@ export default function MyRehearsals() {
           ) : credits?.status === 'error' ? (
             <p>크레딧을 불러오지 못했어요. <button type="button" className="link-btn" onClick={credits.retry}>다시 시도</button></p>
           ) : wait}
-        </section>
+        </div>
 
-        <section className="db-card db-kpi">
+        <div className="db-kpi">
           <small>이번 달 리허설</small>
           {credits?.status === 'ok' ? (
             <>
@@ -90,9 +91,9 @@ export default function MyRehearsals() {
               <p>매달 1일에 크레딧이 다시 채워져요.</p>
             </>
           ) : wait}
-        </section>
+        </div>
 
-        <section className="db-card db-kpi">
+        <div className="db-kpi">
           <small>평균 점수 · 최근 {Math.min(stats.scored.length || RECENT, RECENT)}회</small>
           {rows === null ? wait : stats.avg === null ? <p>아직 점수가 없어요.</p> : (
             <>
@@ -105,9 +106,9 @@ export default function MyRehearsals() {
               </p>
             </>
           )}
-        </section>
+        </div>
 
-        <section className="db-card db-kpi">
+        <div className="db-kpi">
           <small>총 연습 시간</small>
           {rows === null ? wait : (
             <>
@@ -115,6 +116,7 @@ export default function MyRehearsals() {
               <p>지금까지 리허설 {stats.all.length}회</p>
             </>
           )}
+        </div>
         </section>
 
         {/* 2줄: 점수 흐름 · 항목별 평균 */}
