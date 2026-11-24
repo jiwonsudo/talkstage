@@ -47,12 +47,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { user: u } } = await sb.auth.getUser();
     if (!u) { setUser(null); setReady(true); return; }
     let name = (u.email ?? '').split('@')[0];
+    const providers: string[] = u.app_metadata?.providers ?? (u.app_metadata?.provider ? [u.app_metadata.provider] : []);
+    const hasPassword = providers.includes('email');
+    const social = providers.includes('kakao') ? 'kakao' : providers.includes('google') ? 'google' : null;
     try {
       const p = await fetchProfile(u.id);
       name = p.name || name;
-      setUser({ id: u.id, email: u.email ?? '', name, plan: p.plan });
+      setUser({ id: u.id, email: u.email ?? '', name, plan: p.plan, hasPassword, social });
     } catch {
-      setUser({ id: u.id, email: u.email ?? '', name, plan: 'Opening' });
+      setUser({ id: u.id, email: u.email ?? '', name, plan: 'Opening', hasPassword, social });
     }
     rememberLogin({ email: u.email ?? '', name, provider: u.app_metadata?.provider });
     setReady(true);

@@ -32,7 +32,7 @@
 ## 배포
 
 - Vercel(GitHub 연동): https://talkstage-three.vercel.app — main 에 push 하면 운영 배포, PR 브랜치는 미리보기.
-- Vercel 환경 변수: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY`, `NEXT_PUBLIC_TOSS_BILLING_CLIENT_KEY`, `TOSS_BILLING_SECRET_KEY`, `CRON_SECRET` 만. `TEST_USER_*` 는 넣지 말 것.
+- Vercel 환경 변수: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY`, `NEXT_PUBLIC_TOSS_BILLING_CLIENT_KEY`, `TOSS_BILLING_SECRET_KEY`, `CRON_SECRET`, `KAKAO_ADMIN_KEY`(탈퇴 때 카카오 연결 끊기, 서버 전용) 만. `TEST_USER_*` 는 넣지 말 것.
 - Supabase Auth URL Configuration 에 배포 주소와 `/auth/callback` 등록됨.
 
 ## 실행
@@ -100,6 +100,7 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
 ## 로그인
 
 - 최근 로그인(`lib/auth/lastLogin.ts`, localStorage `ts-last-login`, 비밀번호는 저장 안 함): 이메일이면 로그인 창에 "최근 로그인한 계정" 카드 + 비밀번호만(다른 계정·이 기기에서 기록 지우기), 카카오·Google 이면 그 버튼에 "최근 사용" 말풍선. 소셜은 떠나기 전에 `ts-login-pending` 에 방법을 적고 돌아와서 확정.
+- 소셜로만 가입한 계정(`user.hasPassword === false`)은 비밀번호가 없어서 계정 관리에서 비밀번호 바꾸기 대신 "로그인 방법" 안내, 계정 삭제는 "계정 삭제" 문구 입력으로 확인. 삭제하면 `/api/account` 가 카카오 연결 끊기(`KAKAO_ADMIN_KEY` 있을 때) → 사용자 삭제, 앱은 최근 로그인 기록도 지움. 카카오 프로필 사진은 Supabase 가 항상 요청하는 범위라 동의항목에서 끄면 KOE205 → "선택 동의"로 두고 앱에서는 안 씀.
 - 소셜 로그인 취소·실패는 `/?login=1&error=cancelled|social&next=` 로 돌아와 이유를 보여 주고 원래 화면을 기억.
 
 ## UI 디테일 규칙
