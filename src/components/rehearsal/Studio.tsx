@@ -5,7 +5,8 @@ import { AudioMeter, Transcriber } from '@/lib/coach/audio';
 import { detect, drawOverlay, extractFeatures, loadVision, type VisionFrame, type VisionModels } from '@/lib/coach/vision';
 import type { Setup } from '@/lib/coach/types';
 import { outcomeLabel, purposeOf, type Draft } from '@/lib/rehearsal/draft';
-import { aidOf, audienceOf } from '@/lib/delivery';
+import { aidOf, audienceOf, isShowing } from '@/lib/delivery';
+import { showPose } from '@/lib/coach/showing';
 import { CAT_LABEL, POSTURES, fmtTime, type CatId } from '@/lib/scenarios';
 
 export type StudioResult = { result: Analysis; videoURL: string; durationSec: number; setup: Setup };
@@ -35,7 +36,8 @@ type Props = {
 /** 녹화 화면: 카메라·마이크를 켜고 3초 기준 측정 뒤 녹화, 실시간 알림을 띄우고 끝나면 분석해요. */
 export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }: Props) {
   const p = purposeOf(draft);
-  const audience = audienceOf(aidOf(draft.purposeId, setup.aid), draft.posture); // 청중이 여럿이면 옆 사람을 보는 것도 시선 OK
+  const aid = aidOf(draft.purposeId, setup.aid);
+  const audience = audienceOf(aid, draft.posture); // 청중이 여럿이면 옆 사람을 보는 것도 시선 OK
   const camRef = useRef<HTMLVideoElement>(null);
   const ovRef = useRef<HTMLCanvasElement>(null);
 
@@ -181,7 +183,11 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
       const gz = cls.filter((c) => c.gaze != null);
       const gOn = gz.length ? gz.filter((c) => c.gaze).length / gz.length : null;
       gaze = gOn == null ? null : gOn >= 0.5;
-      if (gOn != null && gOn < 0.2 && t > 4) showCue('gaze', cls.filter((c) => c.lookDown).length > gz.length / 2 ? '원고에서 눈을 들어 카메라를 봐 주세요' : audience === 'room' ? '청중 쪽을 봐 주세요' : '카메라 렌즈를 봐 주세요');
+      // 화면·제품을 가리키는 중이거나 막 가리킨 뒤(2초)는 화면을 보는 게 정상이라 시선 알림을 띄우지 않아요(리포트와 같은 기준)
+      const holds = aid === 'product' || aid === 'device';
+      const showingNow = isShowing(aid) && st.frames.some((f) => f.t > t - 2 && (() => { const q = showPose(f, holds); return q.point != null || q.show || q.cross; })());
+      if (showingNow) gaze = null;
+      if (!showingNow && gOn != null && gOn < 0.2 && t > 4) showCue('gaze', cls.filter((c) => c.lookDown).length > gz.length / 2 ? '원고에서 눈을 들어 카메라를 봐 주세요' : audience === 'room' ? '청중 쪽을 봐 주세요' : '카메라 렌즈를 봐 주세요');
       const ps = cls.filter((c) => c.bad != null);
       const bad = ps.length ? ps.filter((c) => c.bad).length / ps.length : null;
       posture = bad == null ? null : bad < 0.5;
@@ -207,7 +213,7 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
       if (t - st.lastQuiet > 18) showCue('pause', '숨 한 번 쉬고 이어가세요');
     }
     setHud({ t, rate, tx, gaze, posture, pace });
-  }, [draft.posture, p.targets.spm, setup.targetSec, showCue, audience]);
+  }, [draft.posture, p.targets.spm, setup.targetSec, showCue, audience, aid]);
 
   const startRecording = useCallback(() => {
     const st = r.current;
