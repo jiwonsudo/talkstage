@@ -3,6 +3,7 @@
 // type: research(동료평가 연구) · book(서적) · practitioner(전문가 공개 입장 · 실무 가이드)
 import type { CatId, Purpose } from '@/lib/scenarios';
 import type { CatResult, Check, Setup } from './types';
+import { deliveryOf } from '@/lib/delivery';
 
 export type Evidence = { type: 'research' | 'book' | 'practitioner'; cite: string; title: string; claim: string };
 export type Coaching = { headline: string; advice: string; drill: string; evidence: string[] };
@@ -109,6 +110,24 @@ export const EVIDENCE: Record<string, Evidence> = {
     cite: 'Richard E. Mayer, 『Multimedia Learning』',
     title: '멀티미디어 학습 원리',
     claim: '학습자가 한 번에 처리할 수 있는 정보에는 한계가 있으므로, 내용을 작은 단위로 나눠 처리할 시간을 주라고 제안합니다(분할 원칙).',
+  },
+  kelly1999: {
+    type: 'research',
+    cite: 'Kelly, Barr, Church & Lynch (1999), Journal of Memory and Language',
+    title: 'Offering a hand to pragmatic understanding: The role of speech and gesture in comprehension and memory',
+    claim: '가리키기 같은 손짓이 말과 함께 나오면 듣는 사람이 말한 사람의 의도를 더 잘 알아듣고 더 오래 기억했습니다.',
+  },
+  mayerSignal: {
+    type: 'book',
+    cite: 'Richard E. Mayer, 『Multimedia Learning』 신호 원칙(signaling)',
+    title: '어디를 봐야 하는지 짚어 주기',
+    claim: '화면에서 지금 봐야 할 곳을 짚어 주면 듣는 사람이 핵심 정보를 골라내는 데 드는 부담이 줄고 이해가 좋아집니다.',
+  },
+  touchturntalk: {
+    type: 'practitioner',
+    cite: '“Touch–Turn–Talk” 발표 기법 · 프레젠테이션 코칭 실무',
+    title: '가리키고, 돌아서고, 말하기',
+    claim: '화면을 가리킨 뒤(Touch) 청중 쪽으로 몸을 돌리고(Turn) 그다음에 말하라는(Talk) 실무 기법입니다. 화면을 보며 말하면 목소리와 시선이 청중에게서 멀어집니다.',
   },
   star: {
     type: 'practitioner',
@@ -240,21 +259,80 @@ export function coachFor(c: CatResult, purpose: Purpose, setup: Setup): Coaching
         out.advice = '핵심 문장에서 음을 바꿔 강조하는 습관을 유지하세요.';
       }
       break;
-    case 'gaze':
+    case 'gaze': {
       out.evidence = ['kleinke1986', setup.posture === 'seated' ? 'ambady1993' : 'anderson2016'];
+      const room = c.extra?.audience === 'room';
+      const panel = setup.aid === 'panel' || (P === 'interview' && room);
+      const spread = c.extra?.spread as { side: number; balance: number; issue?: string | null } | null | undefined;
+      if (d !== 'low' && spread?.issue) {
+        out.headline = spread.issue === 'center'
+          ? (panel ? '가운데 면접관만 보고 답했어요' : '가운데만 보고 말했어요')
+          : (panel ? '한쪽 면접관만 봤어요' : '한쪽 청중만 봤어요');
+        out.advice = deliveryOf(P).spread;
+        out.drill = panel
+          ? '면접관 자리에 컵 세 개를 놓고, 답의 첫 문장은 가운데, 근거는 양옆, 마지막 문장은 다시 가운데 컵을 보며 말해 보세요.'
+          : '청중석 왼쪽·가운데·오른쪽에 표시를 하나씩 붙이고, 문장 하나가 끝날 때마다 다음 표시로 시선을 옮기세요.';
+        break;
+      }
       if (d === 'low') {
         out.headline = `카메라를 보는 시간이 ${pct(c.raw)}%예요 (목표 ${Math.round(purpose.targets.gaze * 100)}%)`;
         out.advice = c.extra?.downRatio > 0.4
-          ? '시선이 주로 아래를 향했어요. 원고를 볼 때는 키워드만 확인하고 문장은 카메라를 보며 말하세요.'
+          ? `시선이 주로 아래를 향했어요. 원고를 볼 때는 키워드만 확인하고 문장은 ${c.extra?.audience === 'room' ? '청중' : '카메라'}을 보며 말하세요.`
           : setup.posture === 'seated'
             ? '화면 속 상대의 얼굴이 아니라 카메라 렌즈를 봐야 상대에게는 눈을 맞추는 것처럼 보입니다.'
             : '청중석의 왼쪽, 가운데, 오른쪽에 한 사람씩 정하고 문장 단위로 시선을 옮기세요.';
         out.drill = '카메라 옆에 작은 스티커를 붙이고, 한 문장을 말하는 동안은 스티커에서 눈을 떼지 않는 연습을 하세요.';
+        if (room) {
+          out.headline = `${panel ? '면접관' : '청중'}을 보는 시간이 ${pct(c.raw)}%예요 (목표 ${Math.round(purpose.targets.gaze * 100)}%)`;
+          if (!(c.extra?.downRatio > 0.4)) out.advice = deliveryOf(P).spread;
+          out.drill = panel
+            ? '답변 하나를 말하는 동안 면접관 자리(카메라와 그 양옆)에서 눈을 떼지 않는 연습을 하세요. 생각할 때도 시선을 아래로 떨구지 말고 잠깐 멈추세요.'
+            : '청중석에 시선 둘 곳 세 군데를 정하고, 원고는 문단이 바뀔 때만 보세요.';
+        }
       } else {
         out.headline = `시선 처리가 안정적이에요 (${pct(c.raw)}%)`;
-        out.advice = '문장이 끝날 때까지 시선을 유지하는 지금 습관을 이어가세요.';
+        out.advice = room && spread ? '청중 여러 곳에 시선을 고르게 나눴어요. 핵심 문장은 결정권자를 보며 말하면 더 좋아요.' : '문장이 끝날 때까지 시선을 유지하는 지금 습관을 이어가세요.';
       }
       break;
+    }
+    case 'showing': {
+      const x = c.extra ?? {};
+      const dl = deliveryOf(P);
+      const aid = x.aid as string;
+      const n = c.value, ret = x.returnRate == null ? null : Math.round(x.returnRate * 100);
+      out.evidence = x.main === 'return' ? ['touchturntalk', 'kleinke1986'] : x.main === 'keys' ? ['kelly1999', 'mayerSignal'] : ['mayerSignal', 'kelly1999'];
+      out.drill = aid === 'product'
+        ? '제품을 가슴 높이에서 청중 쪽으로 돌려 들고, 속으로 “하나, 둘”을 센 뒤 설명을 시작하세요.'
+        : aid === 'device'
+          ? '시연 화면을 청중 쪽으로 돌려 들고, 누르기 전에 “이제 ○○을 누르면”이라고 먼저 말하세요.'
+          : '슬라이드마다 가리킬 숫자·그림 하나를 정해 대본에 ☞ 표시를 하고, ☞에서 가리키고 → 돌아서고 → 말하는 연습을 하세요.';
+      if (x.main === 'few') {
+        out.headline = `가리키거나 보여 준 순간이 적어요 (${n})`;
+        out.advice = dl.tip.few || '보여 줄 것이 있다면 핵심 장면에서 손바닥으로 가리켜 청중의 시선을 모으세요.';
+      } else if (x.main === 'many') {
+        out.headline = `가리키는 동작이 너무 잦아요 (분당 ${x.perMin.toFixed(1)}회)`;
+        out.advice = dl.tip.many || '꼭 봐야 할 곳에만 가리키고, 나머지는 손을 모아 두세요.';
+      } else if (x.main === 'return') {
+        out.headline = `가리킨 뒤 청중에게 돌아오지 않았어요 (돌아온 비율 ${ret}%)`;
+        out.advice = '화면을 가리키는 순간 화면을 보는 건 괜찮아요. 하지만 설명은 청중을 보며 해야 해요. 가리키고(Touch) → 청중 쪽으로 돌아서고(Turn) → 말하세요(Talk).';
+      } else if (x.main === 'keys') {
+        out.headline = `핵심 순간 ${x.keys}번 중 ${Math.round((x.keyCover ?? 0) * x.keys)}번만 짚었어요`;
+        out.advice = dl.tip.keys || '숫자·결과를 말하는 순간에 그 자료를 가리켜야 청중이 말과 화면을 연결해요.';
+      } else if (x.main === 'form') {
+        out.headline = x.cross ? '몸을 가로질러 가리켰어요' : x.face ? '제품이 얼굴을 가렸어요' : '제품을 너무 짧게 보여 줬어요';
+        out.advice = x.cross
+          ? '화면 반대쪽 손으로 가리키면 몸이 청중에게서 돌아가요. 화면 쪽 손을 쓰면 몸을 연 채로 가리킬 수 있어요.'
+          : x.face
+            ? '제품을 얼굴 앞까지 올리면 표정이 가려져요. 가슴 높이에서 청중 쪽으로 돌려 보여 주세요.'
+            : '제품을 꺼내자마자 내리면 청중이 볼 틈이 없어요. 2~3초 멈춰서 보여 준 뒤 설명하세요.';
+      } else {
+        out.headline = `보여 주기가 좋아요 (${n}${ret != null ? `, 청중 복귀 ${ret}%` : ''})`;
+        out.advice = aid === 'product' || aid === 'device'
+          ? '제품을 보여 주고 청중에게 돌아오는 흐름이 자연스러워요. 가장 중요한 기능 하나는 조금 더 오래 보여 주세요.'
+          : '가리키고 청중에게 돌아오는 흐름이 자연스러워요. 가장 중요한 숫자 하나는 가리킨 채 한 박자 멈춰 보세요.';
+      }
+      break;
+    }
     case 'posture':
       out.evidence = ['ambady1993'];
       if (c.score != null && c.score < 80) {

@@ -14,6 +14,8 @@ type PoseFeat = {
   noseX: number; noseY: number; nosePx: number; slouchR: number; headTilt?: number;
   hipVis: boolean; hipX?: number; hipY?: number;
   lw: Pt | null; rw: Pt | null; fullBody: boolean; armsCrossed: boolean;
+  /** 어깨(사람 기준 왼쪽=11, 오른쪽=12). 가리키기·들어 보이기 판단에 써요. */
+  ls: Pt; rs: Pt;
 };
 type FaceFeat = { face: true; yawP: number; pitchP: number; faceTilt: number; eyeH: number; eyeDown: number; smile: number };
 /** 한 프레임의 분석용 특징. pose / face 가 true 일 때만 그 부위 값이 있어요. */
@@ -113,6 +115,8 @@ export function extractFeatures(t: number, poseRes: PoseLandmarkerResult | undef
       F.pose = true;
       const sw = Math.hypot(ls.x - rs.x, ls.y - rs.y) || 1e-6;
       F.sw = sw;
+      F.ls = { x: ls.x, y: ls.y };
+      F.rs = { x: rs.x, y: rs.y };
       F.swFrame = Math.abs(ls.nx - rs.nx);
       F.smx = (ls.x + rs.x) / 2;
       F.smy = (ls.y + rs.y) / 2;

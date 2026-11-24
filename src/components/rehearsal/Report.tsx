@@ -328,7 +328,7 @@ export function Report({ result: R, videoURL, setup, purpose, prev, history, onR
           <div className="cat-grid">
             {CATS.map(({ id }) => {
               const c = cats[id];
-              if (!c) return null;
+              if (!c || (id === 'showing' && c.score == null)) return null; // 보여 줄 것 없는 발표면 카드 자체를 숨겨요
               const co = coached[id];
               const pd = prev?.scores?.[id];
               const d = c.score != null && pd != null ? c.score - pd : null;

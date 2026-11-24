@@ -11,6 +11,7 @@ export const CAT_COLOR: Record<CatId, string> = {
   filler: 'var(--yellow)',
   content: 'var(--ink)',
   time: 'color-mix(in oklab, var(--blue) 45%, var(--green))',
+  showing: 'color-mix(in oklab, var(--pink) 55%, var(--orange))',
 };
 
 /** 밝은 색이라 그 위 글자는 어둡게 */

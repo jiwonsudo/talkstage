@@ -2,7 +2,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from '@/lib/nav';
-import { listRehearsals } from '@/lib/data/rehearsals';
+import { listRehearsals, deleteRehearsals } from '@/lib/data/rehearsals';
+import { useConfirm } from '@/components/ui/Confirm';
 import { useCredits } from '@/lib/data/useCredits';
 import type { Rehearsal } from '@/lib/data/types';
 import { CATS, PURPOSE_BY_ID } from '@/lib/scenarios';
@@ -10,7 +11,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { useToast } from '@/components/ui/Toast';
 import { Trend } from '@/components/me/ScoreTrend';
 import { PracticeRow } from '@/components/me/PracticeRow';
-import { groupPractices } from '@/lib/data/groups';
+import { DELETE_BODY, groupPractices, type Practice } from '@/lib/data/groups';
 import { PatternArt } from '@/components/ui/PatternArt';
 import { CAT_COLOR, PURPOSE_COLOR } from '@/lib/colors';
 
@@ -25,6 +26,7 @@ const fmtTotal = (sec: number) => {
 export default function MyRehearsals() {
   const router = useRouter();
   const toast = useToast();
+  const confirm = useConfirm();
   const { user } = useAuth();
   const credits = useCredits(user);
   const [rows, setRows] = useState<Rehearsal[] | null>(null);
@@ -32,6 +34,13 @@ export default function MyRehearsals() {
   useEffect(() => {
     listRehearsals().then(setRows).catch(() => { setRows([]); toast('기록을 불러오지 못했어요.'); });
   }, [toast]);
+
+  async function removePractice(g: Practice) {
+    if (!(await confirm({ title: `‘${g.title}’ 발표 기록 ${g.runs.length}회를 모두 지울까요?`, body: DELETE_BODY, ok: '모두 지우기', danger: true }))) return;
+    const ids = new Set(g.runs.map((r) => r.id));
+    try { await deleteRehearsals([...ids]); setRows((r) => r?.filter((x) => !ids.has(x.id)) ?? null); toast('발표 기록을 지웠어요.'); }
+    catch { toast('기록을 지우지 못했어요.'); }
+  }
 
   const stats = useMemo(() => {
     const all = rows ?? [];
@@ -155,7 +164,7 @@ export default function MyRehearsals() {
           <h2>발표별 기록</h2>
           {rows === null ? wait : stats.practices.length ? (
             <ul className="pr-list">
-              {stats.practices.map((g) => <PracticeRow key={g.title} g={g} />)}
+              {stats.practices.map((g) => <PracticeRow key={g.title} g={g} onDelete={removePractice} />)}
             </ul>
           ) : (
             <div className="db-empty db-empty-lg">

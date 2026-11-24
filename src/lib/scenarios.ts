@@ -2,7 +2,7 @@
 // 모든 기준값은 프로토타입용 추정치이며 한국어 발화 데이터로 보정이 필요합니다.
 
 export type PostureId = 'seated' | 'standing';
-export type CatId = 'pace' | 'pause' | 'tone' | 'gaze' | 'posture' | 'gesture' | 'filler' | 'content' | 'time';
+export type CatId = 'pace' | 'pause' | 'tone' | 'gaze' | 'posture' | 'gesture' | 'showing' | 'filler' | 'content' | 'time';
 export type Range = [number, number];
 export type Outcome = { label: string; cta: boolean; focus: CatId; sec?: number };
 export type Purpose = {
@@ -39,6 +39,7 @@ export const CATS: { id: CatId; label: string }[] = [
   { id: 'gaze', label: '시선' },
   { id: 'posture', label: '자세' },
   { id: 'gesture', label: '제스처' },
+  { id: 'showing', label: '보여 주기' },
   { id: 'filler', label: '군더더기 말' },
   { id: 'content', label: '내용 구조' },
   { id: 'time', label: '시간 관리' },
@@ -58,7 +59,7 @@ export const PURPOSES: Purpose[] = [
       spm: [260, 320], pause: [0.15, 0.28], pitch: [2.0, 4.5], gaze: 0.75,
       gesture: { seated: [0.03, 0.2], standing: [0.05, 0.25] }, filler: 2, fade: 0.25,
     },
-    weights: { pace: 1, pause: 1, tone: 0.8, gaze: 1.3, posture: 1.3, gesture: 0.5, filler: 1.2, content: 1.2, time: 0.8 },
+    weights: { pace: 1, pause: 1, tone: 0.8, gaze: 1.3, posture: 1.3, gesture: 0.5, filler: 1.2, content: 1.2, time: 0.8, showing: 0.5 },
     contentChecks: ['keyMessage', 'conclusionFirst', 'star'],
     outcomes: [
       { label: '합격 · 다음 전형 진출', cta: false, focus: 'content' },
@@ -86,7 +87,7 @@ export const PURPOSES: Purpose[] = [
       spm: [290, 350], pause: [0.12, 0.24], pitch: [2.8, 6.0], gaze: 0.65,
       gesture: { seated: [0.08, 0.35], standing: [0.15, 0.5] }, filler: 2, fade: 0.2,
     },
-    weights: { pace: 1.1, pause: 1, tone: 1.3, gaze: 1, posture: 0.9, gesture: 1, filler: 1, content: 1.3, time: 1.2 },
+    weights: { pace: 1.1, pause: 1, tone: 1.3, gaze: 1, posture: 0.9, gesture: 1, filler: 1, content: 1.3, time: 1.2, showing: 1.3 },
     contentChecks: ['keyMessage', 'numbers', 'contrast', 'cta'],
     outcomes: [
       { label: '후속 미팅 잡기', cta: true, focus: 'content', sec: 600 },
@@ -113,7 +114,7 @@ export const PURPOSES: Purpose[] = [
       spm: [270, 330], pause: [0.14, 0.26], pitch: [1.8, 4.0], gaze: 0.6,
       gesture: { seated: [0.03, 0.2], standing: [0.05, 0.3] }, filler: 2.5, fade: 0.3,
     },
-    weights: { pace: 1, pause: 1, tone: 0.7, gaze: 1, posture: 1, gesture: 0.6, filler: 1.2, content: 1.4, time: 1.2 },
+    weights: { pace: 1, pause: 1, tone: 0.7, gaze: 1, posture: 1, gesture: 0.6, filler: 1.2, content: 1.4, time: 1.2, showing: 0.9 },
     contentChecks: ['keyMessage', 'conclusionFirst', 'numbers', 'cta'],
     outcomes: [
       { label: '의사결정 · 승인 받기', cta: true, focus: 'content', sec: 600 },
@@ -140,7 +141,7 @@ export const PURPOSES: Purpose[] = [
       spm: [230, 290], pause: [0.2, 0.34], pitch: [2.5, 5.5], gaze: 0.5,
       gesture: { seated: [0.08, 0.35], standing: [0.15, 0.5] }, filler: 3, fade: 0.3,
     },
-    weights: { pace: 1.2, pause: 1.3, tone: 1.1, gaze: 0.8, posture: 0.8, gesture: 1, filler: 1, content: 1.1, time: 0.8 },
+    weights: { pace: 1.2, pause: 1.3, tone: 1.1, gaze: 0.8, posture: 0.8, gesture: 1, filler: 1, content: 1.1, time: 0.8, showing: 1.0 },
     contentChecks: ['keyMessage', 'questions', 'recap'],
     outcomes: [
       { label: '핵심 개념 이해', cta: false, focus: 'pause', sec: 600 },
@@ -167,7 +168,7 @@ export const PURPOSES: Purpose[] = [
       spm: [260, 320], pause: [0.15, 0.28], pitch: [2.0, 4.5], gaze: 0.5,
       gesture: { seated: [0.05, 0.25], standing: [0.1, 0.4] }, filler: 2.5, fade: 0.3,
     },
-    weights: { pace: 1.1, pause: 1.1, tone: 0.9, gaze: 0.8, posture: 0.8, gesture: 0.7, filler: 1, content: 1.3, time: 1.1 },
+    weights: { pace: 1.1, pause: 1.1, tone: 0.9, gaze: 0.8, posture: 0.8, gesture: 0.7, filler: 1, content: 1.3, time: 1.1, showing: 1.0 },
     contentChecks: ['keyMessage', 'numbers', 'recap'],
     outcomes: [
       { label: '연구 결과 설득', cta: false, focus: 'content', sec: 600 },
@@ -194,7 +195,7 @@ export const PURPOSES: Purpose[] = [
       spm: [260, 320], pause: [0.15, 0.28], pitch: [2.0, 4.8], gaze: 0.55,
       gesture: { seated: [0.05, 0.25], standing: [0.1, 0.4] }, filler: 2.5, fade: 0.3,
     },
-    weights: { pace: 1, pause: 1, tone: 1, gaze: 1, posture: 0.9, gesture: 0.8, filler: 1.1, content: 1.3, time: 1.2 },
+    weights: { pace: 1, pause: 1, tone: 1, gaze: 1, posture: 0.9, gesture: 0.8, filler: 1.1, content: 1.3, time: 1.2, showing: 1.3 },
     contentChecks: ['keyMessage', 'numbers', 'recap'],
     outcomes: [
       { label: '좋은 평가 받기', cta: false, focus: 'content' },
@@ -221,7 +222,7 @@ export const PURPOSES: Purpose[] = [
       spm: [220, 290], pause: [0.22, 0.36], pitch: [3.0, 7.0], gaze: 0.65,
       gesture: { seated: [0.05, 0.3], standing: [0.1, 0.45] }, filler: 2, fade: 0.2,
     },
-    weights: { pace: 1, pause: 1.3, tone: 1.4, gaze: 1, posture: 0.8, gesture: 0.8, filler: 1, content: 1, time: 1 },
+    weights: { pace: 1, pause: 1.3, tone: 1.4, gaze: 1, posture: 0.8, gesture: 0.8, filler: 1, content: 1, time: 1, showing: 0.6 },
     contentChecks: ['keyMessage', 'story', 'contrast'],
     outcomes: [
       { label: '감동과 공감', cta: false, focus: 'tone', sec: 180 },

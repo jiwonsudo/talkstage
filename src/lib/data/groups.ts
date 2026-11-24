@@ -24,3 +24,6 @@ export function groupPractices(rows: Rehearsal[]): Practice[] {
 }
 
 export const practiceHref = (title: string) => `/me/rehearsals/${encodeURIComponent(title)}`;
+
+/** 기록을 지울 때 확인 창 본문: 통계에서도 빠지고, 되돌릴 수 없고, 크레딧은 그대로 */
+export const DELETE_BODY = '지운 기록은 점수 흐름·항목별 평균·상황별 횟수 같은 통계에서도 빠져요. 되돌릴 수 없고, 이미 쓴 크레딧도 돌아오지 않아요.';

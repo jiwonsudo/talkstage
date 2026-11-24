@@ -1,6 +1,7 @@
 // 리허설 설정 초안. 마법사에서 고른 값을 이 기기에 저장해 두고 다음 리허설에 이어 써요.
 import { syllables } from '@/lib/coach/audio';
 import type { CustomGoal, Setup } from '@/lib/coach/types';
+import { aidOf, type AidId } from '@/lib/delivery';
 import { PURPOSE_BY_ID, type Outcome, type PostureId, type Purpose } from '@/lib/scenarios';
 
 export type CustomPurpose = { name: string; base: string };
@@ -18,12 +19,14 @@ export type Draft = {
   key: string;
   /** 리허설 제목. 같은 제목끼리 한 발표의 연습 회차로 묶어요. */
   title: string;
+  /** 무엇을 보여 주나요(면접은 대면/화상). null 이면 목적 기본값 */
+  aid: AidId | null;
 };
 
 const KEY = 'rc-setup-v2';
 const DEFAULT: Draft = {
   purposeId: 'interview', posture: 'seated', customPurpose: null, customGoal: null, outcomeIdxs: [0],
-  targetSec: null, worry: null, prompt: '', hasScript: 'yes', script: '', key: '', title: '',
+  targetSec: null, worry: null, prompt: '', hasScript: 'yes', script: '', key: '', title: '', aid: null,
 };
 
 export function loadDraft(): Draft {
@@ -44,7 +47,7 @@ export const clearText = (d: Draft): Draft => ({ ...d, script: '', key: '', prom
 export const defaultTitle = (d: Draft) => `${d.customPurpose?.name || purposeOf(d).label} 리허설`;
 /** 발표 유형을 바꾸면 그 유형에 묶인 목표·시간을 처음 값으로 돌려요. */
 export const withPurpose = (d: Draft, purposeId: string): Draft =>
-  purposeId === d.purposeId ? d : { ...d, purposeId, outcomeIdxs: [0], customGoal: null, targetSec: null };
+  purposeId === d.purposeId ? d : { ...d, purposeId, outcomeIdxs: [0], customGoal: null, targetSec: null, aid: null };
 
 export const purposeOf = (d: Draft): Purpose => PURPOSE_BY_ID[d.purposeId];
 export const pickedOutcomes = (d: Draft): Outcome[] => d.outcomeIdxs.map((i) => purposeOf(d).outcomes[i]).filter(Boolean);
@@ -120,6 +123,7 @@ export function toSetup(d: Draft): Setup {
     customGoal: d.customGoal,
     targetSec: targetSecOf(d),
     topic: d.title.trim() || defaultTitle(d),
+    aid: aidOf(d.purposeId, d.aid),
     keyMessage: (d.hasScript === 'yes' ? d.key : parsed?.keyMessage) || '',
     outcomeText: parsed?.outcomeText || '',
     profile: profileFrom(d.worry),

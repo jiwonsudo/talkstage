@@ -687,6 +687,8 @@ table.self { width: 100%; border-collapse: collapse; font-size: 14px; min-width:
 .field { display: grid; gap: 6px; }
 .field span { font-size: 12px; font-weight: 700; color: var(--ink-2); }
 .field input { height: 50px; padding: 0 16px; border-radius: var(--r-md); border: 1.5px solid var(--line); background: var(--bg); font-size: 16px; outline: none; transition: border-color .2s, box-shadow .2s; }
+.field input:disabled { background: var(--surface-2); border-color: transparent; color: var(--ink-3); cursor: not-allowed; -webkit-text-fill-color: var(--ink-3); opacity: 1; }
+.field-locked span small { font-weight: 500; color: var(--ink-3); }
 .field input:focus { border-color: var(--ink); box-shadow: 0 0 0 4px color-mix(in oklab, var(--ink) 8%, transparent); }
 .auth-err { color: var(--danger); font-size: 13px; font-weight: 600; min-height: 1px; }
 .auth-err:empty { display: none; }
@@ -1950,7 +1952,11 @@ p, li, .catch-sub, .lead2, .display-sub, small { word-break: keep-all; text-wrap
 .db-list { margin: 0; box-shadow: none; }
 /* 발표별 기록(대시보드) */
 .pr-list { list-style: none; margin: 0; padding: 0; display: grid; }
-.pr-list li + li { border-top: 1px solid var(--line); }
+.pr-list > li + li { border-top: 1px solid var(--line); }
+.pr-item { display: flex; align-items: center; gap: 4px; }
+.pr-item .pr-row { flex: 1; min-width: 0; }
+.pr-del { flex: none; }
+.pr-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .pr-row { display: flex; align-items: center; gap: 14px; padding: 12px 8px; margin: 0 -8px; border-radius: 16px; color: inherit; text-decoration: none; transition: background .2s; }
 .pr-row:hover { background: var(--surface-2); }
 .pr-row:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }

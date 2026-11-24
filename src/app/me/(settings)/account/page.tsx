@@ -28,7 +28,7 @@ export default function Account() {
       }}>
         <h2>프로필</h2>
         <label className="field"><span>이름</span><input name="name" type="text" maxLength={20} defaultValue={user.name} required /></label>
-        <label className="field"><span>이메일</span><input type="email" value={user.email} disabled /></label>
+        <label className="field field-locked"><span>이메일 <small>로그인에 쓰는 주소라 바꿀 수 없어요</small></span><input type="email" value={user.email} readOnly disabled /></label>
         <button className="btn-fill btn-sm">저장</button>
       </form>
       <form className="hub-card" onSubmit={async (e) => {

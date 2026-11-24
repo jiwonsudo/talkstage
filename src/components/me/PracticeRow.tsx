@@ -17,12 +17,12 @@ function Spark({ g }: { g: Practice }) {
 }
 
 /** 대시보드의 발표 한 줄: 최근 점수 · 제목 · 회차 · 작은 흐름 → 발표 화면으로 */
-export function PracticeRow({ g }: { g: Practice }) {
+export function PracticeRow({ g, onDelete }: { g: Practice; onDelete: (g: Practice) => void }) {
   const p = PURPOSE_BY_ID[g.last.purpose_id];
   const first = g.runs.find((r) => r.overall !== null)?.overall ?? null;
   const diff = first !== null && g.last.overall !== null && g.runs.length > 1 ? g.last.overall - first : null;
   return (
-    <li>
+    <li className="pr-item">
       <Link href={practiceHref(g.title)} className="pr-row">
         <span className={`cover cover-${coverOf(g.last.overall)}`}>{g.last.overall ?? '–'}</span>
         <span className="cell-t">
@@ -33,6 +33,7 @@ export function PracticeRow({ g }: { g: Practice }) {
         <Spark g={g} />
         <svg className="pr-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg>
       </Link>
+      <button type="button" className="hub-del pr-del" aria-label={`‘${g.title}’ 발표 기록 모두 삭제`} onClick={() => onDelete(g)}>삭제</button>
     </li>
   );
 }

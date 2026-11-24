@@ -2,8 +2,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useRouter } from '@/lib/nav';
-import { listRehearsals, deleteRehearsal } from '@/lib/data/rehearsals';
-import { titleOf } from '@/lib/data/groups';
+import { listRehearsals, deleteRehearsal, deleteRehearsals } from '@/lib/data/rehearsals';
+import { DELETE_BODY, titleOf } from '@/lib/data/groups';
 import type { Rehearsal } from '@/lib/data/types';
 import { CATS, PURPOSE_BY_ID } from '@/lib/scenarios';
 import { CAT_COLOR } from '@/lib/colors';
@@ -37,11 +37,16 @@ export default function Practice() {
   const cats = CATS.filter((c) => shown.some((h) => typeof h.scores?.[c.id] === 'number'));
 
   async function remove(h: Rehearsal, n: number) {
-    if (!(await confirm({ title: `${n}회차 기록을 지울까요?`, body: '되돌릴 수 없고, 이미 쓴 크레딧도 돌아오지 않아요.', ok: '지우기', danger: true }))) return;
+    if (!(await confirm({ title: `${n}회차 기록을 지울까요?`, body: DELETE_BODY, ok: '지우기', danger: true }))) return;
     try { await deleteRehearsal(h.id); setAll((r) => r?.filter((x) => x.id !== h.id) ?? null); toast('기록을 지웠어요.'); }
     catch { toast('기록을 지우지 못했어요.'); }
   }
-  const again = () => last && router.push(`/rehearsal/new?purpose=${last.purpose_id}&posture=${last.posture}&title=${encodeURIComponent(title)}&step=2`);
+  async function removeAll() {
+    if (!(await confirm({ title: `‘${title}’ 발표 기록 ${runs.length}회를 모두 지울까요?`, body: DELETE_BODY, ok: '모두 지우기', danger: true }))) return;
+    try { await deleteRehearsals(runs.map((r) => r.id)); toast('발표 기록을 지웠어요.'); router.push('/me/rehearsals'); }
+    catch { toast('기록을 지우지 못했어요.'); }
+  }
+  const again = () => last && router.push(`/rehearsal/new?purpose=${last.purpose_id}&posture=${last.posture}&title=${encodeURIComponent(title)}&again=1`);
 
   if (all !== null && !runs.length) {
     return (
@@ -129,7 +134,7 @@ export default function Practice() {
         </section>
 
         <section className="db-card db-records">
-          <h2>회차</h2>
+          <div className="pr-head"><h2>회차</h2><button type="button" className="hub-del" onClick={removeAll}>이 발표 기록 모두 삭제</button></div>
           <ul className="group hub-list db-list">
             {[...runs].reverse().map((h) => {
               const n = runs.indexOf(h) + 1;

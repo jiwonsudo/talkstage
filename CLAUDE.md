@@ -52,6 +52,7 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
   - `/` 랜딩 — `page.tsx` 가 `components/landing/*` 섹션을 조립
   - `/rehearsal/new` 리허설 — `RehearsalEntry`(ssr:false) → `RehearsalFlow`: 마법사 → (대본 점검) → 녹화 → 리포트. `?purpose=&posture=&step=` 지원
   - `/me/rehearsals` 내 리허설 대시보드(사이드바 없음, 로그인하면 여기로). 기록은 제목(`topic`, 마법사 마지막 단계에서 입력, 비우면 "{상황} 리허설")별로 묶고 `/me/rehearsals/[title]` 에서 회차별 점수 비교·"이 발표 다시 연습"(`?title=`). `/me/(settings)/account|plan|support|settings` 설정(왼쪽 사이드바, 구분선 아래 톱니바퀴 "설정" = 화면 테마 시스템/라이트/다크, localStorage `ts-theme`). 랜딩에는 최근 기록 없음
+  - `/dev/showtest` 보여 주기 감지 합성 테스트(개발 전용): 가리키기·복귀·가로지름·얼굴 가림·잦음·오탐(손 모음·흔들기) 시나리오. `showing.ts` 를 바꾸면 결과가 그대로인지 볼 것
   - `/dev/eval` 정확도 검증(개발 서버 전용, 배포는 404): 영상 + 같은 이름 정답 .json → 앱과 같은 코드로 분석해 정답과 비교. 합격선은 `lib/eval/compare.ts`, 실행은 `lib/eval/run.ts`(첫 3초는 조용히 렌즈 보기)
   - `/auth/callback` OAuth 코드 교환, `/api/account` 계정 삭제(secret key, 서버 전용)
 - `src/components`
@@ -60,8 +61,10 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
   - `rehearsal/` `Wizard`, `ScriptCheck`, `Studio`(카메라·녹화), `Report`
   - `ui/` `BrandMark`(로고), `Picto`, `Toast`, `PatternArt`, `Confirm`(useConfirm, window.confirm 대신), `SegPill`(.seg 토글 알약)
 - `src/lib`
-  - `coach/` 분석 엔진: `audio`, `vision`, `analysis`(점수·문제 구간·하이라이트), `coach`(코칭 문구·근거), `script`(대본 분석·읽기), `timeline`, `media`
+  - `coach/` 분석 엔진: `audio`, `vision`, `analysis`(점수·문제 구간·하이라이트), `showing`(화면·제품 가리키기/들어 보이기 감지·채점), `coach`(코칭 문구·근거), `script`(대본 분석·읽기), `timeline`, `media`
   - `rehearsal/draft.ts` 마법사 설정(localStorage `rc-setup-v2`) → `toSetup()`
+  - `delivery.ts` 목적별 전달 방식: 마법사 "보여 주는 것" 단계(`AidId`: 면접 panel/video, 그 밖 slidesL/R·product·device·none), 청중 종류(room = 카메라가 청중 가운데·옆을 봐도 시선 OK·시선 분배 코칭 / camera = 렌즈 하나), 가리키기 적정 횟수·신호어·목적별 문구
+  - `colors.ts` 항목·상황별 고정 원색
   - `scenarios.ts` 발표 상황(interview, ir, report, lecture, conference, capstone, speech)·목표·기준값
   - `plans.ts` 요금제, `data/` Supabase 읽기·쓰기, `supabase/` 클라이언트 생성
 - `supabase/migrations/` 0001 스키마+RLS, 0002 권한(GRANT) — 원격 적용 완료. 0003 크레딧 사용 내역(`credit_ledger`, `credits_left()`, `record_rehearsal()`) — 원격 적용 완료. 0004 요금제 크레딧 조정(`plan_credits()` 120/360) — 원격 적용 완료. 0005 회차 구매(`orders`, `create_order()`, 서버 전용 `order_for_confirm()`·`complete_order()`, 산 크레딧 `bonus_left()`, 20초 미만 저장 거절) — 원격 적용 완료. 0006 월 요금제 정기결제(`billing_cards`·`subscriptions`·`subscription_payments`, `profiles.plan` 은 서버만 수정) — 원격 적용 완료.
@@ -85,6 +88,13 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
 - 대본 단계: "대본이 없나요?"가 입력칸 위, 예시는 placeholder 로만, 지원 형식 `.txt · .md · .docx` 표시.
 - 히어로 다이얼: 카드 부채꼴, 베젤과 동기화, 잡으면 멈춤, 넓은 화면에선 오른쪽.
 - 로고: 네 조각으로 갈라진 말풍선(`ui/BrandMark.tsx`). 모든 모서리 반지름 3 으로 둥글게, 광택은 아주 약하게(너무 글로시하면 안 됨). 마우스를 올리면 조각이 벌어짐.
+
+## 목적별 비언어 분석(바꿀 때 지킬 것)
+
+- 보여 주기(`showing`): 가리키는 중·끝난 뒤 1.2초는 시선 채점에서 뺌. 대신 가리킨 뒤 3초 안에 청중 복귀, 숫자·목적별 신호어 문장에서 가리켰는지, 몸 가로질러 가리키기·제품이 얼굴 가림·너무 짧게(<1.5초), 분당 횟수(목적별 범위)를 봄. 30초 미만 녹화에서 0회면 채점 안 함. 보여 줄 것 없는 발표는 리포트에서 카드 숨김.
+- 청중이 여럿(room)이면 고개를 옆으로(0.11~0.32) 돌린 것도 청중을 본 것. 15초 이상 측정되면 가운데만(옆 10% 미만)·한쪽만(균형 0.25 미만) 코칭·감점.
+- "이 발표 다시 연습"은 `?again=1&title=` → 설정 단계 건너뛰고 대본·녹화 단계로, 같은 제목이면 이 기기의 대본 유지. 뒤로 가면 발표 기록 화면으로 바로 나감(앞 단계 기록 채우지 않음).
+- 기록 삭제(회차·발표 통째) 확인 문구는 `DELETE_BODY`: 통계에서 빠짐 + 되돌릴 수 없음 + 크레딧 안 돌아옴.
 
 ## UI 디테일 규칙
 

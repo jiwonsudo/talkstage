@@ -6,13 +6,14 @@ import { Picto } from '@/components/ui/Picto';
 import { useToast } from '@/components/ui/Toast';
 import { syllables } from '@/lib/coach/audio';
 import { readScriptFile } from '@/lib/coach/script';
+import { AID_OPTS, aidOf, deliveryOf } from '@/lib/delivery';
 import {
   CUSTOM_WARN, defaultTitle, EXAMPLES, PROMPT_COPY, SCRIPT_EXAMPLES, WORRIES,
   outcomeLabel, parsePrompt, purposeOf, recommendTime, targetSecOf, timeOpts, withPurpose, type Draft,
 } from '@/lib/rehearsal/draft';
 import { CAT_LABEL, POSTURES, PURPOSES, fmtMin, fmtTime, type CatId } from '@/lib/scenarios';
 
-export const STEPS = ['purpose', 'posture', 'outcome', 'time', 'worry', 'prompt'] as const;
+export const STEPS = ['purpose', 'posture', 'aid', 'outcome', 'time', 'worry', 'prompt'] as const;
 export type StepId = typeof STEPS[number];
 const ART_OF: Record<string, number> = { interview: 1, ir: 3, report: 2, lecture: 4, conference: 7, capstone: 6, speech: 5 };
 const MULTI = 3;
@@ -60,7 +61,7 @@ export function Wizard({ draft, update, step, go, paid, guest, chosen, mark, onA
 }
 
 // 앞 단계를 바꾸면 기본값이 바뀌는 뒤 단계: 목적 → 목표·시간, 목표 → 시간
-const DEPENDS: Partial<Record<StepId, StepId[]>> = { purpose: ['outcome', 'time'], outcome: ['time'] };
+const DEPENDS: Partial<Record<StepId, StepId[]>> = { purpose: ['aid', 'outcome', 'time'], outcome: ['time'] };
 
 function ChoiceStep({ id, draft, update, go, paid, chosen, mark }: ChoiceProps & { id: Exclude<StepId, 'prompt'> }) {
   const toast = useToast();
@@ -79,6 +80,16 @@ function ChoiceStep({ id, draft, update, go, paid, chosen, mark }: ChoiceProps &
     options = Object.values(POSTURES).map((x, i) => ({ label: x.label, sub: x.desc, icon: x.id, art: i ? 4 : 2 }));
     value = draft.posture === 'standing' ? 1 : 0;
     pick = (i) => update((d) => ({ ...d, posture: i === 1 ? 'standing' : 'seated' }));
+  } else if (id === 'aid') {
+    const dl = deliveryOf(draft.purposeId);
+    const interview = dl.aids.includes('panel');
+    title = interview ? '어떤 면접인가요?' : '무엇을 보여 주며 발표하나요?';
+    sub = interview
+      ? '대면 면접이면 면접관 여러 명에게 시선을 나누는지까지 봐요. 카메라는 가운데 면접관 자리에 두세요.'
+      : '화면·제품을 가리키고 들어 보이는 순간은 시선 감점 없이, 제대로 보여 줬는지를 따로 코칭해요.';
+    options = dl.aids.map((a) => ({ label: AID_OPTS[a].label, sub: a === dl.defaultAid ? `${AID_OPTS[a].sub} · 이 발표에서 가장 흔해요` : AID_OPTS[a].sub }));
+    value = dl.aids.indexOf(aidOf(draft.purposeId, draft.aid));
+    pick = (i) => update((d) => ({ ...d, aid: dl.aids[i] }));
   } else if (id === 'outcome') {
     title = '무엇을 얻고 싶나요?';
     sub = `${draft.customPurpose?.name || p.label}에서 이루고 싶은 것을 최대 ${MULTI}개까지 골라 주세요. 먼저 고른 것을 더 중요하게 봐요.`;

@@ -1,3 +1,4 @@
+import type { AidId } from '@/lib/delivery';
 import type { CatId, Outcome, PostureId } from '@/lib/scenarios';
 
 export type CustomGoal = { label: string; focus: CatId; cta: boolean };
@@ -18,6 +19,8 @@ export type Setup = {
   outcomeText?: string;
   /** 리포트 다시 하기에서 고른 집중 항목. 실시간 알림을 이 항목에만 띄워요. */
   focus?: CatId | null;
+  /** 무엇을 보여 주며 발표하나요 / 어떤 면접 자리인가요. 없으면 목적의 기본값 */
+  aid?: AidId;
 };
 
 export type PickedOutcome = Outcome & { custom?: boolean };
