@@ -1890,13 +1890,19 @@ p, li, .catch-sub, .lead2, .display-sub, small { word-break: keep-all; text-wrap
 .db-hero .db-kpi small { color: var(--blue); }
 .db-hero .db-delta .is-up { color: var(--success); }
 .db-hero .db-delta .is-down { color: var(--danger); }
-.db-hero-art { flex: none; width: 120px; height: 60px; margin: -24px -24px 0 0; border-bottom-left-radius: 20px; overflow: hidden; }
-.db-hero-art svg { display: block; width: 100%; height: 100%; }
+/* 점수 링: 구간 색(좋음 초록 · 보통 노랑 · 연습 필요 빨강) */
+.ring { position: relative; flex: none; display: grid; place-items: center; }
+.ring svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ring-track { fill: none; stroke: var(--surface-2); }
+.ring-arc { fill: none; stroke: var(--rc); stroke-linecap: round; transition: stroke-dashoffset 1s var(--ease); }
+.ring-good { --rc: var(--green); } .ring-mid { --rc: var(--yellow); } .ring-low { --rc: var(--red); }
+.ring span { font-size: 13px; font-weight: 800; color: var(--ink-2); }
+@media (prefers-reduced-motion: reduce) { .ring-arc { transition: none; } }
 .db-card .db-hero-empty { margin: 14px 0 10px; font-size: 13.5px; color: var(--ink-3); }
 .db-trend .db-good { fill: color-mix(in oklab, var(--green) 10%, transparent); stroke: none; }
 .db-trend text.db-good-t { font-size: 10.5px; font-weight: 700; fill: color-mix(in oklab, var(--green) 60%, var(--ink)); }
 .db-trend circle.is-last { fill: var(--yellow); stroke: var(--ink); stroke-width: 1.5; }
-@media (max-width: 640px) { .db-hero-art { width: 84px; height: 42px; } }
+@media (max-width: 640px) { .db-hero .ring { width: 80px !important; height: 80px !important; } .db-hero .ring span { font-size: 11.5px; } }
 
 /* 카드마다 포인트 색 하나(제목 앞 작은 조각) */
 .db-card h2 { display: flex; align-items: center; gap: 8px; }
@@ -1992,7 +1998,6 @@ p, li, .catch-sub, .lead2, .display-sub, small { word-break: keep-all; text-wrap
   .db-grid { gap: 10px; }
   .db-card { padding: 20px; }
   .db-card.db-stats { padding: 4px 20px; }
-  .db-hero-art { margin: -20px -20px 0 0; }
   .db-cats li { grid-template-columns: 8em minmax(0, 1fr) 2.2em; }
 }
 @supports (corner-shape: squircle) { .db-card { corner-shape: squircle; border-radius: 40px; } }

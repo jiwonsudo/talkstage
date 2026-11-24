@@ -12,7 +12,7 @@ import { useToast } from '@/components/ui/Toast';
 import { Trend } from '@/components/me/ScoreTrend';
 import { PracticeRow } from '@/components/me/PracticeRow';
 import { DELETE_BODY, groupPractices, type Practice } from '@/lib/data/groups';
-import { PatternArt } from '@/components/ui/PatternArt';
+import { ScoreRing } from '@/components/me/ScoreRing';
 import { CAT_COLOR, PURPOSE_COLOR } from '@/lib/colors';
 
 const RECENT = 10; // 평균·항목별 점수는 최근 10회로 봐요
@@ -88,7 +88,7 @@ export default function MyRehearsals() {
                 </>
               )}
             </div>
-            <div className="db-hero-art" aria-hidden="true"><PatternArt cols={4} rows={2} size={40} seed={23} /></div>
+            {stats.avg !== null && <ScoreRing value={stats.avg} />}
           </div>
           {rows === null || stats.avg === null ? null : stats.scored.length < 2
             ? <p className="db-hero-empty">리허설을 두 번 이상 하면 점수가 어떻게 달라지는지 여기에 그려져요.</p>

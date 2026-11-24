@@ -11,6 +11,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useConfirm } from '@/components/ui/Confirm';
 import { RehearsalCell } from '@/components/me/RehearsalCell';
 import { Trend } from '@/components/me/ScoreTrend';
+import { ScoreRing } from '@/components/me/ScoreRing';
 
 const SHOW = 6; // 항목 표에는 최근 6회까지
 
@@ -88,6 +89,7 @@ export default function Practice() {
                 </>
               )}
             </div>
+            {latest !== null && <ScoreRing value={latest} />}
           </div>
           {scored.length > 1 && <Trend rows={scored} label={(h) => `${runs.indexOf(h) + 1}회`} />}
         </section>
