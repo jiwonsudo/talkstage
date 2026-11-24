@@ -61,6 +61,18 @@ export function PromoFilm() {
     return () => { io.disconnect(); cancelAnimationFrame(raf); removeEventListener('scroll', kick); removeEventListener('resize', kick); };
   }, [portrait]);
 
+  // 소리는 켠 시점부터 영상 끝까지만. 반복 재생이 처음으로 돌아가면(시간이 거꾸로 가면) 다시 꺼요.
+  useEffect(() => {
+    const v = vidRef.current!;
+    let last = 0;
+    const onTime = () => {
+      if (!v.muted && v.currentTime + 0.5 < last) { v.muted = true; setMuted(true); }
+      last = v.currentTime;
+    };
+    v.addEventListener('timeupdate', onTime);
+    return () => v.removeEventListener('timeupdate', onTime);
+  }, [portrait]);
+
   const toggleSound = () => {
     const v = vidRef.current!;
     v.muted = !v.muted;
