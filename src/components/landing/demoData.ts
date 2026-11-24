@@ -6,12 +6,12 @@ export type DemoIssue = { cat: string; t0: number; t1: number; title: string; de
 export type DemoClip = { dur: number; cats: DemoCat[]; issues: DemoIssue[] };
 export const DEMO: Record<'a' | 'b', DemoClip> = {
   "a": {
-    "dur": 10.092,
+    "dur": 10.13,
     "cats": [
       {
         "id": "gaze",
         "label": "시선",
-        "score": 9,
+        "score": 8,
         "status": "bad",
         "value": "15%",
         "target": "60% 이상",
@@ -21,29 +21,29 @@ export const DEMO: Record<'a' | 'b', DemoClip> = {
       {
         "id": "posture",
         "label": "자세",
-        "score": 0,
+        "score": 17,
         "status": "bad",
         "value": "17%",
         "target": "바른 자세 85% 이상",
-        "headline": "등이 굽고 고개가 앞으로 나온 자세가 보인 순간이 있어요",
+        "headline": "등이 굽고 고개가 앞으로 나온 자세가 보인 시간이 대부분(83%)이에요",
         "advice": "원고를 내려다보느라 등이 굽고 고개가 앞으로 나와요. 원고는 가슴 높이로 들고 키워드만 확인한 뒤, 어깨를 편 채 정면을 보며 말하세요."
       },
       {
         "id": "gesture",
         "label": "제스처",
-        "score": 88,
-        "status": "good",
-        "value": "9%",
-        "target": "5–30%",
-        "headline": "손짓을 적절하게 쓰고 있어요",
-        "advice": "말의 내용과 손짓이 맞아떨어지는지 하이라이트 영상으로 확인해 보세요."
+        "score": 54,
+        "status": "bad",
+        "value": "원고 든 시간 78%",
+        "target": "손이 자유로운 상태로 손짓 5–30%",
+        "headline": "원고를 두 손으로 든 채 말했어요 (78% 시간)",
+        "advice": "두 손이 원고에 묶이면 손짓을 쓸 수 없고 원고를 내려다보게 돼요. 원고는 한 손에 접어 들거나 내려놓고, 다른 손은 숫자·순서를 말할 때 써 보세요."
       },
       {
         "id": "tone",
         "label": "톤·억양",
-        "score": 95,
+        "score": 98,
         "status": "good",
-        "value": 2.4,
+        "value": 2.8,
         "target": "1.8–4반음",
         "headline": "억양에 적당한 변화가 있어요",
         "advice": "핵심 문장에서 음을 바꿔 강조하는 습관을 유지하세요."
@@ -51,9 +51,9 @@ export const DEMO: Record<'a' | 'b', DemoClip> = {
       {
         "id": "pause",
         "label": "호흡·쉼",
-        "score": 99,
+        "score": 98,
         "status": "good",
-        "value": "20%",
+        "value": "19%",
         "target": "14–26%",
         "headline": "쉼을 적절하게 쓰고 있어요",
         "advice": "핵심 메시지 직후의 쉼을 조금 더 길게 가져가 보세요."
@@ -61,39 +61,39 @@ export const DEMO: Record<'a' | 'b', DemoClip> = {
     ],
     "issues": [
       {
-        "cat": "posture",
-        "t0": 0,
-        "t1": 4,
-        "title": "몸이 좌우로 흔들림",
-        "detail": "같은 자리에서 반복적으로 흔들리면 불안해 보일 수 있어요."
-      },
-      {
         "cat": "gaze",
-        "t0": 0.4,
-        "t1": 9,
+        "t0": 0.405,
+        "t1": 9.038,
         "title": "아래(원고)를 내려다봄",
         "detail": "8.6초 동안 시선이 아래를 향했어요."
       },
       {
         "cat": "posture",
-        "t0": 0.6,
-        "t1": 9,
+        "t0": 0.605,
+        "t1": 9.038,
         "title": "등이 굽고 고개가 앞으로 나온 자세",
         "detail": "8.4초 동안 이어졌어요."
+      },
+      {
+        "cat": "gesture",
+        "t0": 1,
+        "t1": 9,
+        "title": "원고를 두 손으로 든 채 말함",
+        "detail": "8초 동안 두 손이 원고에 묶여 손짓을 쓰지 못했어요."
       }
     ]
   },
   "b": {
-    "dur": 10.182,
+    "dur": 10.29,
     "cats": [
       {
         "id": "gaze",
         "label": "시선",
-        "score": 96,
+        "score": 98,
         "status": "good",
-        "value": "90%",
+        "value": "94%",
         "target": "60% 이상",
-        "headline": "시선 처리가 안정적이에요 (90%)",
+        "headline": "시선 처리가 안정적이에요 (94%)",
         "advice": "문장이 끝날 때까지 시선을 유지하는 지금 습관을 이어가세요."
       },
       {
@@ -111,7 +111,7 @@ export const DEMO: Record<'a' | 'b', DemoClip> = {
         "label": "제스처",
         "score": 95,
         "status": "good",
-        "value": "20%",
+        "value": "15%",
         "target": "5–30%",
         "headline": "손짓을 적절하게 쓰고 있어요",
         "advice": "말의 내용과 손짓이 맞아떨어지는지 하이라이트 영상으로 확인해 보세요."
@@ -119,9 +119,9 @@ export const DEMO: Record<'a' | 'b', DemoClip> = {
       {
         "id": "tone",
         "label": "톤·억양",
-        "score": 97,
+        "score": 95,
         "status": "good",
-        "value": 2.6,
+        "value": 3.3,
         "target": "1.8–4반음",
         "headline": "억양에 적당한 변화가 있어요",
         "advice": "핵심 문장에서 음을 바꿔 강조하는 습관을 유지하세요."
