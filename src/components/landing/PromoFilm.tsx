@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { BrandMark } from '@/components/ui/BrandMark';
 
 // 폰 세로 화면이면 세로(9:16) 영상, 아니면 가로(16:9). 원본은 /dev/promo(?v=1 이 세로).
 const PORTRAIT = '(orientation: portrait) and (max-width: 900px)';
@@ -19,6 +20,7 @@ export function PromoFilm() {
   const secRef = useRef<HTMLElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const vidRef = useRef<HTMLVideoElement>(null);
+  const kickRef = useRef<HTMLParagraphElement>(null);
   const [muted, setMuted] = useState(true);
   const portrait = useSyncExternalStore(subscribe, isPortrait, () => false);
 
@@ -61,6 +63,15 @@ export function PromoFilm() {
     return () => { io.disconnect(); cancelAnimationFrame(raf); removeEventListener('scroll', kick); removeEventListener('resize', kick); };
   }, [portrait]);
 
+  // 로고 플레이: 문구가 화면에 들어오면 조각이 흩어진 데서 날아와 맞물리고(data-in), 그 뒤로 가끔 말하듯 벌어졌다 모여요.
+  // 카드가 커지는 동안(--p)에는 조각이 바깥으로 벌어지며 흐려져요(CSS).
+  useEffect(() => {
+    const k = kickRef.current!;
+    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { k.dataset.in = ''; io.disconnect(); } }, { threshold: 0.6 });
+    io.observe(k);
+    return () => io.disconnect();
+  }, []);
+
   // 소리는 켠 시점부터 영상 끝까지만. 반복 재생이 처음으로 돌아가면(시간이 거꾸로 가면) 다시 꺼요.
   useEffect(() => {
     const v = vidRef.current!;
@@ -84,7 +95,10 @@ export function PromoFilm() {
     <section ref={secRef} className="pf" aria-label="30초 소개 영상">
       <div ref={stageRef} className="pf-stage">
         <i className="pf-veil" aria-hidden="true" />
-        <p className="pf-kicker">30초로 보는 Talkstage</p>
+        <p ref={kickRef} className="pf-kicker">
+          <span className="pf-k-t">30초로 보는</span>
+          <span className="pf-logo"><BrandMark /><b>{'Talkstage'.split('').map((c, i) => <span key={i} style={{ '--i': i } as React.CSSProperties}>{c}</span>)}</b></span>
+        </p>
         <div className="pf-frame">
           <video key={portrait ? 'v' : 'h'} ref={vidRef} muted={muted} loop playsInline preload="none" poster={portrait ? '/media/promo-v.jpg' : '/media/promo.jpg'} aria-label="Talkstage 소개 영상">
             {portrait ? <source src="/media/promo-v.mp4" type="video/mp4" /> : <>

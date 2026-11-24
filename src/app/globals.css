@@ -2212,3 +2212,21 @@ p, li, .catch-sub, .lead2, .display-sub, small { word-break: keep-all; text-wrap
   .pf { height: auto; }
   .pf-stage { position: relative; height: calc(min(1080px, 100vw - 32px) * 9 / 16 + 160px); }
 }
+/* 영상 위 "30초로 보는 Talkstage" 로고 플레이 */
+.pf-kicker { display: flex; align-items: center; justify-content: center; gap: .4em; flex-wrap: wrap; }
+.pf-k-t { color: var(--ink-2); font-weight: 700; }
+.pf-logo { display: inline-flex; align-items: center; gap: .28em; }
+.pf-logo .mark { width: 1.3em; height: 1.3em; }
+.pf-logo b { display: inline-flex; overflow: hidden; padding-bottom: .1em; margin-bottom: -.1em; font-weight: 800; }
+.pf-logo b span { display: inline-block; }
+.pf-logo .mq { --dx: -1; --dy: -1; transform-box: fill-box; transform-origin: center; translate: calc(var(--dx) * var(--p) * 7px) calc(var(--dy) * var(--p) * 7px); }
+.pf-logo .q2 { --dx: 1; --dy: -1; --j: 1; } .pf-logo .q3 { --dx: 1; --dy: 1; --j: 2; } .pf-logo .q4 { --dx: -1; --dy: 1; --j: 3; }
+[data-js] .pf-kicker:not([data-in]) .mq, [data-js] .pf-kicker:not([data-in]) .pf-logo b span { opacity: 0; }
+.pf-kicker[data-in] .mq { animation: pf-piece-in .9s cubic-bezier(.2,1.5,.4,1) calc(var(--j, 0) * .07s) both, pf-piece-talk 4.2s ease-in-out calc(1.6s + var(--j, 0) * .06s) infinite; }
+.pf-kicker[data-in] .pf-logo b span { animation: pf-letter .7s cubic-bezier(.16,1,.3,1) calc(.25s + var(--i) * .035s) both; }
+@keyframes pf-piece-in { from { opacity: 0; transform: translate(calc(var(--dx) * 16px), calc(var(--dy) * 16px)) rotate(calc(var(--dx) * var(--dy) * 120deg)) scale(.3); } 40% { opacity: 1; } to { opacity: 1; transform: none; } }
+@keyframes pf-piece-talk { 0%, 72%, 100% { transform: none; } 80% { transform: translate(calc(var(--dx) * 1.8px), calc(var(--dy) * 1.8px)); } 88% { transform: none; } 93% { transform: translate(calc(var(--dx) * .8px), calc(var(--dy) * .8px)); } }
+@keyframes pf-letter { from { transform: translateY(110%); } to { transform: none; } }
+.pf-kicker:hover .mq { translate: calc(var(--dx) * 2px) calc(var(--dy) * 2px); }
+.pf-kicker { pointer-events: auto; }
+@media (prefers-reduced-motion: reduce) { .pf-kicker[data-in] .mq, .pf-kicker[data-in] .pf-logo b span { animation: none; } }
