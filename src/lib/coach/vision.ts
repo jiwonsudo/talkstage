@@ -1,12 +1,13 @@
 // MediaPipe 자세·얼굴 인식. 모든 처리는 브라우저 안에서 이뤄지고 영상은 서버로 전송되지 않습니다.
 
-import { FilesetResolver, PoseLandmarker, FaceLandmarker, type PoseLandmarkerResult, type FaceLandmarkerResult } from '@mediapipe/tasks-vision';
+import { FilesetResolver, PoseLandmarker, FaceLandmarker, type PoseLandmarkerResult, type FaceLandmarkerResult, type NormalizedLandmark } from '@mediapipe/tasks-vision';
 
 // wasm 파일은 패키지와 같은 버전을 CDN에서 받아요.
 const MP = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
 
 export type VisionModels = { pose: PoseLandmarker; face: FaceLandmarker; delegate: 'GPU' | 'CPU' };
-export type VisionResult = { pose: PoseLandmarkerResult; face: FaceLandmarkerResult };
+/** pose·face 의 0번이 분석 대상(발표자). others 는 함께 찍힌 다른 사람(흐리게 그리고, 눌러서 고를 수 있어요). */
+export type VisionResult = { pose: PoseLandmarkerResult; face: FaceLandmarkerResult; others: NormalizedLandmark[][] };
 type Pt = { x: number; y: number };
 type PoseFeat = {
   pose: true;
@@ -33,12 +34,12 @@ export async function loadVision(): Promise<VisionModels> {
     const pose = await PoseLandmarker.createFromOptions(fileset, {
       baseOptions: { modelAssetPath: POSE_URL, delegate },
       runningMode: 'VIDEO',
-      numPoses: 1,
+      numPoses: MAX_PEOPLE,
     });
     const face = await FaceLandmarker.createFromOptions(fileset, {
       baseOptions: { modelAssetPath: FACE_URL, delegate },
       runningMode: 'VIDEO',
-      numFaces: 1,
+      numFaces: MAX_PEOPLE,
       outputFaceBlendshapes: true,
     });
     return { pose, face, delegate };
@@ -52,6 +53,98 @@ export async function loadVision(): Promise<VisionModels> {
 }
 
 let lastTs = 0;
+
+// ── 발표자 고르기 ──
+// 화면에 여러 사람이 찍히면 MediaPipe 가 돌려주는 순서는 매번 달라요. 그래서 발표자 위치(target, 0~1 영상 좌표)를
+// 기억해 두고 매 프레임 그 자리에서 가장 가까운 사람을 따라가요. 처음엔 가장 크게(가까이) 찍힌 사람,
+// 사용자가 화면에서 누르면 그 사람으로 바꿔요(pickPerson). 따라가던 사람이 2초 넘게 안 보이면 다시 가장 큰 사람.
+const MAX_PEOPLE = 3;
+type Target = { x: number; y: number; seen: number; manual: boolean };
+let target: Target | null = null;
+const LOST_MS = 2000;
+/** 따라가는 사람이 한 프레임(약 0.1초)에 움직일 수 있는 거리(영상 폭·높이 비율) */
+const TRACK_R = 0.22;
+
+const vis = (p: NormalizedLandmark | undefined) => !!p && (p.visibility ?? 1) > 0.5;
+/** 사람 중심(코·어깨·엉덩이 중 보이는 점 평균)과 크기(어깨 폭) */
+function personCenter(lm: NormalizedLandmark[]) {
+  const pts = [0, 11, 12, 23, 24].map((i) => lm[i]).filter(vis);
+  if (!pts.length) return null;
+  const x = pts.reduce((a, p) => a + p.x, 0) / pts.length, y = pts.reduce((a, p) => a + p.y, 0) / pts.length;
+  const size = vis(lm[11]) && vis(lm[12]) ? Math.hypot(lm[11].x - lm[12].x, lm[11].y - lm[12].y) : 0;
+  return { x, y, size };
+}
+function personBox(lm: NormalizedLandmark[]) {
+  let x0 = 1, y0 = 1, x1 = 0, y1 = 0;
+  for (const p of lm) { if ((p.visibility ?? 1) < 0.3) continue; x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); }
+  return { x0, y0, x1, y1 };
+}
+
+/**
+ * 화면에서 누른 자리(0~1 영상 좌표)의 사람을 발표자로 정해요. 그 자리 사람이 없으면 가장 가까운 사람.
+ * last 는 직전 프레임 결과(누른 순간 화면에 보이던 사람들). 고른 사람이 없으면 false.
+ */
+export function pickPerson(x: number, y: number, last: VisionResult | null): boolean {
+  const all = last ? [...(last.pose.landmarks ?? []), ...last.others] : [];
+  let best: { x: number; y: number } | null = null, bd = Infinity;
+  for (const lm of all) {
+    const c = personCenter(lm);
+    if (!c) continue;
+    const b = personBox(lm);
+    const pad = 0.04;
+    const inside = x > b.x0 - pad && x < b.x1 + pad && y > b.y0 - pad && y < b.y1 + pad;
+    const d = Math.hypot(c.x - x, c.y - y) - (inside ? 1 : 0); // 상자 안을 누른 사람이 먼저
+    if (d < bd) { bd = d; best = c; }
+  }
+  if (!best || bd > 0.35) return false;
+  target = { x: best.x, y: best.y, seen: performance.now(), manual: true };
+  return true;
+}
+/** 카메라를 새로 켜거나 바꿀 때 발표자 기억을 지워요. */
+export function resetPerson() { target = null; }
+
+/** 이번 프레임의 사람들 중 발표자를 0번으로 앞세워요. */
+function orderPeople(pose: PoseLandmarkerResult, now: number): { pose: PoseLandmarkerResult; others: NormalizedLandmark[][] } {
+  const people = pose.landmarks ?? [];
+  if (people.length === 0) return { pose, others: [] };
+  const cs = people.map(personCenter);
+  let pick = -1;
+  if (target) {
+    let bd = Infinity;
+    cs.forEach((c, i) => { if (c) { const d = Math.hypot(c.x - target!.x, c.y - target!.y); if (d < bd) { bd = d; pick = i; } } });
+    if (bd > TRACK_R) pick = -1;
+    if (pick < 0 && now - target.seen > LOST_MS) target = null; // 오래 안 보이면 다시 고르기
+  }
+  if (!target) {
+    let bs = -1;
+    cs.forEach((c, i) => { if (c && c.size > bs) { bs = c.size; pick = i; } });
+    if (pick >= 0) target = { x: cs[pick]!.x, y: cs[pick]!.y, seen: now, manual: false };
+  }
+  if (pick < 0) {
+    // 발표자를 잠깐 놓쳤어요(다른 사람만 보임): 다른 사람을 분석하지 않도록 이번 프레임은 '사람 없음'으로 둬요.
+    return { pose: { ...pose, landmarks: [], worldLandmarks: [] } as unknown as PoseLandmarkerResult, others: people };
+  }
+  const c = cs[pick]!;
+  target!.x = c.x; target!.y = c.y; target!.seen = now;
+  const order = [pick, ...people.map((_, i) => i).filter((i) => i !== pick)];
+  return {
+    pose: { ...pose, landmarks: [people[pick]], worldLandmarks: pose.worldLandmarks?.[pick] ? [pose.worldLandmarks[pick]] : [] } as unknown as PoseLandmarkerResult,
+    others: order.slice(1).map((i) => people[i]),
+  };
+}
+
+/** 얼굴이 여럿이면 발표자 코(자세)에 가장 가까운 얼굴을 0번으로. 발표자 자세가 없으면 따라가던 자리 기준. */
+function orderFaces(face: FaceLandmarkerResult, pose: PoseLandmarkerResult, hadPeople: boolean): FaceLandmarkerResult {
+  const fs = face.faceLandmarks ?? [];
+  if (fs.length === 0) return face;
+  const nose = pose.landmarks?.[0]?.[0];
+  const ref = nose && vis(nose) ? nose : target;
+  if (!ref) return fs.length === 1 && !hadPeople ? face : { ...face, faceLandmarks: [], faceBlendshapes: [] } as FaceLandmarkerResult;
+  let pick = -1, bd = Infinity;
+  fs.forEach((f, i) => { const d = Math.hypot(f[1].x - ref.x, f[1].y - ref.y); if (d < bd) { bd = d; pick = i; } });
+  if (bd > 0.2 && hadPeople) return { ...face, faceLandmarks: [], faceBlendshapes: [] } as FaceLandmarkerResult;
+  return { ...face, faceLandmarks: [fs[pick]], faceBlendshapes: face.faceBlendshapes?.[pick] ? [face.faceBlendshapes[pick]] : [] } as FaceLandmarkerResult;
+}
 /** 얼굴 확대용 캔버스(브라우저에서 처음 쓸 때 만들어요) */
 let zoomCanvas: HTMLCanvasElement | null = null;
 const ZOOM_PX = 320;
@@ -80,17 +173,19 @@ export function detect(models: VisionModels, video: HTMLVideoElement): VisionRes
   let ts = performance.now();
   if (ts <= lastTs) ts = lastTs + 1;
   lastTs = ts;
-  const pose = models.pose.detectForVideo(video, ts);
+  const raw = models.pose.detectForVideo(video, ts);
+  const hadPeople = (raw.landmarks?.length ?? 0) > 0;
+  const { pose, others } = orderPeople(raw, ts);
   const W = video.videoWidth, H = video.videoHeight;
   const box = W && H ? headBox(pose, W, H) : null;
   if (!box || box.side > Math.min(W, H) * SMALL_HEAD) {
-    return { pose, face: models.face.detectForVideo(video, ts) };
+    return { pose, face: orderFaces(models.face.detectForVideo(video, ts), pose, hadPeople), others };
   }
-  // 멀리 있는 얼굴: 머리 둘레를 잘라 키운 그림에서 찾고, 좌표를 원래 화면 기준으로 되돌려요.
+  // 멀리 있는 얼굴: 발표자 머리 둘레를 잘라 키운 그림에서 찾고, 좌표를 원래 화면 기준으로 되돌려요.
   zoomCanvas ??= document.createElement('canvas');
   zoomCanvas.width = zoomCanvas.height = ZOOM_PX;
   const ctx = zoomCanvas.getContext('2d');
-  if (!ctx) return { pose, face: models.face.detectForVideo(video, ts) };
+  if (!ctx) return { pose, face: orderFaces(models.face.detectForVideo(video, ts), pose, hadPeople), others };
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, ZOOM_PX, ZOOM_PX);
   ctx.drawImage(video, box.x, box.y, box.side, box.side, 0, 0, ZOOM_PX, ZOOM_PX);
@@ -99,7 +194,7 @@ export function detect(models: VisionModels, video: HTMLVideoElement): VisionRes
     ...f,
     faceLandmarks: f.faceLandmarks.map((pts) => pts.map((p) => ({ ...p, x: (box.x + p.x * box.side) / W, y: (box.y + p.y * box.side) / H }))),
   };
-  return { pose, face };
+  return { pose, face: orderFaces(face, pose, hadPeople), others };
 }
 
 const deg = (dy: number, dx: number) => Math.abs(Math.atan2(dy, Math.abs(dx) || 1e-6)) * 180 / Math.PI;
@@ -170,9 +265,21 @@ export function extractFeatures(t: number, poseRes: PoseLandmarkerResult | undef
 // 미리보기 위에 뼈대와 상태를 그립니다.
 export function drawOverlay(ctx: CanvasRenderingContext2D, res: VisionResult | null, w: number, h: number, colors: { line: string; joint: string; face: string }) {
   ctx.clearRect(0, 0, w, h);
+  const pairs = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [24, 26], [25, 27], [26, 28]];
+  // 함께 찍힌 다른 사람은 흐린 흰 선으로만(분석 안 함). 눌러서 발표자로 바꿀 수 있어요.
+  ctx.lineCap = 'round';
+  ctx.lineWidth = Math.max(1.5, w / 480);
+  ctx.strokeStyle = 'rgba(255,255,255,.35)';
+  ctx.setLineDash([6, 6]);
+  for (const o of res?.others ?? []) {
+    for (const [a, b] of pairs) {
+      if ((o[a].visibility ?? 1) < 0.5 || (o[b].visibility ?? 1) < 0.5) continue;
+      ctx.beginPath(); ctx.moveTo(o[a].x * w, o[a].y * h); ctx.lineTo(o[b].x * w, o[b].y * h); ctx.stroke();
+    }
+  }
+  ctx.setLineDash([]);
   const lm = res?.pose?.landmarks?.[0];
   if (lm) {
-    const pairs = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [24, 26], [25, 27], [26, 28]];
     ctx.lineWidth = Math.max(2, w / 320);
     ctx.strokeStyle = colors.line;
     ctx.lineCap = 'round';

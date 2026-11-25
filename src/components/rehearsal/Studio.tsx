@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { MIN_REHEARSAL_SEC, analyze, buildCalibration, classifyFrame, type Analysis, type Calibration } from '@/lib/coach/analysis';
 import { AudioMeter, Transcriber } from '@/lib/coach/audio';
-import { detect, drawOverlay, extractFeatures, loadVision, type VisionFrame, type VisionModels } from '@/lib/coach/vision';
+import { detect, drawOverlay, extractFeatures, loadVision, type VisionFrame, type VisionModels, pickPerson, resetPerson, type VisionResult } from '@/lib/coach/vision';
 import type { Setup } from '@/lib/coach/types';
 import { outcomeLabel, purposeOf, type Draft } from '@/lib/rehearsal/draft';
 import { aidOf, audienceOf, isShowing } from '@/lib/delivery';
@@ -40,6 +40,12 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
   const audience = audienceOf(aid, draft.posture); // 청중이 여럿이면 옆 사람을 보는 것도 시선 OK
   const camRef = useRef<HTMLVideoElement>(null);
   const ovRef = useRef<HTMLCanvasElement>(null);
+  const mediaRef = useRef<HTMLDivElement>(null);
+  const lastResRef = useRef<VisionResult | null>(null);
+  // 다른 사람도 찍혔는지(그러면 "본인을 눌러 주세요" 안내), 방금 눌러서 고른 결과
+  const [crowd, setCrowd] = useState(false);
+  const crowdRef = useRef(false);
+  const [picked, setPicked] = useState<{ ok: boolean; n: number } | null>(null);
 
   // 화면에 그리는 값
   const [camOn, setCamOn] = useState(false);
@@ -112,6 +118,7 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
     r.current.audio = new AudioMeter(stream);
     await r.current.audio.resume();
     if (stale()) return;
+    resetPerson(); // 카메라가 바뀌면 발표자 위치도 새로 찾아요
     setCamOn(true); setShowCamBtn(false);
     // 카메라가 둘 이상이면 전환 버튼을 보여 줘요(권한을 받은 뒤라야 목록이 다 나와요)
     navigator.mediaDevices.enumerateDevices?.().then((ds) => { if (!stale()) setCanFlip(ds.filter((d) => d.kind === 'videoinput').length > 1); }).catch(() => {});
@@ -149,6 +156,15 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
     };
   }, [startCamera]);
 
+  // 실제 영상 비율(--va)을 무대에 알려 줘요. 폰은 이 비율로 영상·인식 선 상자를 무대보다 크게 잡아 꽉 채워요(cover).
+  // 카메라를 바꾸거나 폰을 돌리면 영상 크기가 바뀌어서 resize 때마다 다시 써요.
+  useEffect(() => {
+    const cam = camRef.current!, m = mediaRef.current!;
+    const set = () => { if (cam.videoWidth && cam.videoHeight) m.style.setProperty('--va', String(cam.videoWidth / cam.videoHeight)); };
+    cam.addEventListener('loadedmetadata', set); cam.addEventListener('resize', set);
+    return () => { cam.removeEventListener('loadedmetadata', set); cam.removeEventListener('resize', set); };
+  }, []);
+
   const showCue = useCallback((cat: CatId | 'time', text: string) => {
     const st = r.current;
     if (!cuesRef.current) return;
@@ -176,7 +192,11 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
       st.lastDet = now;
       let res;
       try { res = detect(st.models, cam); } catch { return; }
-      if (ov.width !== cam.videoWidth) { ov.width = cam.videoWidth; ov.height = cam.videoHeight; }
+      lastResRef.current = res;
+      const many = res.others.length > 0;
+      if (many !== crowdRef.current) { crowdRef.current = many; setCrowd(many); }
+      // 카메라를 바꾸면 폭은 같고 높이만 다를 수 있어서 둘 다 봐요(높이가 남으면 인식 선이 영상과 어긋남)
+      if (ov.width !== cam.videoWidth || ov.height !== cam.videoHeight) { ov.width = cam.videoWidth; ov.height = cam.videoHeight; }
       drawOverlay(ov.getContext('2d')!, res, ov.width, ov.height, colors);
       const t = st.phase === 'rec' ? (now - st.recStart) / 1000 : 0;
       const f = extractFeatures(t, res.pose, res.face, cam.videoWidth / cam.videoHeight);
@@ -388,12 +408,34 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
     </>
   );
 
+  /** 화면을 누르면 그 자리의 사람을 발표자로 정해요(다른 사람이 함께 찍혔을 때). 누른 자리를 영상 좌표(0~1)로 바꿔요. */
+  const onStageTap = (e: React.PointerEvent<HTMLDivElement>) => {
+    const cam = camRef.current;
+    if (!cam?.videoWidth || !lastResRef.current) return;
+    const rc = cam.getBoundingClientRect();
+    const vw = cam.videoWidth, vh = cam.videoHeight;
+    // 화면에 실제로 그려진 영상 영역(object-fit: contain 이면 위아래·양옆 여백을 빼요)
+    let dw = rc.width, dh = rc.height;
+    if (getComputedStyle(cam).objectFit === 'contain') { const k = Math.min(rc.width / vw, rc.height / vh); dw = vw * k; dh = vh * k; }
+    let x = (e.clientX - rc.left - (rc.width - dw) / 2) / dw;
+    const y = (e.clientY - rc.top - (rc.height - dh) / 2) / dh;
+    if (facing === 'user') x = 1 - x; // 앞 카메라는 거울처럼 뒤집어 보여 줘요
+    if (x < 0 || x > 1 || y < 0 || y > 1) return;
+    const ok = pickPerson(x, y, lastResRef.current);
+    setPicked((q) => ({ ok, n: (q?.n ?? 0) + 1 }));
+  };
+  useEffect(() => {
+    if (!picked) return;
+    const t = setTimeout(() => setPicked(null), 2200);
+    return () => clearTimeout(t);
+  }, [picked]);
+
   return (
     <section className="screen">
       <div className={`studio${recording ? ' is-rec' : ''}`}>
         <div className="stage-col">
           <div className="stage">
-            <div className="stage-media" data-facing={facing}>
+            <div ref={mediaRef} className="stage-media" data-facing={facing} onPointerDown={camOn ? onStageTap : undefined}>
               <video ref={camRef} playsInline muted />
               <canvas ref={ovRef} />
             </div>
@@ -402,6 +444,11 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
               {showCamBtn && <button type="button" className="btn-fill" onClick={() => { setCamErr(''); startCamera(); }}>카메라와 마이크 켜기</button>}
               <p className="cam-err" role="alert">{camErr}</p>
             </div>
+            {camOn && (picked || crowd) && phase !== 'calib' && (
+              <div key={picked?.n ?? 0} className={`who-hint${picked ? (picked.ok ? ' is-ok' : ' is-warn') : ''}`} role="status">
+                {picked ? (picked.ok ? '이 사람을 분석해요' : '그 자리에서 사람을 찾지 못했어요') : '화면에서 본인을 눌러 주세요'}
+              </div>
+            )}
             {camOn && phase === 'idle' && framing && <div className={`framing ${framing.ok ? 'is-ok' : 'is-warn'}`}>{framing.msg}</div>}
             {phase === 'calib' && (
               <div className="countdown"><span>{count}</span><p>렌즈를 보고 바른 자세로 잠시 조용히 있어 주세요.<br />기준 자세와 주변 소음을 측정하고 있어요.</p></div>

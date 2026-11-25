@@ -32,7 +32,7 @@
 ## 배포
 
 - Vercel(GitHub 연동): https://talkstage-three.vercel.app — main 에 push 하면 운영 배포, PR 브랜치는 미리보기.
-- Vercel 환경 변수: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY`, `NEXT_PUBLIC_TOSS_BILLING_CLIENT_KEY`, `TOSS_BILLING_SECRET_KEY`, `CRON_SECRET`, `KAKAO_ADMIN_KEY`(탈퇴 때 카카오 연결 끊기, 서버 전용) 만. `TEST_USER_*` 는 넣지 말 것.
+- Vercel 환경 변수: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY`, `NEXT_PUBLIC_TOSS_BILLING_CLIENT_KEY`, `TOSS_BILLING_SECRET_KEY`, `CRON_SECRET`, `KAKAO_ADMIN_KEY`(탈퇴 때 카카오 연결 끊기, 서버 전용), `ANTHROPIC_API_KEY`(AI 대본 코칭, 서버 전용 — `NEXT_PUBLIC_` 금지) 만. `TEST_USER_*` 는 넣지 말 것.
 - Supabase Auth URL Configuration 에 배포 주소와 `/auth/callback` 등록됨.
 
 ## 실행
@@ -60,7 +60,7 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
 - `src/components`
   - `landing/` 서버 컴포넌트 섹션 + 작은 클라이언트 아일랜드(`HeroDial`, `Timeline`, `NvFrame`, `Plans`, `Reveal`, `actions.tsx`)
   - `auth/` `AuthProvider`(useAuth, requireAuth, 로그인 모달 상태), `AuthDialog`
-  - `rehearsal/` `Wizard`, `ScriptCheck`, `Studio`(카메라·녹화), `Report`
+  - `rehearsal/` `Wizard`, `ScriptCheck`(AI 대본 코칭), `Studio`(카메라·녹화), `Report`
   - `ui/` `BrandMark`(로고), `Picto`, `Toast`, `PatternArt`, `Confirm`(useConfirm, window.confirm 대신), `SegPill`(.seg 토글 알약)
 - `src/lib`
   - `coach/` 분석 엔진: `audio`, `vision`, `analysis`(점수·문제 구간·하이라이트), `showing`(화면·제품 가리키기/들어 보이기 감지·채점), `coach`(코칭 문구·근거), `script`(대본 분석·읽기), `timeline`, `media`
@@ -92,6 +92,9 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
 - 히어로 다이얼: 카드 부채꼴, 베젤과 동기화, 잡으면 멈춤, 넓은 화면에선 오른쪽.
 - 로고: 네 조각으로 갈라진 말풍선(`ui/BrandMark.tsx`). 모든 모서리 반지름 3 으로 둥글게, 광택은 아주 약하게(너무 글로시하면 안 됨). 마우스를 올리면 조각이 벌어짐.
 
+- AI 대본 코칭(유료 Spotlight·Headliner 만): `/api/script/coach`(서버가 `profiles.plan` 확인, `@anthropic-ai/sdk`, `claude-sonnet-5-5` + effort low + JSON 스키마, 인용은 대본에 실제로 있는 문장만 남김) → `ScriptCheck` 의 "AI 대본 코칭"(총평·강점·고칠 문장 지금→이렇게·첫/마지막 문장·핵심 메시지로 쓰기). 무료는 잠금 안내 + "대본 코칭 없이 녹화". 시간·흐름·읽기 가이드는 브라우저 규칙 분석 그대로. 하루 호출 상한은 아직 없음.
+- 대본 없음 단계: 리허설 제목(= 주제)과 핵심 메시지를 직접 입력(자동 추출·예시 채우기 없음). `toSetup` 의 keyMessage 는 `draft.key`.
+
 ## 목적별 비언어 분석(바꿀 때 지킬 것)
 
 - 보여 주기(`showing`): 가리키는 중·끝난 뒤 1.2초는 시선 채점에서 뺌. 녹화 중 실시간 시선 알림도 같은 기준(`showPose`)으로 가리키는 중·직후 2초는 띄우지 않음. 대신 가리킨 뒤 3초 안에 청중 복귀, 숫자·목적별 신호어 문장에서 가리켰는지, 몸 가로질러 가리키기·제품이 얼굴 가림·너무 짧게(<1.5초), 분당 횟수(목적별 범위)를 봄. 30초 미만 녹화에서 0회면 채점 안 함. 보여 줄 것 없는 발표는 리포트에서 카드 숨김.
@@ -111,7 +114,7 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
 - `window.alert/confirm/prompt` 금지. 확인은 `useConfirm()`, 입력이 필요한 확인은 `useAsk()`(ui/Confirm, fields·match·check) 모달로.
 - `.seg` 토글에는 `<SegPill />` 을 넣어 고른 칸으로 미끄러지게. 상태가 바뀌는 곳은 뚝 바뀌지 않게 전환 모션을 넣을 것.
 - `<dialog>` 는 열 때 창 자체에 포커스(`tabIndex={-1}` + `focus()`) — 첫 버튼에 파란 포커스 링이 뜨지 않게.
-- 모서리는 스쿼클(연속 곡률): `globals.css` 맨 아래 블록. 둥근 사각형은 squircle + 반지름 1.6배, 알약은 모양 유지한 채 `superellipse(1.4)` + 가로 반지름 `--px`(높이 약 0.72배), 원·점·얇은 막대는 원 그대로. 새 알약·동그라미를 만들면 그 목록에 넣을 것. Chrome 계열만 적용(Safari 는 corner-shape 미지원).
+- 모서리는 스쿼클(연속 곡률): `globals.css` 맨 아래 블록. 둥근 사각형은 squircle + 반지름 1.6배, 알약은 모양 유지(아래), 원·점·얇은 막대는 원 그대로. 새 알약·동그라미를 만들면 그 목록에 넣을 것. 알약은 `corner-shape: superellipse(1.08)` + `border-radius: var(--pill-x) / 50%`(`--pill-x` ≈ 높이 0.58배, 클래스마다 지정). 테두리 링은 box-shadow 가 corner-shape 를 안 따라서 `::after` 테두리(`border-radius/corner-shape: inherit`)로. Chrome 계열만 적용(Safari 는 corner-shape 미지원).
 - 테마 변경은 `setThemeAnimated`(누른 자리에서 원으로 번짐, View Transitions).
 
 ## 브랜드 파일·OG
@@ -128,6 +131,8 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
 
 - `landing/NvDemo`: `public/media/nv-a|nv-b.mp4`(AI로 만든 영상, 워터마크 없게 가운데 576×720 으로 자름)을 누르면 프레임별 인식(`nv-*.track.json`)을 겹쳐 그리고 리포트 요약(`landing/demoData.ts`)을 보여 줌. 수치·문구는 앱과 같은 분석 코드로 원본 영상을 실제로 돌린 결과 — 손으로 고치지 말고, 분석 코드를 바꾸면 다시 뽑을 것(좌표는 x' = (x·1280−352)/576). "AI 영상이지만 실제 분석" 문구는 지우지 말 것.
 - 음량·음높이는 AudioWorklet(오디오 스레드, `audio.ts` 의 `WORKLET_SRC`)에서 25ms 마다 잼. 메인 스레드 setInterval 로 재면 MediaPipe 때문에 구간이 빠져 같은 녹화도 억양·쉼이 흔들렸음(워클릿 없으면 예전 방식으로 대체).
+- 여러 사람이 찍히면(`vision.ts`, 최대 3명) 발표자 위치를 기억해 매 프레임 가장 가까운 사람을 따라감. 처음엔 가장 크게 찍힌 사람, 녹화 화면을 누르면 그 사람(`pickPerson`), 2초 넘게 놓치면 다시 가장 큰 사람. 놓친 동안 다른 사람은 분석하지 않음('사람 없음'). 다른 사람은 흐린 점선으로 그리고 "화면에서 본인을 눌러 주세요" 안내. 카메라를 켜거나 바꾸면 `resetPerson()`.
+- 녹화 화면(폰) 카메라 꽉 채우기는 object-fit 이 아니라 `.stage` container query + `.stage-media` 에 `--va`(영상 가로/세로, Studio 가 loadedmetadata·resize 때 넣음) — 뒤 카메라처럼 비율이 다른 카메라에서도 인식 선이 맞음.
 - 원고를 두 손으로 들고 있으면(두 손목이 가까이·가슴 높이) 손짓으로 세지 않고, 절반 이상이면 제스처 감점 + "원고를 두 손으로 든 채 말함". 제품·기기 시연은 제외.
 - 얼굴이 작게 찍히면(서서 발표) `vision.detect` 가 자세로 찾은 머리 둘레를 확대해서 얼굴 인식에 넣음.
 

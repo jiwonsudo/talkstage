@@ -419,8 +419,10 @@ main { max-width: 1240px; margin: 0 auto; padding-block: 0 72px; padding-left: m
   /* 카메라 화면이 무지갯빛 영역을 꽉 채워요(cover). 인식 선(canvas)도 같은 cover 라 영상과 딱 맞아요. */
   .stage { height: min(calc(100svh - 220px), 150vw); min-height: 360px; }
   .studio.is-rec .stage { height: max(340px, calc(100svh - 64px - 300px)); }
-  .stage-media { position: absolute; inset: 0; }
-  .stage-media video, .stage-media canvas { width: 100%; height: 100%; max-height: none; object-fit: cover; }
+  .stage { container-type: size; }
+  /* 영상 비율(--va, JS)대로 상자를 잡고 무대를 덮을 만큼 키워 가운데 둬요. 영상·인식 선이 같은 상자라 항상 맞아요. */
+  .stage-media { position: absolute; left: 50%; top: 50%; translate: -50% -50%; aspect-ratio: var(--va, 0.5625); width: max(100cqw, 100cqh * var(--va, 0.5625)); }
+  .stage-media video, .stage-media canvas { width: 100%; height: 100%; max-height: none; object-fit: fill; }
   .hud-in .hud-top, .hud-in .hud-chips { display: none; }
   .hud-out { display: grid; gap: 8px; }
   .hud-out .hud-top { position: static; display: flex; align-items: center; gap: 10px; }
@@ -1833,7 +1835,7 @@ p, li, .catch-sub, .lead2, .display-sub, small { word-break: keep-all; text-wrap
   background: repeating-linear-gradient(135deg, rgba(255,255,255,.04) 0 14px, transparent 14px 28px); }
 .nv-empty span { font-size: 14px; font-weight: 800; color: rgba(255,255,255,.8); }
 .nv-empty small { font-size: 11px; font-family: ui-monospace, Menlo, monospace; }
-.nv-b .nv-frame { box-shadow: 0 0 0 4px var(--blue); }
+.nv-b .nv-frame::after { border-color: var(--blue); }
 .nv-mute { position: absolute; left: 12px; top: 12px; display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 10px; background: rgba(0,0,0,.55); color: #fff; font-size: 12px; font-weight: 700; backdrop-filter: blur(6px); }
 .nv-mute svg { width: 15px; height: 15px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .nv-meter { position: absolute; left: 12px; right: 12px; bottom: 12px; margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
@@ -2125,9 +2127,11 @@ p, li, .catch-sub, .lead2, .display-sub, small { word-break: keep-all; text-wrap
 .nvd-pick { all: unset; box-sizing: border-box; display: grid; gap: 10px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .nvd-pick .nv-frame { display: block; transition: box-shadow .35s var(--ease), transform .35s var(--spring), filter .35s; }
 .nv-b .nv-frame { box-shadow: none; }
+.nvd-pick[aria-pressed="false"] .nv-frame::after { border-color: transparent; }
 .nvd-pick[aria-pressed="false"] .nv-frame { filter: saturate(.55) brightness(.85); }
 .nvd-pick[aria-pressed="false"]:hover .nv-frame { filter: none; transform: translateY(-3px); }
-.nvd-pick[aria-pressed="true"] .nv-frame { box-shadow: 0 0 0 4px var(--blue), 0 24px 48px -20px color-mix(in oklab, var(--blue) 60%, transparent); }
+.nvd-pick[aria-pressed="true"] .nv-frame::after { border-color: var(--blue); }
+.nvd-pick[aria-pressed="true"] .nv-frame { box-shadow: 0 24px 48px -20px color-mix(in oklab, var(--blue) 60%, transparent); }
 .nvd-pick:focus-visible .nv-frame { outline: 3px solid var(--ink); outline-offset: 4px; }
 .nvd-ov { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .nvd-live, .nvd-tag { opacity: 0; transition: opacity .3s; }
@@ -2221,7 +2225,7 @@ p, li, .catch-sub, .lead2, .display-sub, small { word-break: keep-all; text-wrap
 .pf-frame { position: absolute; left: 50%; top: 50%; width: var(--w); height: var(--h); translate: -50% -50%; border-radius: var(--r); overflow: hidden; background: #f7f8fa; box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 40px 80px -40px rgba(10,10,20,calc(.45 * (1 - var(--p)))); contain: layout paint; }
 .pf-frame video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #f7f8fa; }
 .pf-kicker, .pf-note { position: absolute; left: 16px; right: 16px; margin: 0; text-align: center; opacity: calc(1 - var(--p) * 2.2); filter: blur(calc(var(--p) * 12px)); pointer-events: none; }
-.pf-kicker { bottom: calc(50% + var(--h) / 2 + 22px); font-size: clamp(22px, 2.4vw, 32px); font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.pf-kicker { bottom: calc(50% + var(--h) / 2 + 40px); font-size: clamp(22px, 2.4vw, 32px); font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
 .pf-note { top: calc(50% + var(--h) / 2 + 16px); font-size: 13px; color: var(--ink-3); }
 .pf-sound { position: absolute; right: 16px; bottom: calc(16px + var(--p) * env(safe-area-inset-bottom, 0px)); display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px 0 14px; border: 0; border-radius: 999px; background: #0e0f14; color: #fff; font: inherit; font-size: 14px; font-weight: 700; letter-spacing: -0.01em; cursor: pointer; transition: transform .3s var(--spring); }
 .pf-sound:hover { transform: scale(1.04); }
@@ -2271,11 +2275,45 @@ p, li, .catch-sub, .lead2, .display-sub, small { word-break: keep-all; text-wrap
 @media (max-width: 900px) { .pf-hint { bottom: calc(28px + env(safe-area-inset-bottom, 0px)); padding: 12px 24px 12px 18px; gap: 12px; } .pf-hint b { font-size: 17px; } .pf-hint small { font-size: 12px; } }
 @media (prefers-reduced-motion: reduce) { .pf-eq i { animation: none; } }
 
+/* ── 여러 사람이 찍혔을 때 발표자 고르기 ── */
+.stage-media { cursor: crosshair; touch-action: manipulation; }
+.who-hint { position: absolute; z-index: 4; top: 14px; left: 50%; translate: -50% 0; max-width: calc(100% - 132px); padding: 9px 16px; border-radius: 999px; background: #fff; color: #111; font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 8px; box-shadow: var(--shadow-lg); animation: tile-in .4s var(--spring); pointer-events: none; }
+.who-hint::before { content: ""; width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--blue); }
+.who-hint.is-ok::before { background: var(--green); }
+.who-hint.is-warn::before { background: var(--orange); }
+.studio.is-rec .who-hint { top: 64px; }
+@media (max-width: 760px) { .studio.is-rec .who-hint { top: 14px; } }
+
+/* ── AI 대본 코칭(유료) ── */
+.sc-lock { margin-top: 20px; padding: 22px; border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow); }
+.sc-lock b { display: block; font-size: 17px; }
+.sc-lock p { margin: 6px 0 16px; color: var(--ink-2); font-size: 15px; line-height: 1.55; }
+.sc-lock div { display: flex; flex-wrap: wrap; gap: 10px; }
+.sc-ai-wait { display: flex; align-items: center; gap: 12px; color: var(--ink-2); font-size: 15px; }
+.sc-ai-wait .spin { width: 22px; height: 22px; flex: none; }
+.sc-ai-stale { margin: 0 0 12px; font-size: 14px; color: var(--ink-2); }
+.sc-ai-verdict { font-size: 17px; line-height: 1.6; font-weight: 600; margin: 0 0 14px; }
+.ai-fixes { list-style: none; padding: 0; margin: 18px 0 0; counter-reset: fx; }
+.ai-fixes li { counter-increment: fx; padding: 16px 0 16px 34px; position: relative; border-top: 1px solid var(--line); }
+.ai-fixes li::before { content: counter(fx); position: absolute; left: 0; top: 17px; width: 22px; height: 22px; border-radius: 50%; background: var(--pink); color: #fff; font-size: 12px; font-weight: 800; display: grid; place-items: center; }
+.ai-fixes b { font-size: 16px; }
+.ai-fixes p { margin: 4px 0 0; font-size: 15px; line-height: 1.55; color: var(--ink-2); }
+.ai-fixes .ai-from, .ai-fixes .ai-to { color: var(--ink); margin-top: 10px; }
+.ai-from span, .ai-to span, .ai-ends span, .ai-key > span { display: inline-block; margin-right: 8px; padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 800; color: #fff; vertical-align: 1px; }
+.ai-from span { background: var(--ink-3); }
+.ai-to span { background: var(--green); color: #0b1a10; }
+.ai-ends { display: grid; gap: 14px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.ai-ends span { background: var(--blue); }
+.ai-ends p { display: inline; margin: 0; font-size: 15px; line-height: 1.6; }
+.ai-key { margin: 18px 0 0; padding-top: 16px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; align-items: center; gap: 8px 4px; font-size: 15px; }
+.ai-key > span { background: var(--orange); }
+.ai-key .btn-link { margin-left: auto; font-size: 14px; }
+
 /* ── 스쿼클(연속 곡률) 전체 통일 ──
    보통 둥근 모서리는 직선→원호로 넘어갈 때 곡률이 뚝 바뀌어요. 스쿼클은 곡률이 0 에서 서서히 커져 매끄럽게 이어져요(iOS 모서리).
    - 둥근 사각형: corner-shape: squircle + 반지름 1.6배(같은 반지름이면 덜 둥글어 보여서) — 카드와 같은 방식.
-   - 알약: 모양은 알약 그대로, 모서리를 가로로 길게(높이의 약 0.72배, --px) 잡고 superellipse(1.4) 로 직선과 끝 곡선을 매끄럽게 이어요.
-     높이가 정해진 버튼은 px, 글자 크기에 따라 높이가 바뀌는 칩은 em(기본 1.35em).
+   - 알약: 모양은 알약 그대로, 모서리를 가로로 조금 길게(높이의 약 0.58배, --pill-x) 잡고 superellipse(1.08) 로 직선에서 끝으로 넘어가는 어깨를 부드럽게(1.4 처럼 크게 주면 끝이 납작해짐).
+     높이가 정해진 버튼은 px, 글자 크기에 따라 높이가 바뀌는 칩은 em(기본 1.09em).
    - 동그라미·점·얇은 진행 막대는 원 그대로.
    corner-shape 를 지원하는 브라우저(Chrome 계열)에서만 바뀌고, Safari 는 지금의 둥근 모서리 그대로예요.
    새 알약·동그라미를 만들면 아래 목록에 넣을 것. */
@@ -2284,25 +2322,25 @@ p, li, .catch-sub, .lead2, .display-sub, small { word-break: keep-all; text-wrap
   *, ::before, ::after { corner-shape: squircle; }
   /* 원·점·얇은 막대 */
   .av, .avatar, .bar-dot, .bezel-ring, .btn-rec i, .ck-ico, .clip-banner::before, .cue-chip i, .dc-dot, .dir, .dlg-x, .dot, .dp-btn, .flow-steps li i,
-  .framing::before, .hc i, .hl-play, .issue > i, .live, .marquee-track i, .ml-dot, .nav-btn, .nv-meter li::before, .opt .check, .opt-num, .pc-go, .pl-btn,
-  .rec-pill i, .recent-acct .avatar, .cam-flip, .spin, .spot, .st i, .switch::before, .tl-head i::before,
+  .framing::before, .who-hint::before, .hc i, .hl-play, .issue > i, .live, .marquee-track i, .ml-dot, .nav-btn, .nv-meter li::before, .opt .check, .opt-num, .pc-go, .pl-btn,
+  .rec-pill i, .ai-fixes li::before, .recent-acct .avatar, .cam-flip, .spin, .spot, .st i, .switch::before, .tl-head i::before,
   .bar, .bar-band, .bar-fill, .db-bar, .flow-bar, .hp-bar, .meter, .r-score-bar, .r-score-bar i, .sm-bar, .sm-bar i, .wiz-bar, .wiz-bar i, .issues button::before, .lg-filler, .pf-eq i { corner-shape: round; }
   /* 알약 */
   .avatar-btn, .badge, .btn-fill, .btn, .btn-plain, .btn-ghost, .btn-stop, .btn-white, .chip, .chip-btn, .clip-banner, .cue-chip, .db-cats em, .ev-grid em, .ev-type,
-  .flow-steps li, .foot-lang, .foot-lang b, .foot-lang span, .fp span, .framing, .goods li, .hc, .hl-tag, .hl-time, .hp-rec, .hud-target, .kind, .lang-note span,
+  .flow-steps li, .foot-lang, .foot-lang b, .foot-lang span, .fp span, .framing, .who-hint, .goods li, .hc, .hl-tag, .hl-time, .hp-rec, .hud-target, .kind, .lang-note span,
   .menu-btn, .nav-cta, .nav-link, .nav-login, .nvd-chip, .nvd-issues em, .pc-time, .pf-sound, .pf-hint, .pill, .pl-speed, .pl-speed button, .r-delta, .rd .tag,
   .rec-pill, .ref, .sb-new, .seg, .seg button, .seg-pill, .sm-chips i, .soc-soon, .soc-last, .sref, .switch, .tchip, .toast, .wiz-exit {
-    corner-shape: superellipse(1.4); border-radius: var(--px, 1.35em) / 50%;
+    --pill-x: 1.09em; corner-shape: superellipse(1.08); border-radius: var(--pill-x) / 50%;
   }
-  .btn-fill, .btn, .btn-plain, .btn-ghost, .btn-stop { --px: 40px; }
-  .btn-white { --px: 43px; }
-  .pf-hint { --px: 46px; }
-  .seg, .toast { --px: 33px; }
-  .pf-sound { --px: 32px; }
-  .avatar-btn, .menu-btn, .nav-cta, .nav-link, .nav-login, .chip-btn, .framing, .cue-chip { --px: 29px; }
-  .seg button, .seg-pill { --px: 27px; }
-  .wiz-exit, .pl-speed { --px: 22px; }
-  .switch { --px: 19px; }
+  .btn-fill, .btn, .btn-plain, .btn-ghost, .btn-stop { --pill-x: 32px; }
+  .btn-white { --pill-x: 35px; }
+  .pf-hint { --pill-x: 37px; }
+  .seg, .toast { --pill-x: 27px; }
+  .pf-sound { --pill-x: 26px; }
+  .avatar-btn, .menu-btn, .nav-cta, .nav-link, .nav-login, .chip-btn, .framing, .who-hint, .cue-chip { --pill-x: 23px; }
+  .seg button, .seg-pill { --pill-x: 22px; }
+  .wiz-exit, .pl-speed { --pill-x: 17px; }
+  .switch { --pill-x: 15px; }
   .marquee-track i:nth-of-type(4n+2), .marquee-track i:nth-of-type(4n), .transcript mark, .fc-bar i, .ml-rail, .dash-bars i, .dash-bars i::after, .tl-legend i { border-radius: 6px; }
   .rd .ck { border-radius: 10px; }
   .menu button, .custom-lock i, .pr-cell { border-radius: 16px; }
@@ -2312,3 +2350,6 @@ p, li, .catch-sub, .lead2, .display-sub, small { word-break: keep-all; text-wrap
   .pay-err { border-radius: 32px; }
   .cc { border-radius: 38px; }
 }
+
+/* 영상 카드 선택 테두리: box-shadow 링은 스쿼클 모서리를 따라가지 않아서(원 모서리로 그려져 어긋남) 같은 모양을 물려받는 안쪽 선으로 그려요 */
+.nv-frame::after { content: ''; position: absolute; inset: 0; z-index: 6; border: 4px solid transparent; border-radius: inherit; corner-shape: inherit; pointer-events: none; transition: border-color .35s var(--ease); }

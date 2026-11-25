@@ -1,5 +1,4 @@
 // 리허설 설정 초안. 마법사에서 고른 값을 이 기기에 저장해 두고 다음 리허설에 이어 써요.
-import { syllables } from '@/lib/coach/audio';
 import type { CustomGoal, Setup } from '@/lib/coach/types';
 import { aidOf, type AidId } from '@/lib/delivery';
 import { PURPOSE_BY_ID, type Outcome, type PostureId, type Purpose } from '@/lib/scenarios';
@@ -95,26 +94,8 @@ export const profileFrom = (worry: string | null) => {
   return p;
 };
 
-export type Parsed = { topic: string; keyMessage: string; outcomeText: string; script: string };
-/** 한두 줄 설명에서 주제, 핵심 메시지, 원하는 결과, 대본을 뽑아요. */
-export function parsePrompt(text: string): Parsed {
-  const t = String(text || '').trim();
-  if (!t) return { topic: '', keyMessage: '', outcomeText: '', script: '' };
-  const sents = t.split(/(?<=[.!?。])\s+|\n+/).map((s) => s.trim()).filter(Boolean);
-  const quoted = t.match(/[“"‘']([^”"’']{6,120})[”"’']/);
-  let key = quoted ? quoted[1] : sents.find((s) => /핵심|기억|메시지|강조|꼭 전하|하고 싶은 말/.test(s)) || '';
-  key = key.replace(/^(핵심\s*메시지는|핵심은|메시지는|기억했으면\s*하는\s*건|강조하고\s*싶은\s*건|꼭\s*전하고\s*싶은\s*건)\s*/, '').trim();
-  const outcome = sents.find((s) => /원하|목표|얻고|받고|잡고|따내|합격|승인|설득|끌어내/.test(s) && !(quoted && s.includes(quoted[1]))) || '';
-  let topic = sents.find((s) => !s.includes(key || '\u0000') && s !== outcome) || sents[0];
-  topic = topic.replace(/[.!?。]$/, '');
-  if (topic.length > 48) topic = `${topic.slice(0, 46)}…`;
-  const script = syllables(t) > 250 ? t : '';
-  return { topic, keyMessage: key.replace(/[.!?。]$/, ''), outcomeText: outcome.replace(/[.!?。]$/, ''), script };
-}
-
-/** 분석에 넘길 설정. 대본이 있으면 대본의 핵심 메시지를, 없으면 설명에서 뽑은 값을 써요. */
+/** 분석에 넘길 설정. 주제는 리허설 제목, 핵심 메시지는 사용자가 직접 적은 값. */
 export function toSetup(d: Draft): Setup {
-  const parsed = d.hasScript === 'yes' ? null : parsePrompt(d.prompt);
   return {
     purposeId: d.purposeId,
     purposeName: d.customPurpose?.name,
@@ -124,8 +105,8 @@ export function toSetup(d: Draft): Setup {
     targetSec: targetSecOf(d),
     topic: d.title.trim() || defaultTitle(d),
     aid: aidOf(d.purposeId, d.aid),
-    keyMessage: (d.hasScript === 'yes' ? d.key : parsed?.keyMessage) || '',
-    outcomeText: parsed?.outcomeText || '',
+    keyMessage: d.key.trim(),
+    outcomeText: '',
     profile: profileFrom(d.worry),
   };
 }
@@ -142,15 +123,6 @@ export const SCRIPT_EXAMPLES: Record<string, string> = {
   speech: '안녕하세요, 신랑의 대학 동기 김하늘입니다.\n신입생 때 처음 만난 날을 아직도 기억합니다.\n두 사람이 서로의 가장 든든한 편이 되길 바랍니다.',
 };
 export const PROMPT_COPY = {
-  yes: { title: '발표 대본을 넣어 주세요', sub: '녹화 전에 시간, 흐름, 긴 문장부터 점검해요.' },
-  no: { title: '어떤 발표인지만 알려 주세요', sub: '대본 점검은 건너뛰어요. 말한 내용은 녹화한 뒤 받아쓰기로 확인해요.' },
-};
-export const EXAMPLES: Record<string, string> = {
-  interview: '마케팅 직무 1차 면접 자기소개예요. 데이터로 캠페인 성과를 2배 올린 경험을 강조하고 싶어요. 핵심 메시지는 “숫자로 증명하는 마케터”입니다.',
-  ir: 'AI 발표 코칭 서비스 시드 투자 피칭이에요. 핵심 메시지는 “누구나 코치 없이 발표 실력을 올릴 수 있다”입니다. 후속 미팅을 잡는 게 목표예요.',
-  report: '3분기 마케팅 성과 보고예요. 핵심은 “광고비를 20% 줄이고도 전환은 유지했다”입니다. 4분기 예산 승인을 받고 싶어요.',
-  lecture: '신입사원 대상 보안 교육이에요. 핵심 메시지는 “의심되면 클릭 전에 물어보기”입니다. 실습으로 이어지게 하고 싶어요.',
-  conference: '한국어 발화 속도 연구 결과 발표예요. 핵심 메시지는 “긴장하면 말이 평균 15% 빨라진다”입니다. 질문과 토론을 이끌고 싶어요.',
-  capstone: '졸업 프로젝트 최종 발표예요. 시각장애인을 위한 음성 길안내 앱을 만들었고, 핵심 메시지는 “3번의 탭으로 목적지까지”입니다. 좋은 평가를 받고 포트폴리오에도 쓰고 싶어요.',
-  speech: '대학 동기 결혼식 축사예요. 신입생 때 처음 만난 이야기로 시작하고 싶어요. 핵심은 “서로의 가장 든든한 편”이라는 말이에요.',
+  yes: { title: '발표 대본을 넣어 주세요', sub: 'AI가 대본을 읽고 고칠 문장을 고쳐 써 드려요(Spotlight 요금제부터).' },
+  no: { title: '제목과 핵심 메시지만 적어 주세요', sub: '대본 코칭은 건너뛰어요. 말한 내용은 녹화한 뒤 받아쓰기로 확인해요.' },
 };
