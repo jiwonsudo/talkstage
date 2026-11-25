@@ -116,6 +116,8 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
 
 - `public/brand/*.svg`: 마크(`talkstage-mark`, 평면 `-flat`, 앱 아이콘 `-app-icon`), 로고타입(마크+글자, 흰 글자 `-white`, 평면 `-flat`), 워드마크. 글자는 Pretendard ExtraBold 윤곽선(자간 -0.04em, GPOS 커닝 반영), 도형·그라디언트는 `BrandMark.tsx` 와 같은 값. `png/transparent`(배경 없음)·`png/background`(흰/잉크 배경, 앱 아이콘, OG).
 - 앱 아이콘: `src/app/icon.svg`·`apple-icon.png`·`favicon.ico`(마크). 로고 모양을 바꾸면 위 파일들도 다시 뽑을 것.
+- 마크만 따로 쓰는 파일(아이콘·파비콘·마크 SVG/PNG)은 **시각 중심 보정**: 왼쪽 아래만 네모라 무게중심이 (15.26, 16.74)로 쏠려서, 32 칸 기준 (+0.74, −0.74) 옮겨 무게중심을 가운데에 둠. 로고타입·앱 안 `BrandMark` 는 그대로. 모양을 바꾸면 무게중심을 다시 재서 값도 바꿀 것.
+- 제목: 대표 제목 "Talkstage — 중요한 발표 한 번을 위한 리허설 코치", 다른 화면은 `'%s · Talkstage'` 템플릿(페이지 metadata 에는 화면 이름만). 홈 화면에 추가하면 이름은 "Talkstage"(`appleWebApp.title`·`app/manifest.ts`).
 - OG·트위터 이미지: `src/app/opengraph-image.png`·`twitter-image.png`(1200×630). 원본은 개발 전용 `/dev/og`(랜딩 카드·Picto 그대로) — 고치면 `.og` 요소를 캡처해 두 파일 교체. **카드에 URL·설명 문구 넣지 말 것**(주소는 바뀔 수 있음). `metadataBase` 는 `layout.tsx`.
 
 ## 랜딩 실제 분석 예시

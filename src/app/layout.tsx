@@ -16,9 +16,11 @@ const OG_TITLE = 'Talkstage — 중요한 발표 한 번을 위한 리허설 코
 // OG·트위터 이미지는 app/opengraph-image.png · twitter-image.png, 아이콘은 icon.svg · apple-icon.png · favicon.ico(파일 규칙)
 export const metadata: Metadata = {
   metadataBase: new URL('https://talkstage-three.vercel.app'),
-  title: 'Talkstage · 발표 리허설',
+  // 탭·검색 결과는 대표 제목, 다른 화면은 '새 리허설 · Talkstage'. 홈 화면에 추가하면 이름은 'Talkstage' 만(appleWebApp·manifest).
+  title: { default: OG_TITLE, template: '%s · Talkstage' },
   description: DESC,
   applicationName: 'Talkstage',
+  appleWebApp: { title: 'Talkstage' },
   openGraph: { type: 'website', url: '/', siteName: 'Talkstage', locale: 'ko_KR', title: OG_TITLE, description: DESC },
   twitter: { card: 'summary_large_image', title: OG_TITLE, description: DESC },
 };
