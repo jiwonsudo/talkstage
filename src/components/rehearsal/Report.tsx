@@ -11,7 +11,7 @@ import { CATS, CAT_LABEL, fmtTime, type CatId, type Purpose } from '@/lib/scenar
 
 const STATUS_TEXT = { good: '좋음', warn: '보완', bad: '집중', na: '측정 불가' } as const;
 const EV_TYPE = { research: '연구', book: '서적', practitioner: '실무 가이드' } as const;
-const KIND_TEXT = { match: '예상대로', better: '생각보다 잘함', blind: '몰랐던 약점', ok: '강점 확인' } as const;
+const KIND_TEXT = { match: '예상대로', better: '생각보다 잘함', other: '다른 문제', blind: '몰랐던 약점', ok: '강점 확인' } as const;
 const FILLERS = new Set(['어', '어어', '음', '음음', '으음', '흠', '저', '저기', '이제', '약간', '막', '뭐', '뭔가', '뭐랄까', '그냥']);
 const BAR_DOMAIN: Partial<Record<CatId, [number, number]>> = { pace: [150, 450], pause: [0, 0.5], tone: [0, 8], gaze: [0, 1], gesture: [0, 0.7], filler: [0, 10] };
 
@@ -103,6 +103,8 @@ export function Report({ result: R, videoURL, setup, purpose, prev, history, onR
   const reviewRef = useRef<HTMLElement>(null);
   const clip = useRef<{ t1: number; onEnd?: () => void } | null>(null);
   const [banner, setBanner] = useState<{ text: string; cls: string } | null>(null);
+  // 이 기기가 녹화 파일을 재생하지 못하면(형식 문제 등) 깨진 플레이어 대신 안내를 보여 줘요.
+  const [playErr, setPlayErr] = useState(false);
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<string | null>(null);
 
@@ -280,6 +282,7 @@ export function Report({ result: R, videoURL, setup, purpose, prev, history, onR
                 {focusDelta != null && ` · 집중 항목 ${CAT_LABEL[setup.focus!]} ${focusDelta >= 0 ? '+' : ''}${focusDelta}점`}
               </p>
             )}
+            {R.clarity === 'low' && <p className="r-kind">목소리는 났지만 알아들을 수 있는 말이 거의 없었어요. 그래서 시선·자세가 좋아도 종합 점수를 낮게 매겼어요. 또박또박 말하며 다시 연습해 보세요.</p>}
             {anxious && <p className="r-kind">긴장을 많이 한다고 답하셨죠. 잘한 순간부터 보고, 고칠 점은 두 가지만 골랐어요.</p>}
           </div>
           <Picto name={purpose.id} />
@@ -304,8 +307,9 @@ export function Report({ result: R, videoURL, setup, purpose, prev, history, onR
             <div className="player-col">
               <div className={`player${voice ? ' is-audio' : ''}`}>
                 {voice
-                  ? <audio ref={videoRef as unknown as React.RefObject<HTMLAudioElement>} controls src={videoURL} />
-                  : <video ref={videoRef} controls playsInline src={videoURL} />}
+                  ? <audio ref={videoRef as unknown as React.RefObject<HTMLAudioElement>} controls src={videoURL} hidden={playErr} onError={() => setPlayErr(true)} />
+                  : <video ref={videoRef} controls playsInline src={videoURL} hidden={playErr} onError={() => setPlayErr(true)} />}
+                {playErr && <p className="player-err">이 기기에서 {voice ? '녹음' : '녹화'} 파일을 재생하지 못했어요. 분석 결과는 그대로이고, 아래 {voice ? '전체 녹음 파일 저장' : '전체 녹화 파일 저장'}으로 받아서 볼 수 있어요.</p>}
                 {banner && <div className={`clip-banner ${banner.cls}`}>{banner.text}</div>}
               </div>
               <div className="tl-wrap">

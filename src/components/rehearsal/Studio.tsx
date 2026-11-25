@@ -4,7 +4,7 @@ import { MIN_REHEARSAL_SEC, analyze, buildCalibration, classifyFrame, type Analy
 import { AudioMeter, Transcriber, framesFromRecording, isIOS } from '@/lib/coach/audio';
 import { detect, drawOverlay, extractFeatures, loadVision, type VisionFrame, type VisionModels, pickPerson, resetPerson, type VisionResult } from '@/lib/coach/vision';
 import type { RecordMode, Setup } from '@/lib/coach/types';
-import { pickAudioMime } from '@/lib/coach/media';
+import { pickAudioMime, pickMime } from '@/lib/coach/media';
 import { outcomeLabel, purposeOf, type Draft } from '@/lib/rehearsal/draft';
 import { aidOf, audienceOf, isShowing } from '@/lib/delivery';
 import { showPose } from '@/lib/coach/showing';
@@ -29,7 +29,6 @@ const fileCalib = (audio: AudioFrames, frames: VisionFrame[]) =>
   buildCalibration(audio.filter((f) => f.t < FILE_CALIB_SEC), frames.filter((f) => f.t < FILE_CALIB_SEC));
 
 const PREFS = 'ts-studio-prefs';
-const pickMime = () => ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'].find((m) => window.MediaRecorder?.isTypeSupported?.(m)) ?? '';
 const POSTURE_FIX: Record<string, string> = { slouch: '허리를 펴고 턱을 살짝 당겨 주세요', shoulderTilt: '어깨 높이를 맞춰 주세요', headTilt: '고개를 바로 세워 주세요', crossed: '팔짱을 풀고 손을 펴 주세요', offCenter: '화면 가운데로 돌아와 주세요' };
 
 type Props = {
@@ -463,7 +462,7 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone, 
     setP('analyzing');
     const transcript = await c.transcript;
     await c.stopped;
-    const blob = fromFile ? null : new Blob(st.chunks, { type: st.mime || (voice ? 'audio/webm' : 'video/webm') });
+    const blob = fromFile ? null : new Blob(st.chunks, { type: st.recorder?.mimeType || st.chunks[0]?.type || st.mime || (voice ? 'audio/webm' : 'video/webm') });
     const videoURL = fromFile ? fileUrlRef.current! : URL.createObjectURL(blob!);
     const used: Setup = fromFile ? { ...setup, source: 'file' } : setup;
     const drop = () => { if (!fromFile) URL.revokeObjectURL(videoURL); };

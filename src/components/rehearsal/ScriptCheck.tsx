@@ -420,7 +420,7 @@ function ScriptResult({ result: r, purposeId, purposeLabel, onRecord, onFinish, 
             </div>
           ))}
         </div>
-        <div className="player">
+        <div className="rd-player">
           <button type="button" className="pl-btn" aria-label={playing ? '멈추기' : '예시 억양으로 듣기'} disabled={!canSpeak} onClick={() => (playing ? stop() : play(0))}>
             {playing ? <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" /></svg> : <svg viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z" /></svg>}
           </button>

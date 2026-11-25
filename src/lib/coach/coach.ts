@@ -419,7 +419,7 @@ export function coachFor(c: CatResult, purpose: Purpose, setup: Setup): Coaching
 }
 
 // 자가진단과 실제 측정 비교
-export type SelfRow = { qid: string; label: string; self: number; cat: CatId; kind: 'match' | 'better' | 'blind' | 'ok'; msg: string; score: number };
+export type SelfRow = { qid: string; label: string; self: number; cat: CatId; kind: 'match' | 'better' | 'other' | 'blind' | 'ok'; msg: string; score: number };
 export function selfCompare(profile: Record<string, number> | null | undefined, cats: Partial<Record<CatId, CatResult>>): SelfRow[] {
   if (!profile) return [];
   const map: Record<string, { cat: CatId; weakIf: (c: CatResult) => boolean; label: string }> = {
@@ -438,10 +438,14 @@ export function selfCompare(profile: Record<string, number> | null | undefined, 
     const selfWeak = v >= 4;
     const selfStrong = v <= 2;
     const measuredWeak = m.weakIf(c) && c.score < 80;
+    // 걱정한 방향(예: 빨라짐)은 아니어도 점수가 낮으면 "잘함"이라고 하면 안 돼요(0점인데 "생각보다 잘함"이 나왔어요).
+    const low = c.score < 70;
+    const why = m.cat === 'pace' && c.dir === 'low' ? '오히려 너무 느렸거나 말이 또렷하게 잡히지 않았어요.' : '아래 항목 설명에서 이유를 확인해 보세요.';
     let kind: SelfRow['kind'], msg: string;
     if (selfWeak && measuredWeak) { kind = 'match'; msg = '걱정했던 약점이 측정에서도 확인됐어요. 집중 연습 항목으로 추천해요.'; }
-    else if (selfWeak && !measuredWeak) { kind = 'better'; msg = '걱정했던 것보다 잘하고 있어요. 이 부분은 자신감을 가져도 됩니다.'; }
-    else if (!selfWeak && measuredWeak) { kind = 'blind'; msg = '걱정하지 않았던 부분인데 측정에서 드러났어요. 하이라이트 영상으로 확인해 보세요.'; }
+    else if (selfWeak && low) { kind = 'other'; msg = `걱정한 문제는 보이지 않았지만 ${c.label} 점수가 ${c.score}점으로 낮아요. ${why}`; }
+    else if (selfWeak) { kind = 'better'; msg = '걱정했던 것보다 잘하고 있어요. 이 부분은 자신감을 가져도 됩니다.'; }
+    else if (measuredWeak || low) { kind = 'blind'; msg = '걱정하지 않았던 부분인데 측정에서 드러났어요. 하이라이트 영상으로 확인해 보세요.'; }
     else if (selfStrong) { kind = 'ok'; msg = '스스로 생각한 대로 강점이에요.'; }
     else { kind = 'ok'; msg = '측정에서도 큰 문제는 없었어요.'; }
     rows.push({ qid, label: m.label, self: v, cat: m.cat, kind, msg, score: c.score });

@@ -48,7 +48,23 @@ export function download(blob: Blob, name: string) {
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
 }
 
-export const pickMime = () => ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'].find((m) => window.MediaRecorder?.isTypeSupported?.(m)) ?? '';
+/**
+ * 애플(WebKit: iPhone·iPad 의 모든 브라우저, 맥 Safari)은 webm 으로 녹화는 돼도 그 파일을 재생하지 못해 리포트 영상이
+ * "오류"로 떴어요. 그래서 애플에서는 mp4 를 먼저, 나머지는 예전처럼 webm 을 먼저 써요.
+ */
+const appleWebKit = () => typeof navigator !== 'undefined' && (
+  /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  || (/AppleWebKit/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent) && !/Chrome|Chromium|Edg|OPR|Firefox/.test(navigator.userAgent)));
+const firstSupported = (list: string[]) => list.find((m) => window.MediaRecorder?.isTypeSupported?.(m)) ?? '';
+export const pickMime = () => {
+  const webm = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+  const mp4 = ['video/mp4;codecs=avc1,mp4a', 'video/mp4'];
+  return firstSupported(appleWebKit() ? [...mp4, ...webm] : [...webm, ...mp4]);
+};
 
 /** 음성만 녹음할 때 쓸 형식 */
-export const pickAudioMime = () => ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'].find((m) => window.MediaRecorder?.isTypeSupported?.(m)) ?? '';
+export const pickAudioMime = () => {
+  const webm = ['audio/webm;codecs=opus', 'audio/webm'];
+  const mp4 = ['audio/mp4;codecs=mp4a', 'audio/mp4'];
+  return firstSupported(appleWebKit() ? [...mp4, ...webm, 'audio/ogg;codecs=opus'] : [...webm, ...mp4, 'audio/ogg;codecs=opus']);
+};
