@@ -11,6 +11,7 @@ const GROUPS: { title?: string; links: { href: string; label: string; icon?: boo
   { title: '계정', links: [
     { href: '/me/account', label: '계정 관리' },
     { href: '/me/plan', label: '요금제 관리' },
+    { href: '/me/billing', label: '결제·크레딧 내역' },
     { href: '/me/support', label: '지원 받기' },
   ] },
   { links: [{ href: '/me/settings', label: '설정', icon: true }] },

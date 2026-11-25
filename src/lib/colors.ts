@@ -27,3 +27,15 @@ export const PURPOSE_COLOR: Record<string, string> = {
   capstone: 'var(--yellow)',
   speech: 'var(--red)',
 };
+
+/** 요금제 뱃지 색(고정) */
+export const PLAN_COLOR: Record<string, string> = { Opening: 'var(--ink-3)', Spotlight: 'var(--blue)', Headliner: 'var(--purple)' };
+
+/**
+ * 남은 크레딧 비율(0~1)에 따른 색: 넉넉하면 초록, 줄수록 노랑·주황을 거쳐 빨강으로 이어져요.
+ * oklch 색상(hue)만 145(초록) → 25(빨강)로 옮겨 밝기는 비슷하게 유지해요.
+ */
+export function creditTone(left: number, total: number) {
+  const r = total > 0 ? Math.max(0, Math.min(1, left / total)) : 0;
+  return `oklch(0.66 0.18 ${Math.round(25 + 120 * r)})`;
+}

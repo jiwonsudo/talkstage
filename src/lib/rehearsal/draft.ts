@@ -3,7 +3,8 @@ import type { CustomGoal, Setup } from '@/lib/coach/types';
 import { aidOf, type AidId } from '@/lib/delivery';
 import { PURPOSE_BY_ID, type Outcome, type PostureId, type Purpose } from '@/lib/scenarios';
 
-export type CustomPurpose = { name: string; base: string };
+/** general = 비슷한 유형이 없어 일반 발표 기준(학회·세미나)으로 코칭 */
+export type CustomPurpose = { name: string; base: string; general?: boolean };
 export type Draft = {
   purposeId: string;
   posture: PostureId;

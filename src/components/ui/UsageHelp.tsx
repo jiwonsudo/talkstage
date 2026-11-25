@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { AI_COACH_TIERS } from '@/lib/coach/scriptCoach';
 import { CREDIT_PER_REHEARSAL, PLANS, type PlanId } from '@/lib/plans';
 
-// "예상 N회"가 어떻게 나오는지: 동그라미 안 물음표를 누르면 계산 기준을 보여 줘요(랜딩 요금표·요금제 관리·대본 코칭).
+// "약 N회(예상)"가 어떻게 나오는지: "예상 횟수 산정 기준 ?" 을 누르면 계산 기준을 보여 줘요(랜딩 요금표·요금제 관리·대본 코칭).
 // 창은 body 로 띄워요(문단·제목 안에 둬도 HTML 이 깨지지 않게). 숫자는 plans.ts·scriptCoach.ts 값에서 계산해요 — 손으로 적지 말 것.
 
 const SET_AI = AI_COACH_TIERS[0].credits; // 5분 발표 대본 AI 코칭 1회
@@ -12,7 +12,7 @@ const SET_RUNS = 3;                       // 같은 발표를 3번 연습
 const SET = SET_AI + SET_RUNS * CREDIT_PER_REHEARSAL;
 const IDS: PlanId[] = ['Opening', 'Spotlight', 'Headliner'];
 
-export function UsageHelp({ label = '예상 사용량 계산 기준' }: { label?: string }) {
+export function UsageHelp({ label = '예상 횟수 산정 기준' }: { label?: string }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -28,12 +28,13 @@ export function UsageHelp({ label = '예상 사용량 계산 기준' }: { label?
 
   return (
     <>
-      <button type="button" className="help-q" aria-label={label} title={label} onClick={() => setOpen(true)}>?</button>
+      <button type="button" className="help-link" aria-haspopup="dialog" onClick={() => setOpen(true)}>{label}<i aria-hidden="true">?</i></button>
       {open && createPortal(
         <dialog ref={ref} className={`cfm usage-dlg${closing ? ' closing' : ''}`} tabIndex={-1} aria-labelledby="usageTitle"
           onCancel={(e) => { e.preventDefault(); close(); }} onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
           <div className="cfm-box">
-            <h2 id="usageTitle">예상 횟수는 이렇게 계산해요</h2>
+            <h2 id="usageTitle">예상 횟수 산정 기준</h2>
+            <p className="cfm-body">아래 횟수는 모두 <b>대략적인 예상</b>이에요. 실제 횟수는 대본 길이·AI 코칭 사용 여부에 따라 달라져요.</p>
             <h3 className="usage-h">리허설(녹화 분석)</h3>
             <ul className="usage-list">
               <li>한 번에 <b>{CREDIT_PER_REHEARSAL}크레딧</b>이에요. 녹화 길이와 관계없이 같아요(목표 시간 30분까지 고를 수 있어요).</li>
@@ -55,15 +56,15 @@ export function UsageHelp({ label = '예상 사용량 계산 기준' }: { label?
                   <tr key={id}>
                     <th>{id}</th>
                     <td>{PLANS[id].credits}</td>
-                    <td>{Math.floor(PLANS[id].credits / CREDIT_PER_REHEARSAL)}회</td>
-                    <td>{id === 'Opening' ? '—' : `${Math.floor(PLANS[id].credits / SET)}세트`}</td>
+                    <td>약 {Math.floor(PLANS[id].credits / CREDIT_PER_REHEARSAL)}회</td>
+                    <td>{id === 'Opening' ? '—' : `대략 ${Math.floor(PLANS[id].credits / SET)}세트`}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
             <p className="cfm-body">
               리허설만 = 월 크레딧 ÷ {CREDIT_PER_REHEARSAL}(나머지는 버림). 발표 준비 세트 = 5분 발표 대본 AI 코칭 1회({SET_AI}) + 같은 발표 리허설 {SET_RUNS}회({SET_RUNS * CREDIT_PER_REHEARSAL}) = {SET}크레딧.
-              대본이 길면 AI 코칭이 더 들어서 세트 수가 줄어요. 월 크레딧은 매달 1일(한국 시간)에 다시 채워지고 남은 크레딧은 넘어가지 않아요. 따로 산 회차는 기한 없이 남아요.
+              대본이 길면 AI 코칭이 더 들어서 세트 수가 줄어요. 월 크레딧은 매달 1일(한국 시간)에 다시 채워지고 남은 크레딧은 넘어가지 않아요. 따로 산 크레딧은 기한 없이 남아요.
             </p>
             <div className="cfm-act usage-act"><button type="button" className="btn-fill" onClick={close}>확인</button></div>
           </div>

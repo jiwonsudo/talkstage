@@ -1,7 +1,8 @@
 import type { AidId } from '@/lib/delivery';
 import type { CatId, Outcome, PostureId } from '@/lib/scenarios';
 
-export type CustomGoal = { label: string; focus: CatId; cta: boolean };
+/** focus 'none' = 딱 맞는 코칭 항목이 없음(가중치 없이 목표 문구만 리포트에 반영) */
+export type CustomGoal = { label: string; focus: CatId | 'none'; cta: boolean };
 
 /** 리허설 설정(마법사에서 고른 값) */
 export type Setup = {
@@ -23,7 +24,7 @@ export type Setup = {
   aid?: AidId;
 };
 
-export type PickedOutcome = Outcome & { custom?: boolean };
+export type PickedOutcome = Omit<Outcome, 'focus'> & { focus: Outcome['focus'] | 'none'; custom?: boolean };
 export type Dir = 'low' | 'high' | 'ok' | null;
 export type Status = 'good' | 'warn' | 'bad' | 'na';
 

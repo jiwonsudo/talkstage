@@ -4,23 +4,27 @@ import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useContact } from '@/components/contact/ContactProvider';
 import { useToast } from '@/components/ui/Toast';
-import { useConfirm } from '@/components/ui/Confirm';
-import { cancelPlan, fetchSubscription, resumePlan, schedulePlan, shortDate, type Subscription } from '@/lib/data/billing';
+import { cancelPlan, fetchSubscription, resumePlan, savePlanChange, schedulePlan, shortDate, type Subscription } from '@/lib/data/billing';
+import { DowngradeDialog } from '@/components/me/DowngradeDialog';
+import { PlanBadge } from '@/components/ui/PlanBadge';
+import { creditTone } from '@/lib/colors';
 import { useCredits } from '@/lib/data/useCredits';
 import Link from 'next/link';
-import { CREDIT_PER_REHEARSAL, PACKS, PLANS, won, type PackId, type PlanId } from '@/lib/plans';
+import { CREDIT_PER_REHEARSAL, PACKS, PLAN_PERKS, PLANS, approxRuns, perCredit, won, type PackId, type PlanId } from '@/lib/plans';
 import { UsageHelp } from '@/components/ui/UsageHelp';
+import { CreditExamples } from '@/components/ui/CreditExamples';
 
 export default function Plan() {
   const { user, refresh } = useAuth();
   const toast = useToast();
-  const confirm = useConfirm();
   const contact = useContact();
   const sp = useSearchParams();
   const pick = sp.get('pick'), fromWizard = sp.get('from') === 'wizard';
   const credits = useCredits(user);
   const [sub, setSub] = useState<Subscription | null>(null);
   const [busy, setBusy] = useState(false);
+  // 내리기(해지 포함)는 모두 "다운그레이드"로, 사유를 받은 뒤 진행해요.
+  const [down, setDown] = useState<PlanId | null>(null);
   const loadSub = useCallback(() => fetchSubscription().then(setSub).catch(() => setSub(null)), []);
   useEffect(() => { if (user) loadSub(); }, [user, loadSub]);
   if (!user) return null;
@@ -31,7 +35,6 @@ export default function Plan() {
   const up = ids.filter((n) => PLANS[n].credits > info.credits);
   const rec = up.find((n) => n === pick) ?? up[0] ?? null;
   const c = credits?.status === 'ok' ? credits : null;
-  const pct = c ? Math.min(100, Math.round((c.used / c.total) * 100)) : 0;
 
   const end = sub?.periodEnd ? shortDate(sub.periodEnd) : '';
   const upHref = (n: PlanId) => `/me/subscribe?plan=${n}${fromWizard ? '&from=wizard' : ''}`;
@@ -43,23 +46,31 @@ export default function Plan() {
     catch (e) { toast((e as Error).message); }
     finally { setBusy(false); }
   }
-  const cancel = async () => {
-    const ok = await confirm(end
-      ? { title: `${cur}를 해지할까요?`, body: `${end}까지는 ${cur}를 그대로 쓰고, 그 뒤 Opening(무료)으로 바뀌어요. 그전에 언제든 해지를 취소할 수 있어요.`, ok: '해지하기', cancel: '계속 쓰기', danger: true }
-      : { title: 'Opening(무료)으로 바꿀까요?', ok: '바꾸기' });
-    if (!ok) return;
-    act(cancelPlan, end ? `해지를 예약했어요. ${end}까지 ${cur}를 쓸 수 있어요.` : 'Opening(무료)으로 바꿨어요.');
+  const downInfo = (n: PlanId) => n === 'Opening'
+    ? end
+      ? { title: 'Opening(무료)으로 다운그레이드할까요?', body: `${end}까지는 ${cur}를 그대로 쓰고, 그 뒤 Opening으로 바뀌어요. 그전에는 언제든 취소할 수 있어요.`, ok: '다운그레이드', done: `다운그레이드를 예약했어요. ${end}까지 ${cur}를 쓸 수 있어요.`, run: cancelPlan }
+      : { title: 'Opening(무료)으로 다운그레이드할까요?', body: '지금 바로 Opening으로 바뀌어요.', ok: '다운그레이드', done: 'Opening(무료)으로 바꿨어요.', run: cancelPlan }
+    : { title: `${n}로 다운그레이드할까요?`, body: `${end}까지는 ${cur}를 그대로 쓰고, 다음 결제일부터 ${n}(${PLANS[n].price})로 바뀌어요.`, ok: '다운그레이드', done: `${end}부터 ${n}로 바뀌어요.`, run: () => schedulePlan(n) };
+  const onDown = (r: { reason: string; detail: string } | null) => {
+    const n = down;
+    setDown(null);
+    if (!r || !n) return;
+    const d = downInfo(n);
+    savePlanChange({ from: cur, to: n, reason: r.reason, detail: r.detail }).catch(() => { /* 사유 저장이 안 돼도 요금제 변경은 진행해요 */ });
+    act(d.run, d.done);
   };
+  const left = c ? c.left : 0, bonus = c?.bonus ?? 0, month = Math.max(0, left - bonus), all = c ? Math.max(1, c.total + bonus) : 1;
 
   return (
     <>
       <h1 className="title1">요금제 관리</h1>
-      <p className="subtitle">리허설 한 번에 {CREDIT_PER_REHEARSAL}크레딧, AI 대본 코칭은 대본 길이에 따라 3~9크레딧(Spotlight부터)을 써요. 기록을 지워도 쓴 크레딧은 돌아오지 않아요. <UsageHelp /></p>
+      <p className="subtitle">리허설 한 번에 {CREDIT_PER_REHEARSAL}크레딧, AI 대본 코칭은 대본 길이에 따라 3~9크레딧(Spotlight부터)을 써요. 기록을 지워도 쓴 크레딧은 돌아오지 않아요.</p>
+      <UsageHelp />
       <div className="hub-card hub-plan">
-        <div className="hp-top"><span><small>지금 요금제</small><b>{cur}</b></span><em>{info.price}</em></div>
-        <div className="hp-bar"><i style={{ width: `${pct}%` }} /></div>
+        <div className="hp-top"><span><small>지금 요금제</small><b><PlanBadge plan={cur} /></b></span><em>{info.price}</em></div>
+        <div className="hp-bar db-split" aria-hidden="true"><i style={{ width: `${c ? (month / all) * 100 : 0}%`, background: c ? creditTone(left, all) : undefined }} />{bonus > 0 && <i style={{ width: `${(bonus / all) * 100}%`, background: `color-mix(in oklab, ${creditTone(left, all)} 45%, var(--surface-2))` }} />}</div>
         {c ? (
-          <p className="hp-meta"><b>{c.left}크레딧 남음</b><span>이번 달 {c.used} / {c.total} 사용{c.bonus ? ` · 산 크레딧 ${c.bonus}` : ''} · 리허설 {Math.floor(c.left / c.cost)}회 더 가능</span></p>
+          <p className="hp-meta"><b>남은 크레딧 <span style={{ color: creditTone(left, all) }}>{month}</span> / {c.total}{bonus > 0 && <em className="db-bonus">+{bonus} 추가</em>}</b><span>리허설 약 {Math.floor(c.left / c.cost)}회 더 가능(예상)</span></p>
         ) : credits?.status === 'error' ? (
           <p className="hp-meta"><b>크레딧을 불러오지 못했어요</b><button type="button" className="link-btn" onClick={credits.retry}>다시 불러오기</button></p>
         ) : (
@@ -72,41 +83,51 @@ export default function Plan() {
           </p>
         )}
         {sub?.status === 'canceled' && (
-          <p className="hp-sub"><span>해지 예약됨 · {end}까지 {sub.plan} 사용, 그 뒤 Opening</span><button type="button" className="link-btn" disabled={busy} onClick={() => act(resumePlan, '해지를 취소했어요.')}>해지 취소</button></p>
+          <p className="hp-sub"><span>다운그레이드 예약됨 · {end}까지 {sub.plan} 사용, 그 뒤 Opening</span><button type="button" className="link-btn" disabled={busy} onClick={() => act(resumePlan, '다운그레이드 예약을 취소했어요.')}>예약 취소</button></p>
         )}
         {sub?.status === 'past_due' && (
           <p className="hp-sub is-warn"><span>지난 결제가 되지 않았어요. 카드를 확인해 주세요(하루에 한 번 다시 시도해요).</span><Link href="/me/subscribe?card=1" className="link-btn">카드 바꾸기</Link></p>
         )}
+        <Link href="/me/billing" className="link-btn hp-hist">결제·크레딧 내역 보기</Link>
       </div>
       <ul className="hub-plans">
-        {ids.map((n) => (
-          <li key={n} className={n === cur ? 'is-cur' : n === rec ? 'is-rec' : undefined}>
-            <span>
-              <b>{n}{n === rec && <i className="hp-rec">추천</i>}</b>
-              <small>{PLANS[n].who} · 월 {PLANS[n].credits}크레딧 · 리허설 약 {Math.floor(PLANS[n].credits / CREDIT_PER_REHEARSAL)}회{n === 'Opening' ? '' : ' · AI 대본 코칭'}</small>
-            </span>
-            <em>{PLANS[n].price}</em>
-            {n === cur ? <span className="hp-now">사용 중</span>
-              : PLANS[n].credits > info.credits ? <Link href={upHref(n)} className={n === rec ? 'btn-fill btn-sm' : 'btn-plain btn-sm'}>업그레이드</Link>
-              : n === 'Opening' ? (sub?.status === 'canceled' ? <span className="hp-now">{end}부터</span>
-                : <button type="button" className="btn-plain btn-sm" disabled={busy} onClick={cancel}>해지</button>)
-              : sub?.nextPlan === n ? <button type="button" className="btn-plain btn-sm" disabled={busy} onClick={() => act(() => schedulePlan(cur), '변경 예약을 취소했어요.')}>예약 취소</button>
-              : <button type="button" className="btn-plain btn-sm" disabled={busy || !sub?.status} onClick={() => act(() => schedulePlan(n), `${end}부터 ${n}로 바뀌어요.`)}>다운그레이드</button>}
-          </li>
-        ))}
+        {ids.map((n) => {
+          const lower = PLANS[n].credits < info.credits;
+          const scheduled = (n === 'Opening' && sub?.status === 'canceled') || (sub?.nextPlan === n);
+          return (
+            <li key={n} className={n === cur ? 'is-cur' : n === rec ? 'is-rec' : undefined}>
+              <span>
+                <b>{n}{n === rec && <i className="hp-rec">추천</i>}</b>
+                <small>{PLANS[n].who} · 월 {PLANS[n].credits}크레딧 · 리허설 약 {approxRuns(PLANS[n].credits)}회(예상)</small>
+                {PLAN_PERKS[n].length > 0 && <span className="perks">{PLAN_PERKS[n].map((k) => <i key={k}>{k}</i>)}</span>}
+              </span>
+              <em>{PLANS[n].price}</em>
+              {n === cur ? <span className="hp-now">사용 중</span>
+                : !lower ? <Link href={upHref(n)} className={n === rec ? 'btn-fill btn-sm' : 'btn-plain btn-sm'}>업그레이드</Link>
+                : scheduled ? (
+                  n === 'Opening'
+                    ? <button type="button" className="btn-plain btn-sm" disabled={busy} onClick={() => act(resumePlan, '다운그레이드 예약을 취소했어요.')}>{end}부터 · 취소</button>
+                    : <button type="button" className="btn-plain btn-sm" disabled={busy} onClick={() => act(() => schedulePlan(cur), '다운그레이드 예약을 취소했어요.')}>{end}부터 · 취소</button>
+                )
+                : <button type="button" className="btn-plain btn-sm" disabled={busy || (n !== 'Opening' && !sub?.status)} onClick={() => setDown(n)}>다운그레이드</button>}
+            </li>
+          );
+        })}
       </ul>
-      <h2 className="hub-sub">리허설 회차 추가</h2>
-      <p className="hub-hint hub-sub-hint">요금제는 그대로 두고 필요한 만큼만 사요. 산 회차는 매달 초기화되지 않아요.</p>
+      <h2 className="hub-sub" id="packs">크레딧 추가 구매</h2>
+      <p className="hub-hint hub-sub-hint">요금제는 그대로 두고 필요한 만큼만 사요. 산 크레딧은 기한 없이 남고, 이번 달 크레딧을 다 쓴 뒤에 쓰여요.</p>
+      <CreditExamples />
       <ul className="hub-plans">
         {(Object.keys(PACKS) as PackId[]).map((id) => (
           <li key={id}>
-            <span><b>리허설 {PACKS[id].times}회</b><small>{PACKS[id].credits}크레딧 · 기한 없음 · 간편결제 가능</small></span>
+            <span><b>크레딧 {PACKS[id].credits}</b><small>1크레딧 약 {perCredit(PACKS[id].amount, PACKS[id].credits)}원 · 기한 없음</small></span>
             <em>{won(PACKS[id].amount)}</em>
-            <Link href={`/me/pay?product=${id}`} className="btn-fill btn-sm">구매</Link>
+            <Link href={`/me/pay?product=${id}`} className="btn-plain btn-sm">구매</Link>
           </li>
         ))}
       </ul>
-      <p className="wiz-note">지금은 테스트 결제라 실제로 돈이 나가지 않아요. 해지해도 결제한 기간까지는 그대로 써요. 단체 요금제는 <button type="button" className="link-btn" onClick={() => contact('biz')}>도입 문의</button>로 알려 주세요.</p>
+      <p className="wiz-note">지금은 테스트 결제라 실제로 돈이 나가지 않아요. 다운그레이드해도 결제한 기간까지는 그대로 써요. 단체 요금제는 <button type="button" className="link-btn" onClick={() => contact('biz')}>도입 문의</button>로 알려 주세요.</p>
+      {down && (() => { const d = downInfo(down); return <DowngradeDialog open title={d.title} body={d.body} okLabel={d.ok} onDone={onDown} />; })()}
     </>
   );
 }

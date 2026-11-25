@@ -215,12 +215,14 @@ function AiPanel({ access, accessErr, ai, chars, ok, stale, onRun, onAccess, onU
       <button type="button" className="btn-fill btn-block" disabled={!ok || loading || (access.left != null && access.left < cost)} onClick={onRun}>
         {loading ? 'AI가 대본을 읽는 중…' : access.left != null && access.left < cost ? '크레딧이 모자라요' : `AI 코칭 받기 · ${cost}크레딧`}
       </button>
+      {!loading && access.left != null && access.left < cost && <p className="ai-note">이 대본은 {cost}크레딧이 들어요(남은 크레딧 {access.left}). <Link href="/me/plan#packs" className="link-btn">크레딧 추가</Link></p>}
     </>
   );
 
   return (
     <section className="sc-sec sc-ai">
-      <h2 className="sc-h">AI 대본 코칭 <small>대본 이해 → 고칠 문장 → 말하는 방법</small><UsageHelp label="AI 코칭 크레딧 기준" /></h2>
+      <h2 className="sc-h">AI 대본 코칭 <small>대본 이해 → 고칠 문장 → 말하는 방법</small></h2>
+      <UsageHelp label="AI 코칭 크레딧 산정 기준" />
       {ai.status === 'loading' ? <p className="sc-ai-wait"><span className="spin" aria-hidden="true" />대본을 먼저 읽고 발표를 파악한 뒤, 고칠 문장과 말하는 방법을 정하고 있어요. 보통 30~60초 걸려요.</p> : gate}
       {ai.status === 'error' && <p className="sc-err">{ai.err}</p>}
       {ai.status === 'done' && ai.res && <AiResult res={ai.res} stale={stale} onUseKey={onUseKey} />}
