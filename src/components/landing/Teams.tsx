@@ -1,5 +1,6 @@
 import { ContactButton, StartButton, PlanButton } from './actions';
 import { PlansFold, PlansProvider, PlanSwitch, PlanTable } from './Plans';
+import { UsageHelp } from '@/components/ui/UsageHelp';
 
 export function Teams() {
   return (
@@ -57,7 +58,7 @@ export function Teams() {
       <PlanSwitch />
       <PlanTable className="cmp cmp-3 rv" role="table" aria-label="개인 요금제 비교" which="solo">
         <div className="cmp-head" role="row">
-          <div className="cmp-lab" role="columnheader"><b>개인 요금제</b><small>쓴 만큼 크레딧이 줄어요. 리허설 한 번(녹화 10분 + 대본 점검)에 12크레딧이에요.</small></div>
+          <div className="cmp-lab" role="columnheader"><b>개인 요금제</b><small>쓴 만큼 크레딧이 줄어요. 리허설 한 번에 12크레딧, AI 대본 코칭은 대본 길이에 따라 3~9크레딧이에요.</small></div>
           <div className="cmp-plan" role="columnheader">
             <h3>Opening<span>처음 서 보는 무대</span></h3>
             <p>무료</p>
@@ -85,16 +86,22 @@ export function Teams() {
           <div className="cmp-cell" role="cell">360</div>
         </div>
         <div className="cmp-row" role="row">
-          <div className="cmp-lab" role="rowheader">예상 리허설 횟수</div>
+          <div className="cmp-lab cmp-lab-help" role="rowheader">예상 리허설 횟수<UsageHelp /></div>
           <div className="cmp-cell" role="cell">월 약 3회</div>
           <div className="cmp-cell" role="cell">월 약 10회</div>
           <div className="cmp-cell" role="cell">월 약 30회</div>
         </div>
         <div className="cmp-row" role="row">
-          <div className="cmp-lab" role="rowheader">남은 크레딧 이월</div>
+          <div className="cmp-lab" role="rowheader">AI 대본 코칭</div>
           <div className="cmp-cell" role="cell"><span className="no" aria-label="없음">—</span></div>
-          <div className="cmp-cell" role="cell">다음 달까지</div>
-          <div className="cmp-cell" role="cell">다음 달까지</div>
+          <div className="cmp-cell" role="cell">회당 3~9크레딧</div>
+          <div className="cmp-cell" role="cell">회당 3~9크레딧</div>
+        </div>
+        <div className="cmp-row" role="row">
+          <div className="cmp-lab" role="rowheader">크레딧 초기화</div>
+          <div className="cmp-cell" role="cell">매달 1일</div>
+          <div className="cmp-cell" role="cell">매달 1일</div>
+          <div className="cmp-cell" role="cell">매달 1일</div>
         </div>
         <div className="cmp-row" role="row">
           <div className="cmp-lab" role="rowheader">크레딧 추가 구매</div>

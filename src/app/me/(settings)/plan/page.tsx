@@ -9,6 +9,7 @@ import { cancelPlan, fetchSubscription, resumePlan, schedulePlan, shortDate, typ
 import { useCredits } from '@/lib/data/useCredits';
 import Link from 'next/link';
 import { CREDIT_PER_REHEARSAL, PACKS, PLANS, won, type PackId, type PlanId } from '@/lib/plans';
+import { UsageHelp } from '@/components/ui/UsageHelp';
 
 export default function Plan() {
   const { user, refresh } = useAuth();
@@ -53,7 +54,7 @@ export default function Plan() {
   return (
     <>
       <h1 className="title1">요금제 관리</h1>
-      <p className="subtitle">리허설 한 번(녹화 10분 + 대본 점검)에 {CREDIT_PER_REHEARSAL}크레딧을 써요. 기록을 지워도 쓴 크레딧은 돌아오지 않아요.</p>
+      <p className="subtitle">리허설 한 번에 {CREDIT_PER_REHEARSAL}크레딧, AI 대본 코칭은 대본 길이에 따라 3~9크레딧(Spotlight부터)을 써요. 기록을 지워도 쓴 크레딧은 돌아오지 않아요. <UsageHelp /></p>
       <div className="hub-card hub-plan">
         <div className="hp-top"><span><small>지금 요금제</small><b>{cur}</b></span><em>{info.price}</em></div>
         <div className="hp-bar"><i style={{ width: `${pct}%` }} /></div>
@@ -82,7 +83,7 @@ export default function Plan() {
           <li key={n} className={n === cur ? 'is-cur' : n === rec ? 'is-rec' : undefined}>
             <span>
               <b>{n}{n === rec && <i className="hp-rec">추천</i>}</b>
-              <small>{PLANS[n].who} · 월 {PLANS[n].credits}크레딧 · 리허설 {Math.floor(PLANS[n].credits / CREDIT_PER_REHEARSAL)}회</small>
+              <small>{PLANS[n].who} · 월 {PLANS[n].credits}크레딧 · 리허설 약 {Math.floor(PLANS[n].credits / CREDIT_PER_REHEARSAL)}회{n === 'Opening' ? '' : ' · AI 대본 코칭'}</small>
             </span>
             <em>{PLANS[n].price}</em>
             {n === cur ? <span className="hp-now">사용 중</span>

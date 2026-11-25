@@ -123,6 +123,6 @@ export const SCRIPT_EXAMPLES: Record<string, string> = {
   speech: '안녕하세요, 신랑의 대학 동기 김하늘입니다.\n신입생 때 처음 만난 날을 아직도 기억합니다.\n두 사람이 서로의 가장 든든한 편이 되길 바랍니다.',
 };
 export const PROMPT_COPY = {
-  yes: { title: '발표 대본을 넣어 주세요', sub: 'AI가 대본을 읽고 고칠 문장을 고쳐 써 드려요(Spotlight 요금제부터).' },
+  yes: { title: '발표 대본을 넣어 주세요', sub: '녹화 전에 시간·흐름·긴 문장을 점검하고, AI 코칭으로 고칠 문장과 말하는 방법까지 받아요.' },
   no: { title: '제목과 핵심 메시지만 적어 주세요', sub: '대본 코칭은 건너뛰어요. 말한 내용은 녹화한 뒤 받아쓰기로 확인해요.' },
 };
