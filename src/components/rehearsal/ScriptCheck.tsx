@@ -2,23 +2,30 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useToast } from '@/components/ui/Toast';
+import { UsageHelp } from '@/components/ui/UsageHelp';
 import { syllables } from '@/lib/coach/audio';
 import { analyzeScript, contour, readScriptFile, Reader, type ScriptAnalysis, type Sent } from '@/lib/coach/script';
-import { requestScriptCoach, type ScriptCoach } from '@/lib/coach/scriptCoach';
+import { AI_COACH_TIERS, aiCoachChars, aiCoachCost, getCoachStatus, redeemPromo, requestScriptCoach, type CoachResult, type CoachStatus, type DeliveryCue } from '@/lib/coach/scriptCoach';
 import { SCRIPT_EXAMPLES, defaultTitle, outcomeLabel, purposeOf, targetSecOf, timeOpts, withPurpose, type Draft } from '@/lib/rehearsal/draft';
 import { PURPOSES, fmtMin, fmtTime } from '@/lib/scenarios';
 
 const BASE_RATE: Record<string, number> = { interview: 1, ir: 1.05, report: 1.02, lecture: 0.95, conference: 1, speech: 0.92 };
 const SPEEDS = [0.9, 1, 1.15];
 
-type Props = { draft: Draft; update: (fn: (d: Draft) => Draft) => void; onRecord: () => void; paid: boolean };
-type Ai = { status: 'idle' | 'loading' | 'done' | 'error'; coach?: ScriptCoach; err?: string; key?: string };
+type Props = { draft: Draft; update: (fn: (d: Draft) => Draft) => void; onRecord: () => void };
+type Ai = { status: 'idle' | 'loading' | 'done' | 'error'; res?: CoachResult; err?: string; key?: string };
+// 받은 AI 코칭은 이 기기에 남겨 둬요(테스트 1회·크레딧을 쓴 결과가 화면을 떠나도 사라지지 않게).
+const AI_SAVE = 'ts-ai-coach-v1';
+const loadSaved = (): Ai => {
+  try { const v = JSON.parse(localStorage.getItem(AI_SAVE) ?? 'null') as { key: string; res: CoachResult } | null; return v ? { status: 'done', res: v.res, key: v.key } : { status: 'idle' }; } catch { return { status: 'idle' }; }
+};
 
 /**
- * 대본 코칭(유료 요금제 전용): AI 가 발표 상황 기준으로 대본을 읽고 고칠 문장을 고쳐 써 주고(/api/script/coach),
- * 시간·흐름·읽기 가이드는 브라우저에서 바로 계산해요. 무료 요금제는 요금제 안내만 보여 줘요.
+ * 대본 점검: 시간·흐름·읽기 가이드는 브라우저에서 바로 계산해요(누구나).
+ * AI 대본 코칭(/api/script/coach)은 서버가 정한 조건에서만: 지금(테스트)은 프로모션 코드로 1회,
+ * 정식은 유료 요금제 + 대본 길이별 크레딧(쓰기 전에 몇 크레딧인지 보여 줘요).
  */
-export function ScriptCheck({ draft, update, onRecord, paid }: Props) {
+export function ScriptCheck({ draft, update, onRecord }: Props) {
   const toast = useToast();
   const p = purposeOf(draft);
   const targetSec = targetSecOf(draft);
@@ -33,8 +40,15 @@ export function ScriptCheck({ draft, update, onRecord, paid }: Props) {
     [ran, draft.script, draft.key, p, targetSec],
   );
   const n = syllables(draft.script);
-  const [ai, setAi] = useState<Ai>({ status: 'idle' });
-  const aiKey = JSON.stringify([draft.script.trim(), p.id, targetSec, draft.key.trim()]);
+  const [ai, setAi] = useState<Ai>(loadSaved);
+  const aiKey = JSON.stringify([draft.script.trim(), p.id, targetSec, draft.key.trim(), draft.aid, draft.posture]);
+  const [access, setAccess] = useState<CoachStatus | null>(null);
+  const [accessErr, setAccessErr] = useState('');
+  useEffect(() => {
+    let live = true;
+    getCoachStatus().then((s) => { if (live) setAccess(s); }).catch((e) => { if (live) setAccessErr((e as Error).message); });
+    return () => { live = false; };
+  }, []);
   const abortRef = useRef<AbortController | null>(null);
   useEffect(() => () => abortRef.current?.abort(), []);
 
@@ -44,18 +58,26 @@ export function ScriptCheck({ draft, update, onRecord, paid }: Props) {
     const key = aiKey;
     setAi({ status: 'loading', key });
     try {
-      const coach = await requestScriptCoach({ script: draft.script, purposeId: p.id, targetSec, topic: draft.title.trim() || defaultTitle(draft), keyMessage: draft.key.trim(), outcome: outcomeLabel(draft) }, ac.signal);
-      setAi({ status: 'done', coach, key });
+      const res = await requestScriptCoach({ script: draft.script, purposeId: p.id, targetSec, topic: draft.title.trim() || defaultTitle(draft), keyMessage: draft.key.trim(), outcome: outcomeLabel(draft), aid: draft.aid ?? '', posture: draft.posture }, ac.signal);
+      setAi({ status: 'done', res, key });
+      try { localStorage.setItem(AI_SAVE, JSON.stringify({ key, res })); } catch { /* 저장 못 해도 화면엔 보여요 */ }
+      if (res.charged.kind === 'trial') setAccess({ mode: 'promo', trial: 'used' });
+      else setAccess((a) => (a?.mode === 'credits' && a.left != null ? { ...a, left: Math.max(0, a.left - (res.charged as { cost: number }).cost) } : a));
     } catch (e) {
       if (ac.signal.aborted) return;
       setAi({ status: 'error', err: (e as Error).message, key });
     }
   }
-  function analyze() {
+  function check() {
     setRan(true);
-    if (ai.key !== aiKey || ai.status === 'error') runAi();
     setTimeout(() => outRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
   }
+  function startAi() {
+    setRan(true);
+    runAi();
+    setTimeout(() => aiRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+  }
+  const aiRef = useRef<HTMLDivElement>(null);
 
   async function take(f: File | undefined) {
     if (!f) return;
@@ -72,7 +94,7 @@ export function ScriptCheck({ draft, update, onRecord, paid }: Props) {
     <section className="screen">
       <div className="page sc-page">
         <h1 className="title1">대본 점검</h1>
-        <p className="subtitle">AI가 {p.label} 기준으로 대본을 읽고 고칠 문장을 고쳐 써 드려요. 시간·흐름과 읽기 가이드도 함께 봐요.</p>
+        <p className="subtitle">{p.label} 기준으로 시간·흐름·읽기 가이드를 바로 확인하고, AI 코칭으로 대본을 먼저 이해한 뒤 고칠 문장과 말하는 방법까지 받아요.</p>
         <div className="sc-setup">
           <label className="sel"><span>발표 상황</span>
             <select value={draft.purposeId} onChange={(e) => update((d) => withPurpose(d, e.target.value))}>
@@ -102,41 +124,120 @@ export function ScriptCheck({ draft, update, onRecord, paid }: Props) {
           <div className="sc-dropmask">여기에 놓으면 대본을 불러와요</div>
         </div>
         <p className="sc-err" role="alert">{err}</p>
-        {paid ? (
-          <>
-            <button type="button" className="btn-fill btn-block" disabled={n < 20 || ai.status === 'loading'} onClick={analyze}>{ai.status === 'loading' ? 'AI가 대본을 읽는 중…' : '대본 코칭 받기'}</button>
-            <div ref={outRef} aria-live="polite">
-              {ran && <AiCoach ai={ai} stale={ai.key !== undefined && ai.key !== aiKey} label={p.label} onRetry={runAi} onUseKey={(k) => update((d) => ({ ...d, key: k }))} />}
-              {result && result.stats.n > 0 && <ScriptResult result={result} purposeId={p.id} purposeLabel={p.label} onRecord={onRecord} />}
-            </div>
-          </>
-        ) : (
-          <div className="sc-lock">
-            <b>대본 코칭은 Spotlight 요금제부터 쓸 수 있어요</b>
-            <p>AI가 {p.label} 기준으로 대본을 읽고, 고칠 문장을 바로 고쳐 써 드려요. 예상 시간·흐름·읽기 가이드도 함께 봐요.</p>
-            <div>
-              <Link className="btn-fill" href="/me/plan?pick=Spotlight&from=wizard">요금제 보기</Link>
-              <button type="button" className="btn-plain" onClick={onRecord}>대본 코칭 없이 녹화</button>
-            </div>
-          </div>
-        )}
+        <button type="button" className="btn-fill btn-block" disabled={n < 20} onClick={check}>대본 점검하기</button>
+        <div ref={aiRef}>
+          <AiPanel access={access} accessErr={accessErr} ai={ai} chars={aiCoachChars(draft.script)} ok={n >= 20}
+            stale={ai.status === 'done' && ai.key !== aiKey} onRun={startAi} onAccess={setAccess}
+            onUseKey={(k) => { update((d) => ({ ...d, key: k })); toast('핵심 메시지로 넣었어요'); }} />
+        </div>
+        <div ref={outRef} aria-live="polite">
+          {result && result.stats.n > 0 && <ScriptResult result={result} purposeId={p.id} purposeLabel={p.label} onRecord={onRecord} />}
+        </div>
+        {!result && <button type="button" className="btn-plain btn-block sc-skip" onClick={onRecord}>점검 없이 녹화</button>}
       </div>
     </section>
   );
 }
 
-/** AI 대본 코칭 결과. 대본을 고치면 '다시 받기'를 보여 줘요. */
-function AiCoach({ ai, stale, label, onRetry, onUseKey }: { ai: Ai; stale: boolean; label: string; onRetry: () => void; onUseKey: (k: string) => void }) {
-  if (ai.status === 'loading') return <section className="sc-sec sc-ai"><h2 className="sc-h">AI 대본 코칭 <small>{label} 기준</small></h2><p className="sc-ai-wait"><span className="spin" aria-hidden="true" />대본을 읽고 있어요. 보통 20~40초 걸려요.</p></section>;
-  if (ai.status === 'error') return <section className="sc-sec sc-ai"><h2 className="sc-h">AI 대본 코칭</h2><p className="sc-err">{ai.err}</p><button type="button" className="btn-plain btn-sm" onClick={onRetry}>다시 시도</button></section>;
-  const c = ai.coach;
-  if (ai.status !== 'done' || !c) return null;
+const CUE_LABEL: Record<DeliveryCue['kind'], string> = { pause: '쉬기', slow: '천천히', stress: '강조', point: '가리키기', show: '들어 보이기', eyes: '시선', gesture: '손짓' };
+const FIT_NOTE = { match: '', partial: '대본이 고른 상황과 조금 달라요', mismatch: '대본이 고른 상황과 달라요' } as const;
+const KEY_NOTE = { same: '적어 준 핵심 메시지가 대본에 분명히 있어요', partial: '적어 준 핵심 메시지가 대본에서 흐릿해요', missing: '적어 준 핵심 메시지가 대본에 없어요', none: '' } as const;
+
+/** 크레딧 정책 표(쓰기 전에 꼭 보여 줘요) */
+function CostTable({ chars }: { chars: number }) {
+  const cur = aiCoachCost(chars);
+  return (
+    <ul className="ai-tiers">
+      {AI_COACH_TIERS.map((t) => <li key={t.upTo} data-on={chars > 0 && t.credits === cur ? '' : undefined}><span>{t.label}</span><b>{t.credits}크레딧</b></li>)}
+    </ul>
+  );
+}
+
+/** AI 대본 코칭: 쓸 수 있는지(테스트 코드·크레딧) → 실행 → 결과 */
+function AiPanel({ access, accessErr, ai, chars, ok, stale, onRun, onAccess, onUseKey }: {
+  access: CoachStatus | null; accessErr: string; ai: Ai; chars: number; ok: boolean; stale: boolean;
+  onRun: () => void; onAccess: (s: CoachStatus) => void; onUseKey: (k: string) => void;
+}) {
+  const [code, setCode] = useState('');
+  const [codeErr, setCodeErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const loading = ai.status === 'loading';
+  const cost = aiCoachCost(chars);
+
+  async function apply() {
+    setBusy(true); setCodeErr('');
+    try { onAccess(await redeemPromo(code)); setCode(''); } catch (e) { setCodeErr((e as Error).message); } finally { setBusy(false); }
+  }
+
+  let gate: React.ReactNode = null;
+  if (accessErr) gate = <p className="sc-err">{accessErr}</p>;
+  else if (!access) gate = <p className="ai-note">AI 코칭을 쓸 수 있는지 확인하는 중이에요…</p>;
+  else if (access.mode === 'off') gate = <p className="ai-note">{access.reason}</p>;
+  else if (access.mode === 'promo') {
+    if (access.trial === 'none') gate = (
+      <>
+        <p className="ai-note">지금은 테스트 기간이라 <b>프로모션 코드</b>가 있으면 AI 코칭을 <b>한 번</b> 무료로 받을 수 있어요.</p>
+        <form className="ai-code" onSubmit={(e) => { e.preventDefault(); if (code.trim()) apply(); }}>
+          <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="프로모션 코드" autoCapitalize="characters" autoComplete="off" maxLength={40} aria-label="프로모션 코드" />
+          <button type="submit" className="btn-plain" disabled={busy || !code.trim()}>{busy ? '확인 중…' : '적용'}</button>
+        </form>
+        {codeErr && <p className="sc-err">{codeErr}</p>}
+      </>
+    );
+    else if (access.trial === 'used') gate = ai.status === 'done' ? null : <p className="ai-note">테스트 코칭 1회를 이미 썼어요.</p>;
+    else gate = (
+      <>
+        <p className="ai-note">테스트 무료 <b>1회</b>가 남아 있어요. 한 번 받으면 다시 받을 수 없으니, 대본을 다 다듬은 뒤 받아 보세요.</p>
+        <button type="button" className="btn-fill btn-block" disabled={!ok || loading || access.trial === 'busy'} onClick={onRun}>{loading ? 'AI가 대본을 읽는 중…' : 'AI 코칭 받기 · 테스트 1회'}</button>
+      </>
+    );
+  } else if (!access.paid) gate = (
+    <>
+      <p className="ai-note">AI 대본 코칭은 <b>Spotlight 요금제부터</b> 쓸 수 있어요. 대본 길이에 따라 크레딧이 들어요.</p>
+      <CostTable chars={chars} />
+      <Link className="btn-plain btn-sm" href="/me/plan?pick=Spotlight&from=wizard">요금제 보기</Link>
+    </>
+  );
+  else gate = (
+    <>
+      <p className="ai-note">이 대본은 <b>{chars.toLocaleString()}자</b>라 <b>{cost}크레딧</b>을 써요{access.left != null && <> · 남은 크레딧 {access.left}</>}. 코칭이 실패하면 빠지지 않고, 대본을 고쳐 다시 받으면 다시 들어요.</p>
+      <CostTable chars={chars} />
+      <button type="button" className="btn-fill btn-block" disabled={!ok || loading || (access.left != null && access.left < cost)} onClick={onRun}>
+        {loading ? 'AI가 대본을 읽는 중…' : access.left != null && access.left < cost ? '크레딧이 모자라요' : `AI 코칭 받기 · ${cost}크레딧`}
+      </button>
+    </>
+  );
+
   return (
     <section className="sc-sec sc-ai">
-      <h2 className="sc-h">AI 대본 코칭 <small>{label} 기준</small></h2>
-      {stale && <p className="sc-ai-stale">대본이나 설정이 바뀌었어요. <button type="button" className="btn-link" onClick={onRetry}>바뀐 대본으로 다시 받기</button></p>}
+      <h2 className="sc-h">AI 대본 코칭 <small>대본 이해 → 고칠 문장 → 말하는 방법</small><UsageHelp label="AI 코칭 크레딧 기준" /></h2>
+      {ai.status === 'loading' ? <p className="sc-ai-wait"><span className="spin" aria-hidden="true" />대본을 먼저 읽고 발표를 파악한 뒤, 고칠 문장과 말하는 방법을 정하고 있어요. 보통 30~60초 걸려요.</p> : gate}
+      {ai.status === 'error' && <p className="sc-err">{ai.err}</p>}
+      {ai.status === 'done' && ai.res && <AiResult res={ai.res} stale={stale} onUseKey={onUseKey} />}
+    </section>
+  );
+}
+
+function AiResult({ res, stale, onUseKey }: { res: CoachResult; stale: boolean; onUseKey: (k: string) => void }) {
+  const { brief: b, coach: c } = res;
+  return (
+    <div className="ai-out">
+      {stale && <p className="sc-ai-stale">아래 코칭은 고치기 전 대본 기준이에요.</p>}
+      <h3 className="ai-h">AI가 파악한 발표</h3>
+      <dl className="ai-brief">
+        <div><dt>주제</dt><dd>{b.topic}</dd></div>
+        {b.audience && <div><dt>청중</dt><dd>{b.audience}</dd></div>}
+        {b.ask && <div><dt>얻고 싶은 것</dt><dd>{b.ask}</dd></div>}
+        <div><dt>핵심 메시지</dt><dd>{b.keyMessage} <button type="button" className="btn-link" onClick={() => onUseKey(c.keyLine || b.keyMessage)}>핵심 메시지로 쓰기</button></dd></div>
+      </dl>
+      {b.purposeFit !== 'match' && <p className="ai-warn"><b>{FIT_NOTE[b.purposeFit]}</b> {b.purposeNote}</p>}
+      {(b.keyFit === 'partial' || b.keyFit === 'missing') && <p className="ai-warn"><b>{KEY_NOTE[b.keyFit]}</b> {b.keyNote}</p>}
+      {b.structure.length > 0 && <ol className="ai-struct">{b.structure.map((s, k) => <li key={k}><span>{s.part}</span>{s.quote}</li>)}</ol>}
+
+      <h3 className="ai-h">총평</h3>
       <p className="sc-ai-verdict">{c.verdict}</p>
       {c.strengths.length > 0 && <ul className="goods">{c.strengths.map((g) => <li key={g}>{g}</li>)}</ul>}
+      <h3 className="ai-h">고칠 문장</h3>
       <ol className="ai-fixes">
         {c.fixes.map((f, k) => (
           <li key={k}>
@@ -151,8 +252,11 @@ function AiCoach({ ai, stale, label, onRetry, onUseKey }: { ai: Ai; stale: boole
         {c.opening && <div><span>첫 문장</span><p>{c.opening}</p></div>}
         {c.closing && <div><span>마지막 문장</span><p>{c.closing}</p></div>}
       </div>
-      {c.keyLine && <p className="ai-key"><span>핵심 메시지</span><b>{c.keyLine}</b><button type="button" className="btn-link" onClick={() => onUseKey(c.keyLine)}>핵심 메시지로 쓰기</button></p>}
-    </section>
+      <h3 className="ai-h">이 대본, 이렇게 말해요</h3>
+      <p className="ai-plan">{c.deliveryPlan}</p>
+      {c.cues.length > 0 && <ol className="ai-cues">{c.cues.map((q, k) => <li key={k}><span data-k={q.kind}>{CUE_LABEL[q.kind]}</span><div><q>{q.quote}</q><p>{q.tip}</p></div></li>)}</ol>}
+      <p className="ai-charged">{res.charged.kind === 'trial' ? '테스트 무료 1회로 받은 코칭이에요.' : `${res.charged.cost}크레딧을 쓴 코칭이에요.`} 이 기기에 저장돼 있어요.</p>
+    </div>
   );
 }
 

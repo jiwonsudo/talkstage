@@ -228,7 +228,7 @@ export function RehearsalFlow() {
 
   switch (stage) {
     case 'script':
-      return <ScriptCheck draft={draft} update={update} onRecord={() => toStudio()} paid={isPaidPlan(user?.plan)} />;
+      return <ScriptCheck draft={draft} update={update} onRecord={() => toStudio()} />;
     case 'studio':
       return (
         <Studio key={run} draft={draft} setup={setup} autoStart={autoStart}

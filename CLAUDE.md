@@ -32,7 +32,7 @@
 ## 배포
 
 - Vercel(GitHub 연동): https://talkstage-three.vercel.app — main 에 push 하면 운영 배포, PR 브랜치는 미리보기.
-- Vercel 환경 변수: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY`, `NEXT_PUBLIC_TOSS_BILLING_CLIENT_KEY`, `TOSS_BILLING_SECRET_KEY`, `CRON_SECRET`, `KAKAO_ADMIN_KEY`(탈퇴 때 카카오 연결 끊기, 서버 전용), `ANTHROPIC_API_KEY`(AI 대본 코칭, 서버 전용 — `NEXT_PUBLIC_` 금지) 만. `TEST_USER_*` 는 넣지 말 것.
+- Vercel 환경 변수: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY`, `NEXT_PUBLIC_TOSS_BILLING_CLIENT_KEY`, `TOSS_BILLING_SECRET_KEY`, `CRON_SECRET`, `KAKAO_ADMIN_KEY`(탈퇴 때 카카오 연결 끊기, 서버 전용), `ANTHROPIC_API_KEY`·`AI_COACH_MODE`·`AI_PROMO_CODES`(AI 대본 코칭, 전부 서버 전용 — `NEXT_PUBLIC_` 금지) 만. `TEST_USER_*` 는 넣지 말 것.
 - Supabase Auth URL Configuration 에 배포 주소와 `/auth/callback` 등록됨.
 
 ## 실행
@@ -69,7 +69,7 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
   - `colors.ts` 항목·상황별 고정 원색
   - `scenarios.ts` 발표 상황(interview, ir, report, lecture, conference, capstone, speech)·목표·기준값
   - `plans.ts` 요금제, `data/` Supabase 읽기·쓰기, `supabase/` 클라이언트 생성
-- `supabase/migrations/` 0001 스키마+RLS, 0002 권한(GRANT) — 원격 적용 완료. 0003 크레딧 사용 내역(`credit_ledger`, `credits_left()`, `record_rehearsal()`) — 원격 적용 완료. 0004 요금제 크레딧 조정(`plan_credits()` 120/360) — 원격 적용 완료. 0005 회차 구매(`orders`, `create_order()`, 서버 전용 `order_for_confirm()`·`complete_order()`, 산 크레딧 `bonus_left()`, 20초 미만 저장 거절) — 원격 적용 완료. 0006 월 요금제 정기결제(`billing_cards`·`subscriptions`·`subscription_payments`, `profiles.plan` 은 서버만 수정) — 원격 적용 완료.
+- `supabase/migrations/` 0001 스키마+RLS, 0002 권한(GRANT) — 원격 적용 완료. 0003 크레딧 사용 내역(`credit_ledger`, `credits_left()`, `record_rehearsal()`) — 원격 적용 완료. 0004 요금제 크레딧 조정(`plan_credits()` 120/360) — 원격 적용 완료. 0005 회차 구매(`orders`, `create_order()`, 서버 전용 `order_for_confirm()`·`complete_order()`, 산 크레딧 `bonus_left()`, 20초 미만 저장 거절) — 원격 적용 완료. 0006 월 요금제 정기결제(`billing_cards`·`subscriptions`·`subscription_payments`, `profiles.plan` 은 서버만 수정) — 원격 적용 완료. 0007 AI 대본 코칭(`ai_trials` 테스트 1회권, `ai_coach_cost()`·`charge_ai_coach()`·`refund_ai_coach()`, 전부 service_role 전용) — **원격 적용 전**.
 - `legacy/` 이전 plain JS 버전. 참고용, 빌드·lint 대상 아님.
 
 ## 제품 규칙(이미 구현됨, 바꿀 때 지킬 것)
@@ -92,7 +92,9 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
 - 히어로 다이얼: 카드 부채꼴, 베젤과 동기화, 잡으면 멈춤, 넓은 화면에선 오른쪽.
 - 로고: 네 조각으로 갈라진 말풍선(`ui/BrandMark.tsx`). 모든 모서리 반지름 3 으로 둥글게, 광택은 아주 약하게(너무 글로시하면 안 됨). 마우스를 올리면 조각이 벌어짐.
 
-- AI 대본 코칭(유료 Spotlight·Headliner 만): `/api/script/coach`(서버가 `profiles.plan` 확인, `@anthropic-ai/sdk`, `claude-sonnet-5-5` + effort low + JSON 스키마, 인용은 대본에 실제로 있는 문장만 남김) → `ScriptCheck` 의 "AI 대본 코칭"(총평·강점·고칠 문장 지금→이렇게·첫/마지막 문장·핵심 메시지로 쓰기). 무료는 잠금 안내 + "대본 코칭 없이 녹화". 시간·흐름·읽기 가이드는 브라우저 규칙 분석 그대로. 하루 호출 상한은 아직 없음.
+- AI 대본 코칭 하네스(`lib/coach/scriptHarness.ts`, 서버 전용): 1단계 Haiku 5.5 가 대본만 읽고 상황·주제·청중·요청·핵심 메시지·구성을 파악하고 사용자가 고른 상황·적은 핵심 메시지와 맞는지 판단 → 2단계 Sonnet 5.5 가 그 결과 + 목적별 기준(LENS)·자세·보여 주는 것(`delivery.ts`)·목표 시간/분량으로 고칠 문장·첫/끝 문장·발표 방식·문장별 전달 단서(쉬기·강조·가리키기·들어 보이기·시선). 인용은 대본에 실제로 있는 것만 남김. 받은 결과는 이 기기 localStorage `ts-ai-coach-v1`.
+- AI 코칭 접근(`lib/coach/coachAccess.ts`, 서버 환경 변수 `AI_COACH_MODE`): `promo`(기본, 지금 테스트) = `AI_PROMO_CODES` 코드를 넣은 사용자 1회 무료(요금제 무관, `ai_trials`), `credits`(정식) = Spotlight·Headliner 만 + 대본 글자 수별 3/6/9크레딧(2,000/6,000/15,000자, `scriptCoach.ts` `AI_COACH_TIERS` 와 SQL `ai_coach_cost()` 둘 다), `off`. 먼저 1회권을 잡거나 크레딧을 빼고(`charge_ai_coach`, 이번 달 → 산 크레딧) 실패하면 되돌림. 쓰기 전에 몇 크레딧인지 반드시 보여 줄 것. 대본 점검(시간·흐름·읽기 가이드)은 브라우저 계산이라 누구나 무료.
+- 예상 사용량 안내: 동그라미 물음표 `ui/UsageHelp`(랜딩 요금표 "예상 리허설 횟수", 요금제 관리, AI 코칭)에서 계산 기준을 보여 줌. 숫자는 `plans.ts`·`scriptCoach.ts` 에서 계산(손으로 적지 말 것). 월 크레딧은 매달 1일 초기화(이월 없음).
 - 대본 없음 단계: 리허설 제목(= 주제)과 핵심 메시지를 직접 입력(자동 추출·예시 채우기 없음). `toSetup` 의 keyMessage 는 `draft.key`.
 
 ## 목적별 비언어 분석(바꿀 때 지킬 것)

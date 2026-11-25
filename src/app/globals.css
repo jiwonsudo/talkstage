@@ -2309,6 +2309,54 @@ p, li, .catch-sub, .lead2, .display-sub, small { word-break: keep-all; text-wrap
 .ai-key > span { background: var(--orange); }
 .ai-key .btn-link { margin-left: auto; font-size: 14px; }
 
+/* AI 코칭 화면 추가분 */
+.ai-note { margin: 0 0 12px; font-size: 15px; line-height: 1.6; color: var(--ink-2); }
+.ai-note b { color: var(--ink); }
+.ai-code { display: flex; gap: 8px; margin-bottom: 8px; }
+.ai-code input { flex: 1; min-width: 0; height: 48px; padding: 0 16px; border-radius: 16px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); font-size: 16px; letter-spacing: .04em; text-transform: uppercase; outline: none; }
+.ai-code input:focus { border-color: var(--blue); }
+.ai-tiers { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 2px; font-size: 14px; }
+.ai-tiers li { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--line); color: var(--ink-2); }
+.ai-tiers li[data-on] { color: var(--ink); font-weight: 700; }
+.ai-tiers li[data-on] b { color: var(--blue); }
+.ai-out { margin-top: 6px; }
+.ai-h { margin: 26px 0 10px; font-size: 16px; font-weight: 800; letter-spacing: -0.02em; }
+.ai-brief { margin: 0; display: grid; }
+.ai-brief div { display: grid; grid-template-columns: 92px 1fr; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 15px; line-height: 1.55; }
+.ai-brief dt { color: var(--ink-3); font-weight: 600; }
+.ai-brief dd { margin: 0; }
+.ai-brief .btn-link { margin-left: 6px; font-size: 13px; }
+.ai-warn { margin: 12px 0 0; padding: 12px 14px; border-radius: 14px; background: color-mix(in oklab, var(--orange) 12%, var(--surface)); font-size: 14px; line-height: 1.55; }
+.ai-struct { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 6px; font-size: 14px; color: var(--ink-2); }
+.ai-struct span { display: inline-block; min-width: 56px; margin-right: 8px; font-weight: 800; color: var(--ink); }
+.ai-plan { margin: 0; font-size: 15px; line-height: 1.65; }
+.ai-cues { list-style: none; margin: 14px 0 0; padding: 0; }
+.ai-cues li { display: grid; grid-template-columns: 74px 1fr; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+.ai-cues li > span { align-self: start; justify-self: start; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 800; color: #fff; background: var(--blue); }
+.ai-cues li > span[data-k="pause"], .ai-cues li > span[data-k="slow"] { background: var(--green); color: #0b1a10; }
+.ai-cues li > span[data-k="stress"] { background: var(--red); }
+.ai-cues li > span[data-k="point"], .ai-cues li > span[data-k="show"] { background: var(--orange); }
+.ai-cues li > span[data-k="eyes"] { background: var(--purple); }
+.ai-cues q { display: block; font-size: 15px; font-weight: 600; quotes: '“' '”'; }
+.ai-cues p { margin: 4px 0 0; font-size: 14px; line-height: 1.55; color: var(--ink-2); }
+.ai-charged { margin: 20px 0 0; font-size: 13px; color: var(--ink-3); }
+.sc-skip { margin-top: 10px; }
+/* 동그라미 안 물음표: 예상 사용량 계산 기준 */
+.help-q { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-left: 6px; padding: 0; border: 0; border-radius: 50%; background: var(--surface-2); color: var(--ink-2); font-size: 12px; font-weight: 800; line-height: 1; vertical-align: 2px; cursor: pointer; transition: background .2s, color .2s; }
+.help-q:hover { background: var(--ink); color: var(--surface); }
+.cmp-lab-help { display: flex; align-items: center; }
+.usage-dlg { width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); overflow: auto; }
+.usage-h { margin: 8px 0 0; font-size: 15px; font-weight: 800; }
+.usage-list { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 14px; line-height: 1.55; color: var(--ink-2); }
+.usage-list b { color: var(--ink); }
+.usage-tiers { list-style: none; margin-left: -18px; display: grid; gap: 2px; }
+.usage-tiers span { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid var(--line); }
+.usage-tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+.usage-tbl th, .usage-tbl td { padding: 8px 6px; border-bottom: 1px solid var(--line); text-align: right; }
+.usage-tbl thead th { color: var(--ink-3); font-weight: 600; font-size: 12px; }
+.usage-tbl tbody th { text-align: left; }
+.usage-act { grid-template-columns: 1fr; }
+
 /* ── 스쿼클(연속 곡률) 전체 통일 ──
    보통 둥근 모서리는 직선→원호로 넘어갈 때 곡률이 뚝 바뀌어요. 스쿼클은 곡률이 0 에서 서서히 커져 매끄럽게 이어져요(iOS 모서리).
    - 둥근 사각형: corner-shape: squircle + 반지름 1.6배(같은 반지름이면 덜 둥글어 보여서) — 카드와 같은 방식.
@@ -2323,13 +2371,13 @@ p, li, .catch-sub, .lead2, .display-sub, small { word-break: keep-all; text-wrap
   /* 원·점·얇은 막대 */
   .av, .avatar, .bar-dot, .bezel-ring, .btn-rec i, .ck-ico, .clip-banner::before, .cue-chip i, .dc-dot, .dir, .dlg-x, .dot, .dp-btn, .flow-steps li i,
   .framing::before, .who-hint::before, .hc i, .hl-play, .issue > i, .live, .marquee-track i, .ml-dot, .nav-btn, .nv-meter li::before, .opt .check, .opt-num, .pc-go, .pl-btn,
-  .rec-pill i, .ai-fixes li::before, .recent-acct .avatar, .cam-flip, .spin, .spot, .st i, .switch::before, .tl-head i::before,
+  .rec-pill i, .ai-fixes li::before, .help-q, .recent-acct .avatar, .cam-flip, .spin, .spot, .st i, .switch::before, .tl-head i::before,
   .bar, .bar-band, .bar-fill, .db-bar, .flow-bar, .hp-bar, .meter, .r-score-bar, .r-score-bar i, .sm-bar, .sm-bar i, .wiz-bar, .wiz-bar i, .issues button::before, .lg-filler, .pf-eq i { corner-shape: round; }
   /* 알약 */
   .avatar-btn, .badge, .btn-fill, .btn, .btn-plain, .btn-ghost, .btn-stop, .btn-white, .chip, .chip-btn, .clip-banner, .cue-chip, .db-cats em, .ev-grid em, .ev-type,
-  .flow-steps li, .foot-lang, .foot-lang b, .foot-lang span, .fp span, .framing, .who-hint, .goods li, .hc, .hl-tag, .hl-time, .hp-rec, .hud-target, .kind, .lang-note span,
+  .flow-steps li, .foot-lang, .foot-lang b, .foot-lang span, .fp span, .framing, .who-hint, .ai-cues li > span, .goods li, .hc, .hl-tag, .hl-time, .hp-rec, .hud-target, .kind, .lang-note span,
   .menu-btn, .nav-cta, .nav-link, .nav-login, .nvd-chip, .nvd-issues em, .pc-time, .pf-sound, .pf-hint, .pill, .pl-speed, .pl-speed button, .r-delta, .rd .tag,
-  .rec-pill, .ref, .sb-new, .seg, .seg button, .seg-pill, .sm-chips i, .soc-soon, .soc-last, .sref, .switch, .tchip, .toast, .wiz-exit {
+  .rec-pill, .ref, .sb-new, .seg, .seg button, .seg-pill, .sm-chips i, .soc-soon, .soc-last, .sref, .switch, .tchip, .toast, .wiz-exit, .custom-chips button {
     --pill-x: 1.09em; corner-shape: superellipse(1.08); border-radius: var(--pill-x) / 50%;
   }
   .btn-fill, .btn, .btn-plain, .btn-ghost, .btn-stop { --pill-x: 32px; }
@@ -2341,14 +2389,25 @@ p, li, .catch-sub, .lead2, .display-sub, small { word-break: keep-all; text-wrap
   .seg button, .seg-pill { --pill-x: 22px; }
   .wiz-exit, .pl-speed { --pill-x: 17px; }
   .switch { --pill-x: 15px; }
+  /* 크기 변형: 높이가 다르면 --pill-x 도 높이의 약 0.58배로(너무 크면 알약이 아니라 타원이 돼요) */
+  .btn-sm, .custom-chips button { --pill-x: 22px; }   /* 높이 38 */
+  .foot-lang { --pill-x: 20px; }                       /* 높이 35 */
+  .ev-grid em { --pill-x: .9em; }
   .marquee-track i:nth-of-type(4n+2), .marquee-track i:nth-of-type(4n), .transcript mark, .fc-bar i, .ml-rail, .dash-bars i, .dash-bars i::after, .tl-legend i { border-radius: 6px; }
   .rd .ck { border-radius: 10px; }
   .menu button, .custom-lock i, .pr-cell { border-radius: 16px; }
-  .dl, .soc-note, .custom-chips button, .db-tip { border-radius: 19px; }
+  .dl, .soc-note, .db-tip { border-radius: 19px; }
   .cover, .rd, .soc, .custom-warn, .db-stack { border-radius: 22px; }
   .pri-rank, .scen-ico, .opt-ico, .pr-row { border-radius: 26px; }
   .pay-err { border-radius: 32px; }
   .cc { border-radius: 38px; }
+  /* 높이가 낮은 둥근 사각형: 반지름이 높이의 절반에 닿으면 스쿼클이 타원처럼 부풀어요. 높이의 약 0.35배로 묶어요. */
+  .nvd-tag, .nvd-live i { border-radius: 10px; }
+  .field input, .field select { border-radius: 18px; }
+  .alt-path { border-radius: 18px; }
+  .custom-box { border-radius: 22px; }
+  .opt { border-radius: 24px; }
+  .hub-plans li, .ev-grid li, .db-hero { border-radius: 28px; }
 }
 
 /* 영상 카드 선택 테두리: box-shadow 링은 스쿼클 모서리를 따라가지 않아서(원 모서리로 그려져 어긋남) 같은 모양을 물려받는 안쪽 선으로 그려요 */
