@@ -361,7 +361,7 @@ main { max-width: 1240px; margin: 0 auto; padding-block: 0 72px; padding-left: m
 .stage { position: relative; border-radius: var(--r-xl); overflow: hidden; min-height: 320px; display: grid; place-items: center; background: #121212; box-shadow: var(--shadow-lg); }
 .stage::before { content: ""; position: absolute; inset: -40%; background: conic-gradient(from 0deg, var(--red), var(--yellow), var(--green), var(--blue), var(--pink), var(--red)); opacity: .16; filter: blur(60px); animation: spin 18s linear infinite; }
 .stage-media { position: relative; width: 100%; line-height: 0; transform: scaleX(-1); z-index: 1; }
-.stage-media video { width: 100%; height: auto; display: block; max-height: 74vh; object-fit: contain; }
+.stage-media video { width: 100%; height: 100%; display: block; max-height: 74vh; object-fit: contain; }
 .stage-media canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .cam-empty { position: absolute; inset: 0; z-index: 2; display: grid; place-content: center; justify-items: center; gap: 14px; padding: 24px; text-align: center; color: #fff; font-size: 14px; font-weight: 600; }
 .cam-empty .btn-fill { background: #fff; color: #111; }
@@ -422,7 +422,8 @@ main { max-width: 1240px; margin: 0 auto; padding-block: 0 72px; padding-left: m
   .stage { container-type: size; }
   /* 영상 비율(--va, JS)대로 상자를 잡고 무대를 덮을 만큼 키워 가운데 둬요. 영상·인식 선이 같은 상자라 항상 맞아요. */
   .stage-media { position: absolute; left: 50%; top: 50%; translate: -50% -50%; aspect-ratio: var(--va, 0.5625); width: max(100cqw, 100cqh * var(--va, 0.5625)); }
-  .stage-media video, .stage-media canvas { width: 100%; height: 100%; max-height: none; object-fit: fill; }
+  /* 상자 크기는 Studio 가 영상 비율대로 px 로 넣어요. 혹시 비율이 어긋나도 영상이 늘어나 보이지 않게 cover */
+  .stage-media video, .stage-media canvas { width: 100%; height: 100%; max-height: none; object-fit: cover; }
   .hud-in .hud-top, .hud-in .hud-chips { display: none; }
   .hud-out { display: grid; gap: 8px; }
   .hud-out .hud-top { position: static; display: flex; align-items: center; gap: 10px; }
@@ -2636,3 +2637,18 @@ p.field-err { margin: 6px 0 0; }
 
 /* 음성만 녹음 중(데스크톱): 화면 위 속도·음량 칩이 마이크를 가리지 않게 아래로 */
 @media (min-width: 761px) { .studio.is-rec .voice-stage { padding-top: 112px; } }
+
+/* 녹화 화면: 카메라로 녹화 · 영상 파일 올리기 */
+.stage-media video[hidden] { display: none; }
+.src-seg { margin: 0 0 2px; }
+.src-seg button { font-size: 14px; }
+.file-pick { position: relative; z-index: 2; display: grid; justify-items: center; gap: 10px; padding: 48px 24px; text-align: center; color: #fff; max-width: 440px; }
+.file-pick .fp-t { font-size: 18px; font-weight: 800; }
+.file-pick .fp-s { font-size: 14px; color: rgba(255, 255, 255, .78); line-height: 1.5; }
+.file-pick .fp-h { font-size: 12px; color: rgba(255, 255, 255, .6); }
+.file-pick .btn-fill { margin-top: 6px; cursor: pointer; background: #fff; color: #111; }
+.stage.is-file.is-drag { outline: 3px dashed var(--blue); outline-offset: -10px; }
+.sb-file { min-width: 0; max-width: 46vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block !important; }
+.sb-file .dot { margin-right: 6px; vertical-align: middle; }
+.sb-change { cursor: pointer; font-size: 12px; }
+.file-note { font-size: 13px; line-height: 1.55; color: var(--ink-2); padding: 12px 14px; border-radius: var(--r-md); background: var(--surface-2); }

@@ -9,6 +9,7 @@ import { outcomeLabel, purposeOf, type Draft } from '@/lib/rehearsal/draft';
 import { aidOf, audienceOf, isShowing } from '@/lib/delivery';
 import { showPose } from '@/lib/coach/showing';
 import { CAT_LABEL, POSTURES, fmtTime, type CatId } from '@/lib/scenarios';
+import { SegPill } from '@/components/ui/SegPill';
 
 export type StudioResult = { result: Analysis; videoURL: string; durationSec: number; setup: Setup };
 type Phase = 'idle' | 'calib' | 'rec' | 'interrupted' | 'analyzing';
@@ -19,6 +20,13 @@ const MIN_PARTIAL_SEC = MIN_REHEARSAL_SEC;
 /** 폰(터치 화면)은 녹화 파일을 가볍게: 10분 기준 약 75MB(데스크톱 2.5Mbps 면 약 190MB). 분석은 카메라 화면으로 해서 점수와 무관해요. */
 const videoBitrate = () => (matchMedia('(pointer: coarse)').matches ? 1_000_000 : 2_500_000);
 type Chip = boolean | null;
+/** 무엇을 분석하나: 카메라로 녹화 · 올린 영상 파일 */
+type Source = 'camera' | 'file';
+/** 영상 파일은 처음 이만큼을 기준 자세·주변 소음으로 써요(녹화의 3초 카운트다운과 같은 역할) */
+const FILE_CALIB_SEC = 3;
+type AudioFrames = ReturnType<AudioMeter['end']>;
+const fileCalib = (audio: AudioFrames, frames: VisionFrame[]) =>
+  buildCalibration(audio.filter((f) => f.t < FILE_CALIB_SEC), frames.filter((f) => f.t < FILE_CALIB_SEC));
 
 const PREFS = 'ts-studio-prefs';
 const pickMime = () => ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'].find((m) => window.MediaRecorder?.isTypeSupported?.(m)) ?? '';
@@ -80,6 +88,19 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone, 
   const [canFlip, setCanFlip] = useState(false);
   const [stt, setStt] = useState(typeof prefs.stt === 'boolean' ? prefs.stt : true);
   const [cues, setCues] = useState(typeof prefs.cues === 'boolean' ? prefs.cues : true);
+  // 카메라 대신 영상 파일을 올려 분석할 수도 있어요(영상+음성일 때만). 파일 video 는 고를 때마다 새로 만들어요(소리를 한 번만 이을 수 있어서).
+  const [source, setSource] = useState<Source>('camera');
+  const srcRef = useRef<Source>('camera');
+  const fileVidRef = useRef<HTMLVideoElement>(null);
+  const [file, setFile] = useState<{ url: string; name: string; key: number } | null>(null);
+  const fileUrlRef = useRef<string | null>(null);
+  const handedRef = useRef<string | null>(null); // 리포트로 넘긴 파일 주소(그건 지우지 않아요)
+  const [fileOk, setFileOk] = useState(false);
+  const [fileErr, setFileErr] = useState('');
+  const [fileDrag, setFileDrag] = useState(false);
+  const isFile = !voice && source === 'file';
+  /** 지금 분석하는 영상(카메라 또는 파일) */
+  const vid = () => (srcRef.current === 'file' ? fileVidRef.current : camRef.current);
 
   // 녹화 중에 바뀌는 값은 다시 그리지 않도록 ref 에 둬요.
   const r = useRef({
@@ -151,6 +172,47 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone, 
     startCamera();
   }, [startCamera]);
 
+  /** 카메라 ↔ 영상 파일. 녹화 전(idle)에만 바꿔요. 파일로 가면 카메라·마이크를 꺼요. */
+  const switchSource = (next: Source) => {
+    const st = r.current;
+    if (st.phase !== 'idle' || srcRef.current === next) return;
+    srcRef.current = next; setSource(next);
+    setError(''); setFraming(null); setCrowd(false); crowdRef.current = false;
+    lastResRef.current = null; resetPerson();
+    const ov = ovRef.current; ov?.getContext('2d')?.clearRect(0, 0, ov.width, ov.height);
+    st.audio?.close(); st.audio = null;
+    if (next === 'file') {
+      st.gen++; // 켜지는 중인 카메라 응답은 버려요
+      st.stream?.getTracks().forEach((t) => t.stop()); st.stream = null;
+      setCamOn(false); setShowCamBtn(false); setCamErr('');
+      // 전에 고른 파일이 있으면 video 를 새로 만들어요(앞 video 의 소리 연결은 닫혀서 다시 못 써요)
+      setFileOk(false); setFile((f) => (f ? { ...f, key: f.key + 1 } : f));
+    } else {
+      fileVidRef.current?.pause();
+      startCamera();
+    }
+  };
+
+  /** 영상 파일 고르기(버튼·끌어다 놓기) */
+  const pickFile = (f: File | undefined) => {
+    if (!f || r.current.phase !== 'idle') return;
+    if (!f.type.startsWith('video/') && !/\.(mp4|mov|m4v|webm)$/i.test(f.name)) { setFileErr('영상 파일(mp4 · mov · webm)을 골라 주세요.'); return; }
+    const old = fileUrlRef.current;
+    if (old && old !== handedRef.current) URL.revokeObjectURL(old);
+    r.current.audio?.close(); r.current.audio = null;
+    const url = URL.createObjectURL(f);
+    fileUrlRef.current = url;
+    setFileOk(false); setFileErr(''); setError('');
+    lastResRef.current = null; resetPerson();
+    setFile((o) => ({ url, name: f.name, key: (o?.key ?? 0) + 1 }));
+  };
+  const onFileMeta = (v: HTMLVideoElement) => {
+    if (!Number.isFinite(v.duration)) return; // 길이를 모르는 webm 도 있어요(재생하면서 재요)
+    if (v.duration < MIN_REHEARSAL_SEC) setFileErr(`영상이 ${Math.round(v.duration)}초예요. ${MIN_REHEARSAL_SEC}초 이상인 영상만 분석할 수 있어요.`);
+  };
+  // 화면을 떠날 때 리포트로 넘기지 않은 파일 주소는 지워요
+  useEffect(() => () => { const u = fileUrlRef.current; if (u && u !== handedRef.current) URL.revokeObjectURL(u); }, []);
+
   // 카메라와 분석 모델을 켜고, 화면을 떠나면 모두 꺼요.
   useEffect(() => {
     const st = r.current;
@@ -172,18 +234,48 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone, 
     };
   }, [startCamera, voice]);
 
-  // 실제 영상 비율(--va)을 무대에 알려 줘요. 폰은 이 비율로 영상·인식 선 상자를 무대보다 크게 잡아 꽉 채워요(cover).
-  // 카메라를 바꾸거나 폰을 돌리면 영상 크기가 바뀌어서 resize 때마다 다시 써요.
+  // 영상·인식 선 상자를 실제 영상 비율로 잡아요. 폰(760px 이하)은 그 상자를 무대를 덮을 만큼 키워 가운데 둬요(cover).
+  // CSS 컨테이너 단위만으로 계산하면 iOS 뒤 카메라에서 상자 비율이 어긋나 영상이 옆으로 늘어나 보였어서, 크기를 직접 재서 px 로 넣어요.
+  // 카메라를 바꾸거나 폰을 돌리면 영상 크기가 바뀌는데 iOS 는 resize 이벤트를 빼먹기도 해서 0.5초마다도 확인해요.
   useEffect(() => {
-    const cam = camRef.current!, m = mediaRef.current!;
-    const set = () => { if (cam.videoWidth && cam.videoHeight) m.style.setProperty('--va', String(cam.videoWidth / cam.videoHeight)); };
-    cam.addEventListener('loadedmetadata', set); cam.addEventListener('resize', set);
-    return () => { cam.removeEventListener('loadedmetadata', set); cam.removeEventListener('resize', set); };
-  }, []);
+    const m = mediaRef.current!, stage = m.parentElement!;
+    const mq = matchMedia('(max-width: 760px)');
+    let last = '';
+    const fit = () => {
+      const v = vid();
+      if (!v?.videoWidth || !v.videoHeight) return;
+      const va = v.videoWidth / v.videoHeight, W = stage.clientWidth, H = stage.clientHeight;
+      const maxH = Math.round(innerHeight * 0.74);
+      const key = `${va}|${W}|${H}|${maxH}|${mq.matches}`;
+      if (key === last) return;
+      last = key;
+      m.style.setProperty('--va', String(va));
+      if (!W) return;
+      if (!mq.matches) {
+        // 데스크톱: 무대 폭에 맞추되 화면 높이의 74%를 넘지 않게(세로 영상도 인식 선이 영상과 같은 상자에 그려지게)
+        const w = Math.min(W, maxH * va);
+        m.style.width = `${Math.floor(w)}px`; m.style.height = `${Math.floor(w / va)}px`;
+        return;
+      }
+      if (!H) return;
+      const [w, h] = W / H > va ? [W, W / va] : [H * va, H];
+      m.style.width = `${Math.ceil(w)}px`; m.style.height = `${Math.ceil(h)}px`;
+    };
+    const els = [camRef.current, fileVidRef.current].filter((x): x is HTMLVideoElement => !!x);
+    els.forEach((v) => { v.addEventListener('loadedmetadata', fit); v.addEventListener('resize', fit); v.addEventListener('playing', fit); });
+    const ro = new ResizeObserver(fit); ro.observe(stage);
+    mq.addEventListener('change', fit); addEventListener('resize', fit);
+    const iv = setInterval(fit, 500);
+    fit();
+    return () => {
+      els.forEach((v) => { v.removeEventListener('loadedmetadata', fit); v.removeEventListener('resize', fit); v.removeEventListener('playing', fit); });
+      ro.disconnect(); mq.removeEventListener('change', fit); removeEventListener('resize', fit); clearInterval(iv);
+    };
+  }, [source, file?.key]);
 
   const showCue = useCallback((cat: CatId | 'time', text: string) => {
     const st = r.current;
-    if (!cuesRef.current) return;
+    if (!cuesRef.current || srcRef.current === 'file') return; // 영상 파일은 이미 찍은 거라 알림을 띄우지 않아요
     if (setup.focus && cat !== setup.focus) return;
     const now = performance.now();
     if (now - (st.cooldown[cat] ?? 0) < 8000) return;
@@ -200,8 +292,14 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone, 
     const colors = { line: css.getPropertyValue('--ov-line').trim(), joint: css.getPropertyValue('--ov-joint').trim(), face: css.getPropertyValue('--ov-face').trim() };
     const loop = () => {
       raf = requestAnimationFrame(loop);
-      const st = r.current, cam = camRef.current, ov = ovRef.current;
+      const st = r.current, cam = vid(), ov = ovRef.current;
+      const fromFile = srcRef.current === 'file';
       if (st.audio) setLevel(Math.max(0, Math.min(100, ((st.audio.level + 70) / 55) * 100)));
+      // 영상 파일: 처음 3초가 지나면 그 3초로 기준을 잡아요(실시간 표시용, 분석할 땐 다시 계산)
+      if (fromFile && st.phase === 'rec' && !st.calib && cam && cam.currentTime >= FILE_CALIB_SEC && st.audio?.frames) {
+        st.calib = fileCalib(st.audio.frames, st.frames);
+        st.audio.pitchGate = st.calib.noiseDb + 8;
+      }
       if (!st.models || !cam?.videoWidth || !ov || st.phase === 'analyzing') return;
       const now = performance.now();
       if (now - st.lastDet < 95) return;
@@ -214,11 +312,11 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone, 
       // 카메라를 바꾸면 폭은 같고 높이만 다를 수 있어서 둘 다 봐요(높이가 남으면 인식 선이 영상과 어긋남)
       if (ov.width !== cam.videoWidth || ov.height !== cam.videoHeight) { ov.width = cam.videoWidth; ov.height = cam.videoHeight; }
       drawOverlay(ov.getContext('2d')!, res, ov.width, ov.height, colors);
-      const t = st.phase === 'rec' ? (now - st.recStart) / 1000 : 0;
+      const t = st.phase !== 'rec' ? 0 : fromFile ? cam.currentTime : (now - st.recStart) / 1000;
       const f = extractFeatures(t, res.pose, res.face, cam.videoWidth / cam.videoHeight);
       if (st.phase === 'calib') st.calibFrames.push(f);
       else if (st.phase === 'rec') st.frames.push(f);
-      else setFraming(framingOf(f, draft.posture));
+      else if (!fromFile) setFraming(framingOf(f, draft.posture));
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
@@ -226,7 +324,7 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone, 
 
   const updateHud = useCallback(() => {
     const st = r.current;
-    const t = (performance.now() - st.recStart) / 1000;
+    const t = srcRef.current === 'file' ? (fileVidRef.current?.currentTime ?? 0) : (performance.now() - st.recStart) / 1000;
     const tgt = setup.targetSec;
     if (t > tgt * 1.1 && t < tgt * 1.1 + 0.3) showCue('time', '목표 시간을 넘겼어요. 마무리해 주세요.');
     let gaze: Chip = null, posture: Chip = null, pace: Chip = null, rate = '–', tx = '';
@@ -285,8 +383,29 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone, 
     st.hudTimer = setInterval(updateHud, 250);
   }, [stt, updateHud, voice]);
 
+  /** 영상 파일: 기준 측정 카운트다운 없이 처음부터 1배속으로 재생하며 분석해요(처음 3초가 기준). */
+  const beginFile = useCallback(async () => {
+    const st = r.current, v = fileVidRef.current;
+    if (!v) return;
+    setError('');
+    try { st.audio ??= new AudioMeter(v); await st.audio.resume(); }
+    catch (e) { console.error(e); setError('이 영상의 소리를 읽지 못했어요. 다른 영상으로 해 주세요.'); return; }
+    resetPerson(); lastResRef.current = null;
+    st.frames = []; st.calibFrames = []; st.calib = null; st.chunks = []; st.recorder = null; st.transcriber = null;
+    st.cooldown = {}; st.quietSince = null; st.lastQuiet = 0;
+    v.currentTime = 0;
+    try { await v.play(); }
+    catch { setError('영상을 재생하지 못했어요. 다시 눌러 주세요.'); return; }
+    st.recStart = performance.now();
+    st.audio.begin(st.recStart);
+    setP('rec');
+    setHud({ t: 0, rate: '–', tx: '', gaze: null, posture: null, pace: null });
+    st.hudTimer = setInterval(updateHud, 250);
+  }, [updateHud]);
+
   const begin = useCallback(async () => {
     const st = r.current;
+    if (srcRef.current === 'file') { beginFile(); return; }
     if (!st.stream || !st.audio) return;
     setError('');
     await st.audio.resume();
@@ -301,16 +420,23 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone, 
     st.calib = buildCalibration(st.audio.end(), st.calibFrames);
     st.audio.pitchGate = st.calib.noiseDb + 8;
     startRecording();
-  }, [startRecording]);
+  }, [startRecording, beginFile]);
 
-  const ready = camOn && model !== 'loading';
+  const ready = (isFile ? fileOk : camOn) && model !== 'loading';
   const autoStarted = useRef(false);
   useEffect(() => { if (autoStart && ready && !autoStarted.current) { autoStarted.current = true; begin(); } }, [autoStart, ready, begin]);
 
   /** 녹화·소리·받아쓰기를 멈추고 분석 재료를 모아요(분석은 아직). */
   const capture = useCallback((): Captured | null => {
     const st = r.current;
-    if (st.phase !== 'rec' || !st.recorder || !st.audio) return null;
+    if (st.phase !== 'rec' || !st.audio) return null;
+    if (srcRef.current === 'file') {
+      clearInterval(st.hudTimer);
+      const v = fileVidRef.current;
+      v?.pause();
+      return { audio: st.audio.end(), transcript: Promise.resolve(null), stopped: Promise.resolve(), durationSec: v?.currentTime ?? 0 };
+    }
+    if (!st.recorder) return null;
     clearInterval(st.hudTimer);
     const rec = st.recorder;
     // 폰이 뒤에서 녹화기를 이미 멈췄으면 onstop 을 기다리지 않아요
@@ -326,26 +452,32 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone, 
 
   async function analyzeCaptured(c: Captured) {
     const st = r.current;
-    if (!st.calib) return;
+    const fromFile = srcRef.current === 'file';
+    // 영상 파일은 처음 3초(분석 구간에도 들어가요)로 기준을 다시 잡아요
+    if (fromFile) st.calib = c.durationSec >= FILE_CALIB_SEC ? fileCalib(c.audio, st.frames) : null;
+    if (!st.calib) { setP('idle'); setError(fromFile ? '영상이 너무 짧아요. 20초 이상인 영상을 올려 주세요.' : '기준 측정이 끝나지 않았어요. 다시 녹화해 주세요.'); return; }
     setP('analyzing');
     const transcript = await c.transcript;
     await c.stopped;
-    const videoURL = URL.createObjectURL(new Blob(st.chunks, { type: st.mime || (voice ? 'audio/webm' : 'video/webm') }));
+    const videoURL = fromFile ? fileUrlRef.current! : URL.createObjectURL(new Blob(st.chunks, { type: st.mime || (voice ? 'audio/webm' : 'video/webm') }));
+    const used: Setup = fromFile ? { ...setup, source: 'file' } : setup;
+    const drop = () => { if (!fromFile) URL.revokeObjectURL(videoURL); };
     try {
-      const result = analyze({ audio: c.audio, vision: st.frames, transcript, calib: st.calib, purpose: p, setup, durationSec: c.durationSec });
+      const result = analyze({ audio: c.audio, vision: st.frames, transcript, calib: st.calib, purpose: p, setup: used, durationSec: c.durationSec });
       if (result.invalid) {
         // 리허설로 치지 않아요: 리포트·저장·크레딧 차감 없이 다시 녹화
-        URL.revokeObjectURL(videoURL);
+        drop();
         setP('idle');
         setError(`${result.invalid} 크레딧은 쓰지 않았어요.`);
         return;
       }
-      onDone({ result, videoURL, durationSec: c.durationSec, setup });
+      if (fromFile) handedRef.current = videoURL;
+      onDone({ result, videoURL, durationSec: c.durationSec, setup: used });
     } catch (e) {
       console.error(e);
-      URL.revokeObjectURL(videoURL);
+      drop();
       setP('idle');
-      setError('분석 중 오류가 났어요. 다시 녹화해 주세요.');
+      setError(fromFile ? '분석 중 오류가 났어요. 다시 시도해 주세요.' : '분석 중 오류가 났어요. 다시 녹화해 주세요.');
     }
   }
 
@@ -354,6 +486,7 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone, 
     if (st.phase === 'calib') st.audio?.end();
     if (st.phase === 'rec') await capture()?.transcript;
     st.captured = null;
+    if (srcRef.current === 'file' && fileVidRef.current) fileVidRef.current.currentTime = 0;
     setP('idle');
   }
 
@@ -387,7 +520,7 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone, 
         if (st.phase === 'rec') { st.captured = capture(); setCutSec(st.captured?.durationSec ?? 0); setP('interrupted'); }
         return;
       }
-      if (st.stream && st.stream.getTracks().some((t) => t.readyState === 'ended')) { setCamOn(false); startCamera(); }
+      if (srcRef.current === 'camera' && st.stream && st.stream.getTracks().some((t) => t.readyState === 'ended')) { setCamOn(false); startCamera(); }
     };
     document.addEventListener('visibilitychange', onVis);
     return () => document.removeEventListener('visibilitychange', onVis);
@@ -426,16 +559,17 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone, 
 
   /** 화면을 누르면 그 자리의 사람을 발표자로 정해요(다른 사람이 함께 찍혔을 때). 누른 자리를 영상 좌표(0~1)로 바꿔요. */
   const onStageTap = (e: React.PointerEvent<HTMLDivElement>) => {
-    const cam = camRef.current;
+    const cam = vid();
     if (!cam?.videoWidth || !lastResRef.current) return;
     const rc = cam.getBoundingClientRect();
     const vw = cam.videoWidth, vh = cam.videoHeight;
-    // 화면에 실제로 그려진 영상 영역(object-fit: contain 이면 위아래·양옆 여백을 빼요)
+    // 화면에 실제로 그려진 영상 영역(contain 이면 여백을 빼고, cover 면 잘린 만큼 더해요)
     let dw = rc.width, dh = rc.height;
-    if (getComputedStyle(cam).objectFit === 'contain') { const k = Math.min(rc.width / vw, rc.height / vh); dw = vw * k; dh = vh * k; }
+    const fit = getComputedStyle(cam).objectFit;
+    if (fit === 'contain' || fit === 'cover') { const k = (fit === 'contain' ? Math.min : Math.max)(rc.width / vw, rc.height / vh); dw = vw * k; dh = vh * k; }
     let x = (e.clientX - rc.left - (rc.width - dw) / 2) / dw;
     const y = (e.clientY - rc.top - (rc.height - dh) / 2) / dh;
-    if (facing === 'user') x = 1 - x; // 앞 카메라는 거울처럼 뒤집어 보여 줘요
+    if (!isFile && facing === 'user') x = 1 - x; // 앞 카메라는 거울처럼 뒤집어 보여 줘요
     if (x < 0 || x > 1 || y < 0 || y > 1) return;
     const ok = pickPerson(x, y, lastResRef.current);
     setPicked((q) => ({ ok, n: (q?.n ?? 0) + 1 }));
@@ -450,11 +584,38 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone, 
     <section className="screen">
       <div className={`studio${recording ? ' is-rec' : ''}`}>
         <div className="stage-col">
-          <div className="stage">
-            <div ref={mediaRef} className="stage-media" data-facing={facing} hidden={voice} onPointerDown={camOn && !voice ? onStageTap : undefined}>
-              <video ref={camRef} playsInline muted />
+          {!voice && phase === 'idle' && (
+            <div className="seg src-seg" role="radiogroup" aria-label="분석할 영상">
+              <button type="button" role="radio" aria-checked={source === 'camera'} onClick={() => switchSource('camera')}>카메라로 녹화</button>
+              <button type="button" role="radio" aria-checked={source === 'file'} onClick={() => switchSource('file')}>영상 파일 올리기</button>
+              <SegPill />
+            </div>
+          )}
+          <div className={`stage${isFile ? ' is-file' : ''}${fileDrag ? ' is-drag' : ''}`}
+            onDragOver={isFile ? (e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setFileDrag(true); } } : undefined}
+            onDragLeave={isFile ? (e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setFileDrag(false); } : undefined}
+            onDrop={isFile ? (e) => { e.preventDefault(); setFileDrag(false); pickFile(e.dataTransfer.files[0]); } : undefined}>
+            <div ref={mediaRef} className="stage-media" data-facing={isFile ? 'environment' : facing} hidden={voice || (isFile && !file)}
+              onPointerDown={(isFile ? fileOk : camOn) && !voice ? onStageTap : undefined}>
+              <video ref={camRef} playsInline muted hidden={isFile} />
+              {isFile && file && (
+                <video key={file.key} ref={fileVidRef} src={file.url} playsInline preload="auto"
+                  onLoadedMetadata={(e) => onFileMeta(e.currentTarget)}
+                  onLoadedData={(e) => { if ((!Number.isFinite(e.currentTarget.duration) || e.currentTarget.duration >= MIN_REHEARSAL_SEC)) setFileOk(true); }}
+                  onError={() => { setFileOk(false); setFileErr('이 영상을 열지 못했어요. 이 브라우저에서 재생되는 형식(mp4 · H.264 권장)인지 확인해 주세요.'); }}
+                  onEnded={() => { if (r.current.phase === 'rec') stop(); }} />
+              )}
               <canvas ref={ovRef} />
             </div>
+            {isFile && !file && (
+              <div className="file-pick">
+                <p className="fp-t">분석할 영상을 골라 주세요</p>
+                <p className="fp-s">이미 찍어 둔 리허설 영상을 녹화한 것처럼 분석해요. {matchMediaCoarse() ? '' : '여기에 끌어다 놓아도 돼요.'}</p>
+                <label className="btn-fill">영상 파일 고르기<input type="file" accept="video/*,.mp4,.mov,.m4v,.webm" hidden onChange={(e) => { pickFile(e.target.files?.[0]); e.target.value = ''; }} /></label>
+                <p className="fp-h">mp4 · mov · webm · {MIN_REHEARSAL_SEC}초 이상 · 처음 {FILE_CALIB_SEC}초는 기준 자세로 써요</p>
+                {fileErr && <p className="cam-err" role="alert">{fileErr}</p>}
+              </div>
+            )}
             {voice && camOn && (
               <div className="voice-stage" style={{ '--lv': level / 100 } as React.CSSProperties}>
                 <span className="vs-mic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7" /></svg></span>
@@ -462,22 +623,23 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone, 
                 <p className="vs-s">카메라는 켜지 않아요. 말 빠르기·쉼·톤·군더더기 말·내용·시간을 분석해요.</p>
               </div>
             )}
-            <div className="cam-empty" hidden={camOn}>
+            <div className="cam-empty" hidden={camOn || isFile}>
               <p>{voice ? '마이크를 켜는 중이에요.' : '카메라와 마이크를 켜는 중이에요.'}</p>
               {showCamBtn && <button type="button" className="btn-fill" onClick={() => { setCamErr(''); startCamera(); }}>{voice ? '마이크 켜기' : '카메라와 마이크 켜기'}</button>}
               <p className="cam-err" role="alert">{camErr}</p>
               {!voice && showCamBtn && <button type="button" className="btn-plain btn-sm cam-voice" onClick={() => onMode('voice')}>카메라 없이 음성만으로 하기</button>}
             </div>
-            {!voice && camOn && (picked || crowd) && phase !== 'calib' && (
+            {!voice && (isFile ? fileOk : camOn) && (picked || crowd) && phase !== 'calib' && (
               <div key={picked?.n ?? 0} className={`who-hint${picked ? (picked.ok ? ' is-ok' : ' is-warn') : ''}`} role="status">
                 {picked ? (picked.ok ? '이 사람을 분석해요' : '그 자리에서 사람을 찾지 못했어요') : '화면에서 본인을 눌러 주세요'}
               </div>
             )}
-            {!voice && camOn && phase === 'idle' && framing && <div className={`framing ${framing.ok ? 'is-ok' : 'is-warn'}`}>{framing.msg}</div>}
+            {isFile && file && fileErr && phase === 'idle' && <div className="framing is-warn" role="alert">{fileErr}</div>}
+            {!voice && !isFile && camOn && phase === 'idle' && framing && <div className={`framing ${framing.ok ? 'is-ok' : 'is-warn'}`}>{framing.msg}</div>}
             {phase === 'calib' && (
               <div className="countdown"><span>{count}</span><p>{voice ? <>잠시 조용히 있어 주세요.<br />주변 소음을 측정하고 있어요.</> : <>렌즈를 보고 바른 자세로 잠시 조용히 있어 주세요.<br />기준 자세와 주변 소음을 측정하고 있어요.</>}</p></div>
             )}
-            {!voice && canFlip && phase === 'idle' && (
+            {!voice && !isFile && canFlip && phase === 'idle' && (
               <button type="button" className="cam-flip" onClick={flip} aria-label={facing === 'user' ? '뒤 카메라로 바꾸기' : '앞 카메라로 바꾸기'}>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5h3l1.6-2.2h6.8L17 8.5h3v10H4z" /><path d="M9.2 12.2a3 3 0 0 1 5.3-.9M14.8 14.6a3 3 0 0 1-5.3.9" /><path d="M14.6 9.6v1.8h-1.8M9.4 17.2v-1.8h1.8" /></svg>
               </button>
@@ -491,40 +653,47 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone, 
             )}
             {phase === 'interrupted' && (
               <div className="analyzing interrupted" role="alertdialog" aria-label="녹화가 중단됐어요">
-                <b>다른 화면으로 나가서 녹화가 멈췄어요.</b>
-                <p>{cutSec >= MIN_PARTIAL_SEC ? `${fmtTime(cutSec)}까지 녹화됐어요. 여기까지 분석할까요?` : '녹화가 너무 짧아서 분석하기 어려워요. 다시 녹화해 주세요.'}</p>
+                <b>{isFile ? '다른 화면으로 나가서 영상 분석이 멈췄어요.' : '다른 화면으로 나가서 녹화가 멈췄어요.'}</b>
+                <p>{cutSec >= MIN_PARTIAL_SEC ? `${fmtTime(cutSec)}까지 ${isFile ? '봤어요' : '녹화됐어요'}. 여기까지 분석할까요?` : isFile ? '본 부분이 너무 짧아서 분석하기 어려워요. 처음부터 다시 해 주세요.' : '녹화가 너무 짧아서 분석하기 어려워요. 다시 녹화해 주세요.'}</p>
                 <div>
                   {cutSec >= MIN_PARTIAL_SEC && <button type="button" className="btn-fill btn-sm" onClick={() => resumeInterrupted(true)}>여기까지 분석</button>}
-                  <button type="button" className="btn-plain btn-sm" onClick={() => resumeInterrupted(false)}>다시 녹화</button>
+                  <button type="button" className="btn-plain btn-sm" onClick={() => resumeInterrupted(false)}>{isFile ? '처음부터 다시' : '다시 녹화'}</button>
                 </div>
               </div>
             )}
-            {phase === 'analyzing' && <div className="analyzing"><div className="spin" aria-hidden="true" /><p>{voice ? '녹음을 분석하고 하이라이트를 고르는 중…' : '녹화를 분석하고 하이라이트를 고르는 중…'}</p></div>}
+            {phase === 'analyzing' && <div className="analyzing"><div className="spin" aria-hidden="true" /><p>{voice ? '녹음을 분석하고 하이라이트를 고르는 중…' : isFile ? '영상을 분석하고 하이라이트를 고르는 중…' : '녹화를 분석하고 하이라이트를 고르는 중…'}</p></div>}
           </div>
           {/* 폰: 시간·목표·실시간 항목은 카메라 화면 밖(아래)에 둬서 화면을 가리지 않아요 */}
           {phase === 'rec' && <div className="hud-out">{hudBar}</div>}
           <div className="stage-bar">
             {voice ? <span><i className={`dot dot-${camOn ? 'ok' : 'idle'}`} />{camOn ? '마이크 켜짐 · 음성만' : '마이크 꺼짐'}</span> : <>
-              <span><i className={`dot dot-${camOn ? 'ok' : 'idle'}`} />{camOn ? '카메라 켜짐' : '카메라 꺼짐'}</span>
+              {isFile
+                ? <span className="sb-file"><i className={`dot dot-${fileOk ? 'ok' : fileErr ? 'bad' : 'idle'}`} />{file ? file.name : '영상 파일 없음'}</span>
+                : <span><i className={`dot dot-${camOn ? 'ok' : 'idle'}`} />{camOn ? '카메라 켜짐' : '카메라 꺼짐'}</span>}
               <span><i className={`dot dot-${model === 'ok' ? 'ok' : model === 'failed' ? 'bad' : 'idle'}`} />{model === 'ok' ? '분석 준비됨' : model === 'failed' ? '음성만 분석' : '분석 모델 준비 중'}</span>
             </>}
-            <span>마이크 <span className="meter"><i style={{ width: `${level}%` }} /></span></span>
+            {isFile && file && phase === 'idle' && (
+              <label className="link-btn sb-change">다른 영상<input type="file" accept="video/*,.mp4,.mov,.m4v,.webm" hidden onChange={(e) => { pickFile(e.target.files?.[0]); e.target.value = ''; }} /></label>
+            )}
+            <span>{isFile ? '소리' : '마이크'} <span className="meter"><i style={{ width: `${level}%` }} /></span></span>
           </div>
           {recording && (
             <div className="rec-actions">
-              {phase === 'rec' && <button type="button" className="btn-stop" onClick={stop}><i aria-hidden="true" />종료하고 분석</button>}
+              {phase === 'rec' && <button type="button" className="btn-stop" onClick={stop}><i aria-hidden="true" />{isFile ? '여기까지 분석' : '종료하고 분석'}</button>}
               <button type="button" className="btn-plain" onClick={cancel}>취소</button>
             </div>
           )}
         </div>
 
         <aside className="ready">
-          <h2 className="ready-h">{draft.customPurpose?.name || p.label} · {voice ? '음성만' : POSTURES[draft.posture].label}</h2>
+          <h2 className="ready-h">{draft.customPurpose?.name || p.label} · {voice ? '음성만' : isFile ? '영상 파일' : POSTURES[draft.posture].label}</h2>
           <ul className="group">{rows.map(([k, v]) => <li key={k} className="cell cell-kv"><span>{k}</span><b>{v}</b></li>)}</ul>
-          <ul className="group">
+          {isFile ? (
+            <p className="file-note">영상 파일은 받아쓰기를 할 수 없어서 군더더기 말·내용 구조는 빠지고, 말 빠르기는 소리로 추정해요. 영상 길이만큼 1배속으로 재생하며 분석해요.</p>
+          ) : <ul className="group">
             <li className="cell cell-switch"><label><span className="cell-t"><b>음성 받아쓰기</b><small>말 빠르기·군더더기 말·내용 구조 분석. 음성이 Google 서버로 전송돼요.</small></span><input type="checkbox" className="switch" checked={stt} onChange={(e) => setStt(e.target.checked)} /></label></li>
             <li className="cell cell-switch"><label><span className="cell-t"><b>실시간 코칭 알림</b><small>녹화 중 “조금 천천히” 같은 알림을 띄워요.</small></span><input type="checkbox" className="switch" checked={cues} onChange={(e) => setCues(e.target.checked)} /></label></li>
-          </ul>
+          </ul>}
           <div className="tips">
             <p className="group-h">준비 팁</p>
             <ul className="tip-list">{voice ? <li>마이크와 입 사이를 한 뼘 정도로 두고, 조용한 곳에서 실제 발표하듯 소리 내어 말해 주세요.</li> : <li>{POSTURES[draft.posture].framing}</li>}{(voice ? p.tips.filter((t) => !VISUAL_TIP.test(t)) : p.tips).map((t) => <li key={t}>{t}</li>)}</ul>
@@ -534,11 +703,11 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone, 
           )}
           {error && <p className="focus-note" role="alert">{error}</p>}
           <div className="rec-wrap">
-            <button type="button" className="btn-fill btn-rec" disabled={!ready || phase !== 'idle'} onClick={begin}><i aria-hidden="true" />{voice ? '녹음 시작' : '녹화 시작'}</button>
-            <p className="rec-label">{voice ? (!camOn ? '마이크를 켜는 중' : '준비됐어요. 시작하면 3초 동안 주변 소음을 재요.') : !camOn ? '카메라를 켜는 중' : model === 'loading' ? '분석 모델 불러오는 중' : '준비됐어요. 시작하면 3초 동안 기준 자세를 재요.'}</p>
+            <button type="button" className="btn-fill btn-rec" disabled={!ready || phase !== 'idle'} onClick={begin}><i aria-hidden="true" />{voice ? '녹음 시작' : isFile ? '영상 분석 시작' : '녹화 시작'}</button>
+            <p className="rec-label">{isFile ? (!file ? '분석할 영상을 골라 주세요' : fileErr ? '다른 영상을 골라 주세요' : !fileOk ? '영상 불러오는 중' : model === 'loading' ? '분석 모델 불러오는 중' : '준비됐어요. 영상을 처음부터 재생하며 분석해요.') : voice ? (!camOn ? '마이크를 켜는 중' : '준비됐어요. 시작하면 3초 동안 주변 소음을 재요.') : !camOn ? '카메라를 켜는 중' : model === 'loading' ? '분석 모델 불러오는 중' : '준비됐어요. 시작하면 3초 동안 기준 자세를 재요.'}</p>
           </div>
           <button type="button" className="btn-plain" onClick={onEdit}>설정 수정</button>
-          {phase === 'idle' && (
+          {phase === 'idle' && !isFile && (
             <button type="button" className="link-btn mode-switch" onClick={() => onMode(voice ? 'full' : 'voice')}>
               {voice ? '카메라도 켜고 영상까지 분석하기' : '카메라 없이 음성만으로 하기'}
             </button>
@@ -548,6 +717,8 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone, 
     </section>
   );
 }
+
+const matchMediaCoarse = () => typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
 
 function framingOf(f: VisionFrame, posture: Draft['posture']): { msg: string; ok: boolean } {
   const bad = (msg: string) => ({ msg, ok: false });
