@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { MIN_REHEARSAL_SEC, analyze, buildCalibration, classifyFrame, type Analysis, type Calibration } from '@/lib/coach/analysis';
-import { AudioMeter, Transcriber } from '@/lib/coach/audio';
+import { AudioMeter, Transcriber, framesFromRecording, isIOS } from '@/lib/coach/audio';
 import { detect, drawOverlay, extractFeatures, loadVision, type VisionFrame, type VisionModels, pickPerson, resetPerson, type VisionResult } from '@/lib/coach/vision';
 import type { RecordMode, Setup } from '@/lib/coach/types';
 import { pickAudioMime } from '@/lib/coach/media';
@@ -88,6 +88,9 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone, 
   const [canFlip, setCanFlip] = useState(false);
   const [stt, setStt] = useState(typeof prefs.stt === 'boolean' ? prefs.stt : true);
   const [cues, setCues] = useState(typeof prefs.cues === 'boolean' ? prefs.cues : true);
+  // 아이폰 사파리는 받아쓰기(음성 인식)가 마이크를 가져가 녹화·음량 측정 소리가 끊겨요. 그래서 꺼 두고 말 빠르기는 소리로 재요.
+  const [ios] = useState(isIOS);
+  const sttOn = stt && !ios;
   // 카메라 대신 영상 파일을 올려 분석할 수도 있어요(영상+음성일 때만). 파일 video 는 고를 때마다 새로 만들어요(소리를 한 번만 이을 수 있어서).
   const [source, setSource] = useState<Source>('camera');
   const srcRef = useRef<Source>('camera');
@@ -373,7 +376,7 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone, 
     st.audio.begin(st.recStart);
     st.cooldown = {}; st.quietSince = null; st.lastQuiet = 0;
     st.transcriber = null;
-    if (stt) { const tr = new Transcriber('ko-KR'); if (tr.supported && tr.start(st.recStart)) st.transcriber = tr; }
+    if (sttOn) { const tr = new Transcriber('ko-KR'); if (tr.supported && tr.start(st.recStart)) st.transcriber = tr; }
     st.mime = voice ? pickAudioMime() : pickMime();
     st.recorder = new MediaRecorder(st.stream, st.mime ? (voice ? { mimeType: st.mime } : { mimeType: st.mime, videoBitsPerSecond: videoBitrate() }) : undefined);
     st.recorder.ondataavailable = (e) => { if (e.data.size) st.chunks.push(e.data); };
@@ -381,7 +384,7 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone, 
     setP('rec');
     setHud({ t: 0, rate: '–', tx: '', gaze: null, posture: null, pace: null });
     st.hudTimer = setInterval(updateHud, 250);
-  }, [stt, updateHud, voice]);
+  }, [sttOn, updateHud, voice]);
 
   /** 영상 파일: 기준 측정 카운트다운 없이 처음부터 1배속으로 재생하며 분석해요(처음 3초가 기준). */
   const beginFile = useCallback(async () => {
@@ -405,6 +408,7 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone, 
 
   const begin = useCallback(async () => {
     const st = r.current;
+    if (matchMedia('(max-width: 760px)').matches) window.scrollTo({ top: 0, behavior: 'smooth' }); // 폰: 카메라 화면이 꽉 보이게
     if (srcRef.current === 'file') { beginFile(); return; }
     if (!st.stream || !st.audio) return;
     setError('');
@@ -459,11 +463,25 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone, 
     setP('analyzing');
     const transcript = await c.transcript;
     await c.stopped;
-    const videoURL = fromFile ? fileUrlRef.current! : URL.createObjectURL(new Blob(st.chunks, { type: st.mime || (voice ? 'audio/webm' : 'video/webm') }));
+    const blob = fromFile ? null : new Blob(st.chunks, { type: st.mime || (voice ? 'audio/webm' : 'video/webm') });
+    const videoURL = fromFile ? fileUrlRef.current! : URL.createObjectURL(blob!);
     const used: Setup = fromFile ? { ...setup, source: 'file' } : setup;
     const drop = () => { if (!fromFile) URL.revokeObjectURL(videoURL); };
     try {
-      const result = analyze({ audio: c.audio, vision: st.frames, transcript, calib: st.calib, purpose: p, setup: used, durationSec: c.durationSec });
+      const calib = st.calib;
+      const run = (audio: AudioFrames, cal = calib) => analyze({ audio, vision: st.frames, transcript, calib: cal, purpose: p, setup: used, durationSec: c.durationSec });
+      // 폰이 녹화 중에 실시간 오디오를 멈추면(iOS) 음량 기록이 비어서 '말소리가 없다'로 나왔어요.
+      // 기록이 빠졌거나 말소리가 없다고 나오면, 녹화 파일의 소리로 다시 재서 분석해요.
+      let result = run(c.audio);
+      if (blob && (AudioMeter.coverage(c.audio, c.durationSec) < 0.8 || result.invalid)) {
+        const re = await framesFromRecording(blob, calib.noiseDb + 8);
+        if (re && AudioMeter.coverage(re, c.durationSec) >= 0.8) {
+          const dbs = re.map((f) => f.db).sort((a, b) => a - b);
+          const noiseDb = Math.min(-30, dbs[Math.floor(dbs.length * 0.1)] ?? -60); // 기준 소음도 파일 소리로
+          const r2 = run(re, { ...calib, noiseDb });
+          if (!r2.invalid || result.invalid) result = r2;
+        }
+      }
       if (result.invalid) {
         // 리허설로 치지 않아요: 리포트·저장·크레딧 차감 없이 다시 녹화
         drop();
@@ -531,6 +549,9 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone, 
     r.current.captured = null;
     if (analyzeIt && c) analyzeCaptured(c); else setP('idle');
   }
+
+  const recLabel = isFile ? (!file ? '분석할 영상을 골라 주세요' : fileErr ? '다른 영상을 골라 주세요' : !fileOk ? '영상 불러오는 중' : model === 'loading' ? '분석 모델 불러오는 중' : '준비됐어요. 영상을 처음부터 재생하며 분석해요.') : voice ? (!camOn ? '마이크를 켜는 중' : '준비됐어요. 시작하면 3초 동안 주변 소음을 재요.') : !camOn ? '카메라를 켜는 중' : model === 'loading' ? '분석 모델 불러오는 중' : '준비됐어요. 시작하면 3초 동안 기준 자세를 재요.';
+  const recText = voice ? '녹음 시작' : isFile ? '영상 분석 시작' : '녹화 시작';
 
   const rows: [string, string][] = [
     ['제목', setup.topic || '—'],
@@ -661,6 +682,23 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone, 
                 </div>
               </div>
             )}
+            {/* 폰: 카메라 화면을 꽉 채우고 녹화 버튼·전환 버튼을 화면 위 아래쪽에 둬요(데스크톱은 오른쪽 패널) */}
+            {(phase === 'idle' || phase === 'rec' || phase === 'calib') && (
+              <div className={`stage-ctrl is-${phase}`}>
+                {phase === 'idle' ? (
+                  <>
+                    {error && <p className="st-err" role="alert">{error}</p>}
+                    <button type="button" className="rec-big" disabled={!ready} onClick={begin} aria-label={recText}><i aria-hidden="true" /></button>
+                    <p className="st-label">{ready ? recText : recLabel}</p>
+                  </>
+                ) : (
+                  <div className="st-row">
+                    {phase === 'rec' && <button type="button" className="btn-stop" onClick={stop}><i aria-hidden="true" />{isFile ? '여기까지 분석' : '종료하고 분석'}</button>}
+                    <button type="button" className="btn-plain st-cancel" onClick={cancel}>취소</button>
+                  </div>
+                )}
+              </div>
+            )}
             {phase === 'analyzing' && <div className="analyzing"><div className="spin" aria-hidden="true" /><p>{voice ? '녹음을 분석하고 하이라이트를 고르는 중…' : isFile ? '영상을 분석하고 하이라이트를 고르는 중…' : '녹화를 분석하고 하이라이트를 고르는 중…'}</p></div>}
           </div>
           {/* 폰: 시간·목표·실시간 항목은 카메라 화면 밖(아래)에 둬서 화면을 가리지 않아요 */}
@@ -691,7 +729,7 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone, 
           {isFile ? (
             <p className="file-note">영상 파일은 받아쓰기를 할 수 없어서 군더더기 말·내용 구조는 빠지고, 말 빠르기는 소리로 추정해요. 영상 길이만큼 1배속으로 재생하며 분석해요.</p>
           ) : <ul className="group">
-            <li className="cell cell-switch"><label><span className="cell-t"><b>음성 받아쓰기</b><small>말 빠르기·군더더기 말·내용 구조 분석. 음성이 Google 서버로 전송돼요.</small></span><input type="checkbox" className="switch" checked={stt} onChange={(e) => setStt(e.target.checked)} /></label></li>
+            <li className="cell cell-switch"><label><span className="cell-t"><b>음성 받아쓰기</b><small>말 빠르기·군더더기 말·내용 구조 분석. 음성이 Google 서버로 전송돼요.</small></span><input type="checkbox" className="switch" checked={sttOn} disabled={ios} onChange={(e) => setStt(e.target.checked)} /></label>{ios && <small className="stt-ios">아이폰에서는 받아쓰기가 녹화 소리를 끊어서 꺼 둬요. 말 빠르기는 소리로 재고, 군더더기 말·내용 구조는 빠져요.</small>}</li>
             <li className="cell cell-switch"><label><span className="cell-t"><b>실시간 코칭 알림</b><small>녹화 중 “조금 천천히” 같은 알림을 띄워요.</small></span><input type="checkbox" className="switch" checked={cues} onChange={(e) => setCues(e.target.checked)} /></label></li>
           </ul>}
           <div className="tips">
@@ -703,8 +741,8 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone, 
           )}
           {error && <p className="focus-note" role="alert">{error}</p>}
           <div className="rec-wrap">
-            <button type="button" className="btn-fill btn-rec" disabled={!ready || phase !== 'idle'} onClick={begin}><i aria-hidden="true" />{voice ? '녹음 시작' : isFile ? '영상 분석 시작' : '녹화 시작'}</button>
-            <p className="rec-label">{isFile ? (!file ? '분석할 영상을 골라 주세요' : fileErr ? '다른 영상을 골라 주세요' : !fileOk ? '영상 불러오는 중' : model === 'loading' ? '분석 모델 불러오는 중' : '준비됐어요. 영상을 처음부터 재생하며 분석해요.') : voice ? (!camOn ? '마이크를 켜는 중' : '준비됐어요. 시작하면 3초 동안 주변 소음을 재요.') : !camOn ? '카메라를 켜는 중' : model === 'loading' ? '분석 모델 불러오는 중' : '준비됐어요. 시작하면 3초 동안 기준 자세를 재요.'}</p>
+            <button type="button" className="btn-fill btn-rec" disabled={!ready || phase !== 'idle'} onClick={begin}><i aria-hidden="true" />{recText}</button>
+            <p className="rec-label">{recLabel}</p>
           </div>
           <button type="button" className="btn-plain" onClick={onEdit}>설정 수정</button>
           {phase === 'idle' && !isFile && (

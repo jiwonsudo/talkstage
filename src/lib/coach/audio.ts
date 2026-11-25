@@ -135,6 +135,11 @@ export class AudioMeter {
       this.src = this.ctx.createMediaElementSource(input);
       this.src.connect(this.ctx.destination);
     } else this.src = this.ctx.createMediaStreamSource(input);
+    // iOS 는 녹화를 시작하거나 다른 소리가 나면 오디오를 'interrupted' 로 멈추기도 해요. 재는 중이면 바로 다시 켜요.
+    this.ctx.onstatechange = () => {
+      const st = this.ctx.state as string;
+      if (st !== 'running' && st !== 'closed') this.ctx.resume().catch(() => {});
+    };
     this.ready = this.setupWorklet().catch(() => this.setupFallback());
   }
   get pitchGate() { return this.gate; }
@@ -196,6 +201,10 @@ export class AudioMeter {
     this.frames = [];
   }
   end() { const f = this.frames || []; this.frames = null; return f; }
+  /** 실시간 측정이 빠짐없이 됐는지(0~1): 프레임 수 × 25ms ÷ 녹화 길이 */
+  static coverage(frames: AudioFrame[], durationSec: number) {
+    return durationSec > 0 ? Math.min(1, (frames.length * HOP_SEC) / durationSec) : 0;
+  }
   close() {
     if (this.timer) clearInterval(this.timer);
     try { this.node?.disconnect(); this.sink?.disconnect(); this.src.disconnect(); } catch {}
@@ -317,3 +326,43 @@ export class Transcriber {
     return { finals, events: this.events, error: this.error };
   }
 }
+
+/**
+ * 녹화 파일의 소리로 음량·음높이를 다시 재요(워클릿과 같은 창 2048·홉 25ms·같은 음높이 계산).
+ * 폰(특히 iOS)이 녹화 중에 실시간 오디오를 멈춰 버려도 녹화 파일에는 소리가 남아 있어서, 그걸로 분석해요.
+ * t = 녹화 시작부터 초. 길면 몇 초 걸려서 중간중간 쉬어 화면이 멈추지 않게 해요.
+ */
+export async function framesFromRecording(blob: Blob, gate: number): Promise<AudioFrame[] | null> {
+  const Ctx = window.AudioContext || (window as SpeechWindow).webkitAudioContext;
+  if (!Ctx) return null;
+  const ctx = new Ctx();
+  let buf: AudioBuffer;
+  try {
+    const ab = await blob.arrayBuffer();
+    buf = await new Promise<AudioBuffer>((res, rej) => { const p = ctx.decodeAudioData(ab, res, rej); if (p) p.then(res, rej); });
+  } catch { return null; } finally { ctx.close().catch(() => {}); }
+  const sr = buf.sampleRate, len = buf.length;
+  if (!buf.numberOfChannels || len < sr) return null;
+  const x = new Float32Array(len);
+  for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < len; i++) x[i] += d[i] / buf.numberOfChannels; }
+  const N = 2048, hop = Math.max(1, Math.round(sr * HOP_SEC)), dec = sr >= 32000 ? 2 : 1, m = N / dec;
+  const dbuf = new Float32Array(m), pre = new Float64Array(m + 2), out: AudioFrame[] = [];
+  let lastYield = performance.now();
+  for (let end = N; end <= len; end += hop) {
+    let s = 0;
+    for (let k = end - N; k < end; k++) s += x[k] * x[k];
+    const db = 20 * Math.log10(Math.sqrt(s / N) + 1e-9);
+    let pitch = 0;
+    if (db > gate) {
+      for (let k = 0; k < m; k++) { let a = 0; for (let j = 0; j < dec; j++) a += x[end - N + k * dec + j]; dbuf[k] = a / dec; }
+      pitch = detectPitch(dbuf, sr / dec, pre);
+    }
+    out.push({ t: end / sr, db, pitch });
+    if (performance.now() - lastYield > 40) { await new Promise((r) => setTimeout(r, 0)); lastYield = performance.now(); }
+  }
+  return out;
+}
+
+/** iOS(아이폰·아이패드). 사파리의 받아쓰기가 녹화와 마이크를 같이 못 써서 끄는 데 써요. */
+export const isIOS = () => typeof navigator !== 'undefined'
+  && (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
