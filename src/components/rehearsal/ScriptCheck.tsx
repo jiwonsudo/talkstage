@@ -142,7 +142,7 @@ export function ScriptCheck({ draft, update, onRecord, paid, onFinish }: Props) 
             onUseKey={(k) => { update((d) => ({ ...d, key: k })); toast('핵심 메시지로 넣었어요'); }} />
         </div>
         <div ref={outRef} aria-live="polite">
-          {result && result.stats.n > 0 && <ScriptResult result={result} purposeId={p.id} purposeLabel={p.label} onRecord={onRecord} onFinish={only ? onFinish : undefined} />}
+          {result && result.stats.n > 0 && <ScriptResult result={result} purposeId={p.id} purposeLabel={p.label} onRecord={onRecord} onFinish={only ? onFinish : undefined} ai={ai.status === 'done' && ai.key === aiKey ? ai.res : undefined} />}
         </div>
         {!result && !only && <button type="button" className="btn-plain btn-block sc-skip" onClick={onRecord}>점검 없이 녹화</button>}
         </>}
@@ -152,6 +152,27 @@ export function ScriptCheck({ draft, update, onRecord, paid, onFinish }: Props) 
 }
 
 const CUE_LABEL: Record<DeliveryCue['kind'], string> = { pause: '쉬기', slow: '천천히', stress: '강조', point: '가리키기', show: '들어 보이기', eyes: '시선', gesture: '손짓' };
+/** AI 가 만든 부분 표시(대본에 적용되는 고쳐 쓰기·첫/끝 문장·전달 단서). 규칙 분석과 한눈에 구분되게 */
+const AiTag = () => <span className="ai-tag" aria-label="AI 코칭">AI</span>;
+/** 띄어쓰기·문장부호를 빼고 비교해요(AI 인용이 대본과 조금 다르게 끊겨도 찾게) */
+const norm = (t: string) => t.replace(/[\s"'“”‘’.,!?…·~()\[\]-]/g, '');
+type AiMark = { kind: 'fix' | 'cue'; label: string; text: string };
+/** 대본 문장마다 AI 코칭이 가리키는 곳(고칠 문장·전달 단서)을 붙여요 */
+function aiMarksOf(sents: Sent[], res: CoachResult | undefined): AiMark[][] {
+  const out: AiMark[][] = sents.map(() => []);
+  if (!res) return out;
+  const ns = sents.map((x) => norm(x.text));
+  const hit = (quote: string) => {
+    const q = norm(quote);
+    if (q.length < 4) return [] as number[];
+    const head = q.slice(0, Math.min(14, q.length));
+    return ns.flatMap((t, i) => (t && (t.includes(head) || (t.length >= 6 && q.includes(t))) ? [i] : []));
+  };
+  for (const f of res.coach.fixes) if (f.quote && f.rewrite) for (const i of hit(f.quote)) out[i].push({ kind: 'fix', label: '고쳐 쓰기', text: f.rewrite });
+  for (const q of res.coach.cues) for (const i of hit(q.quote)) out[i].push({ kind: 'cue', label: CUE_LABEL[q.kind], text: q.tip });
+  return out;
+}
+
 const FIT_NOTE = { match: '', partial: '대본이 고른 상황과 조금 달라요', mismatch: '대본이 고른 상황과 달라요' } as const;
 const KEY_NOTE = { same: '적어 준 핵심 메시지가 대본에 분명히 있어요', partial: '적어 준 핵심 메시지가 대본에서 흐릿해요', missing: '적어 준 핵심 메시지가 대본에 없어요', none: '' } as const;
 
@@ -238,7 +259,7 @@ function AiResult({ res, stale, onUseKey }: { res: CoachResult; stale: boolean; 
   return (
     <div className="ai-out">
       {stale && <p className="sc-ai-stale">아래 코칭은 고치기 전 대본 기준이에요.</p>}
-      <h3 className="ai-h">AI가 파악한 발표</h3>
+      <h3 className="ai-h"><AiTag />AI가 파악한 발표</h3>
       <dl className="ai-brief">
         <div><dt>주제</dt><dd>{b.topic}</dd></div>
         {b.audience && <div><dt>청중</dt><dd>{b.audience}</dd></div>}
@@ -249,25 +270,25 @@ function AiResult({ res, stale, onUseKey }: { res: CoachResult; stale: boolean; 
       {(b.keyFit === 'partial' || b.keyFit === 'missing') && <p className="ai-warn"><b>{KEY_NOTE[b.keyFit]}</b> {b.keyNote}</p>}
       {b.structure.length > 0 && <ol className="ai-struct">{b.structure.map((s, k) => <li key={k}><span>{s.part}</span>{s.quote}</li>)}</ol>}
 
-      <h3 className="ai-h">총평</h3>
+      <h3 className="ai-h"><AiTag />총평</h3>
       <p className="sc-ai-verdict">{c.verdict}</p>
       {c.strengths.length > 0 && <ul className="goods">{c.strengths.map((g) => <li key={g}>{g}</li>)}</ul>}
-      <h3 className="ai-h">고칠 문장</h3>
+      <h3 className="ai-h"><AiTag />고칠 문장 <small>읽기 가이드의 해당 문장에도 표시돼요</small></h3>
       <ol className="ai-fixes">
         {c.fixes.map((f, k) => (
           <li key={k}>
             <b>{f.title}</b>
             <p>{f.why}</p>
             {f.quote && <p className="ai-from"><span>지금</span>{f.quote}</p>}
-            {f.rewrite && <p className="ai-to"><span>이렇게</span>{f.rewrite}</p>}
+            {f.rewrite && <p className="ai-to"><AiTag /><span>이렇게</span>{f.rewrite}</p>}
           </li>
         ))}
       </ol>
       <div className="ai-ends">
-        {c.opening && <div><span>첫 문장</span><p>{c.opening}</p></div>}
-        {c.closing && <div><span>마지막 문장</span><p>{c.closing}</p></div>}
+        {c.opening && <div><AiTag /><span>첫 문장</span><p>{c.opening}</p></div>}
+        {c.closing && <div><AiTag /><span>마지막 문장</span><p>{c.closing}</p></div>}
       </div>
-      <h3 className="ai-h">이 대본, 이렇게 말해요</h3>
+      <h3 className="ai-h"><AiTag />이 대본, 이렇게 말해요</h3>
       <p className="ai-plan">{c.deliveryPlan}</p>
       {c.cues.length > 0 && <ol className="ai-cues">{c.cues.map((q, k) => <li key={k}><span data-k={q.kind}>{CUE_LABEL[q.kind]}</span><div><q>{q.quote}</q><p>{q.tip}</p></div></li>)}</ol>}
       <p className="ai-charged">{res.charged.kind === 'trial' ? '테스트 무료 1회로 받은 코칭이에요.' : `${res.charged.cost}크레딧을 쓴 코칭이에요.`} 이 기기에 저장돼 있어요.</p>
@@ -286,7 +307,9 @@ function curve(s: Sent) {
   return d;
 }
 
-function ScriptResult({ result: r, purposeId, purposeLabel, onRecord, onFinish }: { result: ScriptAnalysis; purposeId: string; purposeLabel: string; onRecord: () => void; onFinish?: () => void }) {
+function ScriptResult({ result: r, purposeId, purposeLabel, onRecord, onFinish, ai }: { result: ScriptAnalysis; purposeId: string; purposeLabel: string; onRecord: () => void; onFinish?: () => void; /** 지금 대본 기준 AI 코칭(있으면 문장에 표시) */ ai?: CoachResult }) {
+  const marks = useMemo(() => aiMarksOf(r.sents, ai), [r.sents, ai]);
+  const aiCount = marks.filter((m) => m.length).length;
   const s = r.stats;
   const reader = useRef<Reader | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -369,7 +392,7 @@ function ScriptResult({ result: r, purposeId, purposeLabel, onRecord, onFinish }
 
       <section className="sc-sec">
         <h2 className="sc-h">읽기 가이드 <small>문장을 누르면 거기서부터 읽어요</small></h2>
-        <div className="legend"><span><span className="br">/</span> 짧게 쉬기</span><span><em>굵은 글자</em> 힘주기</span><span>↘ 말끝 내리기</span><span>↗ 말끝 올리기</span><span>파란 선 억양 높낮이</span></div>
+        <div className="legend">{aiCount > 0 && <span className="lg-ai"><AiTag /> AI 코칭이 짚은 문장 {aiCount}개</span>}<span><span className="br">/</span> 짧게 쉬기</span><span><em>굵은 글자</em> 힘주기</span><span>↘ 말끝 내리기</span><span>↗ 말끝 올리기</span><span>파란 선 억양 높낮이</span></div>
         <div className="reading">
           {r.sents.map((x, si) => (
             <div key={si} id={`rd-${si}`} className={`rd${x.syl > 60 ? ' long' : ''}${si && x.para !== r.sents[si - 1].para ? ' para' : ''}${flash === si ? ' flash' : ''}`} onClick={() => play(si)}>
@@ -388,6 +411,11 @@ function ScriptResult({ result: r, purposeId, purposeLabel, onRecord, onFinish }
                   ))}{' '}
                   {x.type === 'q' ? <span className="dir up" title="말끝을 올려요">↗</span> : x.type === 'ex' ? <span className="dir" title="힘 있게">!</span> : <span className="dir" title="말끝을 내려요">↘</span>}
                 </p>
+                {marks[si].length > 0 && (
+                  <ul className="rd-ai">
+                    {marks[si].map((m, k) => <li key={k} data-k={m.kind}><AiTag /><b>{m.label}</b><span>{m.kind === 'fix' ? `“${m.text}”` : m.text}</span></li>)}
+                  </ul>
+                )}
               </div>
             </div>
           ))}
