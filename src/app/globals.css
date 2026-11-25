@@ -2190,7 +2190,8 @@ p, li, .catch-sub, .lead2, .display-sub, small { word-break: keep-all; text-wrap
 
 /* 히어로 아래 30초 소개 영상(landing/PromoFilm). 고정된 무대 안에서 카드가 화면을 채웠다가 다시 작아져요. */
 .pf { position: relative; z-index: 3; width: 100vw; margin-left: calc(50% - 50vw); height: 260vh; }
-.pf-stage { position: sticky; top: 0; height: 100vh; height: 100svh; --w: min(1080px, calc(100vw - 32px)); --h: calc(var(--w) * 9 / 16); --r: 28px; --p: 0; }
+/* 무대는 100dvh: 폰 Safari 에서 주소창이 접히면 화면이 길어지는데 svh 로 두면 아래가 비어요. 영상 크기는 resize 때 JS 가 다시 계산. */
+.pf-stage { position: sticky; top: 0; height: 100vh; height: 100svh; height: 100dvh; --w: min(1080px, calc(100vw - 32px)); --h: calc(var(--w) * 9 / 16); --r: 28px; --p: 0; }
 .pf-veil { position: absolute; left: 0; right: 0; top: -100vh; bottom: -100vh; pointer-events: none; opacity: var(--p); visibility: hidden; background: color-mix(in oklab, var(--bg) 45%, transparent); backdrop-filter: blur(22px) saturate(140%); -webkit-backdrop-filter: blur(22px) saturate(140%); }
 .pf-stage[data-full] .pf-veil { visibility: visible; }
 .pf-frame { position: absolute; left: 50%; top: 50%; width: var(--w); height: var(--h); translate: -50% -50%; border-radius: var(--r); overflow: hidden; background: #f7f8fa; box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 40px 80px -40px rgba(10,10,20,calc(.45 * (1 - var(--p)))); contain: layout paint; }
