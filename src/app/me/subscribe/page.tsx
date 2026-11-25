@@ -45,7 +45,7 @@ export default function Subscribe() {
 
   const live = !!sub && (sub.status === 'active' || sub.status === 'canceled') && !!sub.periodEnd && new Date(sub.periodEnd) > new Date();
   const upgrade = live && !!plan && rank(plan) > rank(sub!.plan);
-  const blocked = live && !!plan && !upgrade; // 같은·낮은 요금제는 요금제 관리에서 예약
+  const blocked = live && !!plan && !upgrade; // 같은·낮은 요금제는 요금제·크레딧 관리에서 예약
   const amount = plan ? (upgrade ? upgradeAmount(sub!, plan) : PLAN_PRICE[plan]) : 0;
 
   async function registerCard() {
@@ -83,7 +83,7 @@ export default function Subscribe() {
 
   return (
     <div className="page pay">
-      <Link href="/me/plan" className="pay-back">← 요금제 관리</Link>
+      <Link href="/me/plan" className="pay-back">← 요금제·크레딧 관리</Link>
       <h1 className="title1">{onlyCard ? '결제 카드 바꾸기' : plan ? (upgrade ? `${plan}로 업그레이드` : `${plan} 시작하기`) : '요금제'}</h1>
       {plan && !onlyCard && (
         <p className="subtitle">
@@ -94,7 +94,7 @@ export default function Subscribe() {
       {onlyCard && <p className="subtitle">다음 결제부터 새 카드로 결제돼요.</p>}
 
       {err ? <p className="pay-err" role="alert">{err}</p> : null}
-      {blocked && <p className="pay-err">이미 {sub!.plan}를 쓰고 있어요. 낮은 요금제로는 요금제 관리에서 다음 결제일부터 바꿀 수 있어요.</p>}
+      {blocked && <p className="pay-err">이미 {sub!.plan}를 쓰고 있어요. 낮은 요금제로는 요금제·크레딧 관리에서 다음 결제일부터 바꿀 수 있어요.</p>}
 
       {!sub && !err && <p className="pay-wait-line">불러오는 중…</p>}
       {sub && !blocked && !(err && !BILLING_KEY) && (

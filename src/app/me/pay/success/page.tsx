@@ -38,7 +38,7 @@ export default function PaySuccess() {
         <>
           <h1 className="title1">결제를 마치지 못했어요</h1>
           <p className="subtitle">{state.msg}</p>
-          <div className="pay-actions"><Link href="/me/plan" className="btn-plain">요금제 관리로</Link></div>
+          <div className="pay-actions"><Link href="/me/plan" className="btn-plain">요금제·크레딧 관리로</Link></div>
         </>
       )}
     </div>

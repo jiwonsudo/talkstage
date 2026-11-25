@@ -110,7 +110,7 @@ export function Teams() {
         </div>
         <div className="cmp-row" role="row">
           <div className="cmp-lab" role="rowheader">크레딧 추가 구매</div>
-          <div className="cmp-cell" role="cell"><span className="no" aria-label="없음">—</span></div>
+          <div className="cmp-cell" role="cell"><svg className="ck" viewBox="0 0 24 24" aria-label="포함"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg></div>
           <div className="cmp-cell" role="cell">
             <svg className="ck" viewBox="0 0 24 24" aria-label="포함">
               <path d="M5 12.5l4.5 4.5L19 7.5" />

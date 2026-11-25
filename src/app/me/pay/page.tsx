@@ -76,7 +76,7 @@ export default function Pay() {
   const pack = isPackId(product) ? PACKS[product] : null;
   return (
     <div className="page pay">
-      <Link href="/me/plan" className="pay-back">← 요금제 관리</Link>
+      <Link href="/me/plan" className="pay-back">← 요금제·크레딧 관리</Link>
       <h1 className="title1">크레딧 {pack?.credits ?? ''} 구매</h1>
       <p className="subtitle">
         {pack ? `${won(pack.amount)} · 산 크레딧은 기한 없이 남고, 이번 달 크레딧을 다 쓴 뒤에 쓰여요.` : ''}

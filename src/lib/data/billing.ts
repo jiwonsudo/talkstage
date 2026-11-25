@@ -70,8 +70,8 @@ export async function savePlanChange(p: { from: PlanId; to: PlanId; reason: stri
   if (error) throw error;
 }
 
-// ── 결제·크레딧 내역(내 것만 읽을 수 있어요, RLS) ──
-export type PaymentRow = { id: string; at: string; title: string; amount: number; status: 'paid' | 'failed' | 'ready'; method?: string | null };
+// ── 결제 관리: 결제·크레딧 사용 내역(내 것만 읽을 수 있어요, RLS) ──
+export type PaymentRow = { id: string; src: 'order' | 'sub'; at: string; title: string; amount: number; status: 'paid' | 'failed' | 'ready'; method?: string | null };
 export type LedgerRow = { id: string; at: string; amount: number; reason: string; source: 'monthly' | 'bonus' };
 
 export async function listPayments(): Promise<PaymentRow[]> {
@@ -84,8 +84,8 @@ export async function listPayments(): Promise<PaymentRow[]> {
   const KIND: Record<string, string> = { start: '시작', upgrade: '업그레이드', renew: '월 결제' };
   type S = { id: string; plan: string; kind: string; amount: number; status: string; created_at: string; paid_at: string | null };
   type O = { id: string; credits: number; amount: number; status: string; method: string | null; created_at: string; paid_at: string | null };
-  const a: PaymentRow[] = (subs.data as S[]).map((r) => ({ id: r.id, at: r.paid_at ?? r.created_at, title: `${r.plan} ${KIND[r.kind] ?? ''}`.trim(), amount: r.amount, status: r.status === 'paid' ? 'paid' : r.status === 'failed' ? 'failed' : 'ready' }));
-  const b: PaymentRow[] = (orders.data as O[]).map((r) => ({ id: r.id, at: r.paid_at ?? r.created_at, title: `크레딧 ${r.credits} 구매`, amount: r.amount, status: r.status === 'paid' ? 'paid' : 'ready', method: r.method }));
+  const a: PaymentRow[] = (subs.data as S[]).map((r) => ({ id: r.id, src: 'sub' as const, at: r.paid_at ?? r.created_at, title: `${r.plan} ${KIND[r.kind] ?? ''}`.trim(), amount: r.amount, status: r.status === 'paid' ? 'paid' : r.status === 'failed' ? 'failed' : 'ready' }));
+  const b: PaymentRow[] = (orders.data as O[]).map((r) => ({ id: r.id, src: 'order' as const, at: r.paid_at ?? r.created_at, title: `크레딧 ${r.credits} 구매`, amount: r.amount, status: r.status === 'paid' ? 'paid' : 'ready', method: r.method }));
   // 결제창만 열고 끝내지 않은 주문(ready)은 내역에서 빼요
   return [...a, ...b].filter((r) => r.status !== 'ready').sort((x, y) => y.at.localeCompare(x.at));
 }
@@ -94,4 +94,12 @@ export async function listLedger(): Promise<LedgerRow[]> {
   const { data, error } = await db().from('credit_ledger').select('id, amount, reason, source, created_at').order('created_at', { ascending: false }).limit(60);
   if (error) throw error;
   return (data as { id: string; amount: number; reason: string; source: 'monthly' | 'bonus'; created_at: string }[]).map((r) => ({ id: r.id, at: r.created_at, amount: r.amount, reason: r.reason, source: r.source }));
+}
+
+/** 결제 영수증(토스 매출전표) 주소 */
+export async function receiptUrl(r: Pick<PaymentRow, 'id' | 'src'>): Promise<string> {
+  const res = await fetch(`/api/payments/receipt?id=${encodeURIComponent(r.id)}&src=${r.src}`, { cache: 'no-store' });
+  const b = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+  if (!res.ok || !b.url) throw new Error(b.error ?? '영수증을 불러오지 못했어요.');
+  return b.url;
 }
