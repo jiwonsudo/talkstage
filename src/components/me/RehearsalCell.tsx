@@ -13,7 +13,7 @@ export function RehearsalCell({ h, label, children }: { h: Rehearsal; /** 제목
       <span className="cell-t">
         <b>{label ?? (h.topic || p?.label || '발표')}</b>
         <small>
-          {p?.label ?? ''} · {h.posture === 'standing' ? '서서' : '앉아서'}
+          {p?.label ?? ''} · {h.posture === 'standing' ? '서서' : '앉아서'}{h.mode === 'voice' ? ' · 음성만' : ''}
           {h.duration_sec ? ` · ${fmtTime(h.duration_sec)}` : ''} · {new Date(h.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
         </small>
       </span>

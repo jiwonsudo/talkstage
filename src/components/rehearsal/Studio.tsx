@@ -3,7 +3,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { MIN_REHEARSAL_SEC, analyze, buildCalibration, classifyFrame, type Analysis, type Calibration } from '@/lib/coach/analysis';
 import { AudioMeter, Transcriber } from '@/lib/coach/audio';
 import { detect, drawOverlay, extractFeatures, loadVision, type VisionFrame, type VisionModels, pickPerson, resetPerson, type VisionResult } from '@/lib/coach/vision';
-import type { Setup } from '@/lib/coach/types';
+import type { RecordMode, Setup } from '@/lib/coach/types';
+import { pickAudioMime } from '@/lib/coach/media';
 import { outcomeLabel, purposeOf, type Draft } from '@/lib/rehearsal/draft';
 import { aidOf, audienceOf, isShowing } from '@/lib/delivery';
 import { showPose } from '@/lib/coach/showing';
@@ -31,11 +32,20 @@ type Props = {
   onFocusClear: () => void;
   onEdit: () => void;
   onDone: (r: StudioResult) => void;
+  /** 카메라 없이 음성만 ↔ 영상+음성 전환(녹화 화면을 새로 열어요) */
+  onMode: (m: RecordMode) => void;
 };
 
-/** 녹화 화면: 카메라·마이크를 켜고 3초 기준 측정 뒤 녹화, 실시간 알림을 띄우고 끝나면 분석해요. */
-export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }: Props) {
+/**
+ * 녹화 화면: 카메라·마이크를 켜고 3초 기준 측정 뒤 녹화, 실시간 알림을 띄우고 끝나면 분석해요.
+ * 음성만(setup.mode = 'voice')이면 마이크만 켜고, 카메라 화면 대신 목소리 크기를 보여 줘요(시선·자세·제스처 분석 없음).
+ */
+// 음성만 녹음에서는 카메라·시선·몸짓 팁을 빼요(분석하지 않으니까요).
+const VISUAL_TIP = /카메라|렌즈|시선|눈을|눈은|바라|손|제스처|자세|몸|가리키|들어 보이|화면/;
+
+export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone, onMode }: Props) {
   const p = purposeOf(draft);
+  const voice = setup.mode === 'voice';
   const aid = aidOf(draft.purposeId, setup.aid);
   const audience = audienceOf(aid, draft.posture); // 청중이 여럿이면 옆 사람을 보는 것도 시선 OK
   const camRef = useRef<HTMLVideoElement>(null);
@@ -50,9 +60,9 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
   // 화면에 그리는 값
   const [camOn, setCamOn] = useState(false);
   const [noMedia] = useState(() => !navigator.mediaDevices?.getUserMedia);
-  const [camErr, setCamErr] = useState(noMedia ? '이 브라우저에서는 카메라를 쓸 수 없어요. 최신 Chrome에서 열어 주세요.' : '');
+  const [camErr, setCamErr] = useState(noMedia ? `이 브라우저에서는 ${voice ? '마이크' : '카메라'}를 쓸 수 없어요. 최신 Chrome에서 열어 주세요.` : '');
   const [showCamBtn, setShowCamBtn] = useState(noMedia);
-  const [model, setModel] = useState<'loading' | 'ok' | 'failed'>('loading');
+  const [model, setModel] = useState<'loading' | 'ok' | 'failed'>(voice ? 'ok' : 'loading'); // 음성만은 영상 모델이 필요 없어요
   const [phase, setPhase] = useState<Phase>('idle');
   const [count, setCount] = useState(3);
   const [framing, setFraming] = useState<{ msg: string; ok: boolean } | null>(null);
@@ -94,15 +104,18 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
     const slow = setTimeout(() => { if (!stale() && !r.current.stream) { setCamErr('권한 요청 창이 보이지 않으면 아래 버튼을 눌러 주세요.'); setShowCamBtn(true); } }, 4000);
     let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
+      const audio = { echoCancellation: true, noiseSuppression: true, autoGainControl: false };
+      stream = await navigator.mediaDevices.getUserMedia(voice ? { audio } : {
         video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: { ideal: facingRef.current } },
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false },
+        audio,
       });
     } catch (e) {
       clearTimeout(slow);
       if (stale()) return;
       const name = (e as DOMException).name;
-      setCamErr(name === 'NotAllowedError' ? '카메라·마이크 권한이 거부됐어요. 주소창 왼쪽 아이콘에서 권한을 허용한 뒤 다시 눌러 주세요.' : `카메라를 켜지 못했어요 (${name}). 다른 앱이 카메라를 쓰고 있는지 확인하세요.`);
+      setCamErr(voice
+        ? (name === 'NotAllowedError' ? '마이크 권한이 거부됐어요. 주소창 왼쪽 아이콘에서 마이크를 허용한 뒤 다시 눌러 주세요.' : `마이크를 켜지 못했어요 (${name}). 다른 앱이 마이크를 쓰고 있는지 확인하세요.`)
+        : name === 'NotAllowedError' ? '카메라·마이크 권한이 거부됐어요. 주소창 왼쪽 아이콘에서 권한을 허용한 뒤 다시 눌러 주세요.' : `카메라를 켜지 못했어요 (${name}). 다른 앱이 카메라를 쓰고 있는지 확인하세요.`);
       setShowCamBtn(true);
       return;
     }
@@ -111,18 +124,21 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
     if (stale()) { stream.getTracks().forEach((t) => t.stop()); return; }
     r.current.stream?.getTracks().forEach((t) => t.stop());
     r.current.stream = stream;
-    const cam = camRef.current!;
-    cam.srcObject = stream;
-    await cam.play().catch(() => {});
+    if (!voice) {
+      const cam = camRef.current!;
+      cam.srcObject = stream;
+      await cam.play().catch(() => {});
+    }
     r.current.audio?.close();
     r.current.audio = new AudioMeter(stream);
     await r.current.audio.resume();
     if (stale()) return;
-    resetPerson(); // 카메라가 바뀌면 발표자 위치도 새로 찾아요
     setCamOn(true); setShowCamBtn(false);
+    if (voice) return;
+    resetPerson(); // 카메라가 바뀌면 발표자 위치도 새로 찾아요
     // 카메라가 둘 이상이면 전환 버튼을 보여 줘요(권한을 받은 뒤라야 목록이 다 나와요)
     navigator.mediaDevices.enumerateDevices?.().then((ds) => { if (!stale()) setCanFlip(ds.filter((d) => d.kind === 'videoinput').length > 1); }).catch(() => {});
-  }, []);
+  }, [voice]);
 
   /** 앞·뒤 카메라 전환. iOS 는 카메라를 하나만 열 수 있어서 지금 카메라를 먼저 꺼요. */
   const flip = useCallback(() => {
@@ -140,7 +156,7 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
     const st = r.current;
     startCamera();
     let live = true;
-    loadVision().then((m) => {
+    if (!voice) loadVision().then((m) => {
       if (!live) { m.pose.close(); m.face.close(); return; }
       st.models = m; setModel('ok');
     }).catch((e) => { console.error(e); if (live) setModel('failed'); });
@@ -154,7 +170,7 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
       st.stream?.getTracks().forEach((t) => t.stop()); st.stream = null;
       st.models?.pose.close(); st.models?.face.close(); st.models = null;
     };
-  }, [startCamera]);
+  }, [startCamera, voice]);
 
   // 실제 영상 비율(--va)을 무대에 알려 줘요. 폰은 이 비율로 영상·인식 선 상자를 무대보다 크게 잡아 꽉 채워요(cover).
   // 카메라를 바꾸거나 폰을 돌리면 영상 크기가 바뀌어서 resize 때마다 다시 써요.
@@ -260,14 +276,14 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
     st.cooldown = {}; st.quietSince = null; st.lastQuiet = 0;
     st.transcriber = null;
     if (stt) { const tr = new Transcriber('ko-KR'); if (tr.supported && tr.start(st.recStart)) st.transcriber = tr; }
-    st.mime = pickMime();
-    st.recorder = new MediaRecorder(st.stream, st.mime ? { mimeType: st.mime, videoBitsPerSecond: videoBitrate() } : undefined);
+    st.mime = voice ? pickAudioMime() : pickMime();
+    st.recorder = new MediaRecorder(st.stream, st.mime ? (voice ? { mimeType: st.mime } : { mimeType: st.mime, videoBitsPerSecond: videoBitrate() }) : undefined);
     st.recorder.ondataavailable = (e) => { if (e.data.size) st.chunks.push(e.data); };
     st.recorder.start(1000);
     setP('rec');
     setHud({ t: 0, rate: '–', tx: '', gaze: null, posture: null, pace: null });
     st.hudTimer = setInterval(updateHud, 250);
-  }, [stt, updateHud]);
+  }, [stt, updateHud, voice]);
 
   const begin = useCallback(async () => {
     const st = r.current;
@@ -314,7 +330,7 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
     setP('analyzing');
     const transcript = await c.transcript;
     await c.stopped;
-    const videoURL = URL.createObjectURL(new Blob(st.chunks, { type: st.mime || 'video/webm' }));
+    const videoURL = URL.createObjectURL(new Blob(st.chunks, { type: st.mime || (voice ? 'audio/webm' : 'video/webm') }));
     try {
       const result = analyze({ audio: c.audio, vision: st.frames, transcript, calib: st.calib, purpose: p, setup, durationSec: c.durationSec });
       if (result.invalid) {
@@ -371,7 +387,7 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
         if (st.phase === 'rec') { st.captured = capture(); setCutSec(st.captured?.durationSec ?? 0); setP('interrupted'); }
         return;
       }
-      if (st.stream && st.stream.getVideoTracks().some((t) => t.readyState === 'ended')) { setCamOn(false); startCamera(); }
+      if (st.stream && st.stream.getTracks().some((t) => t.readyState === 'ended')) { setCamOn(false); startCamera(); }
     };
     document.addEventListener('visibilitychange', onVis);
     return () => document.removeEventListener('visibilitychange', onVis);
@@ -400,8 +416,8 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
         <span className="hud-target">목표 <span>{fmtTime(setup.targetSec)}</span></span>
       </div>
       <div className="hud-chips">
-        <span className={`hc${chip(hud.gaze)}${fc('gaze')}`}><i />시선</span>
-        <span className={`hc${chip(hud.posture)}${fc('posture')}`}><i />자세</span>
+        {!voice && <span className={`hc${chip(hud.gaze)}${fc('gaze')}`}><i />시선</span>}
+        {!voice && <span className={`hc${chip(hud.posture)}${fc('posture')}`}><i />자세</span>}
         <span className={`hc${chip(hud.pace)}${fc('pace')}`}>속도 <b>{hud.rate}</b></span>
         <span className={`hc${fc('tone')}`}>음량 <span className="vol"><i style={{ width: `${level}%` }} /></span></span>
       </div>
@@ -435,25 +451,33 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
       <div className={`studio${recording ? ' is-rec' : ''}`}>
         <div className="stage-col">
           <div className="stage">
-            <div ref={mediaRef} className="stage-media" data-facing={facing} onPointerDown={camOn ? onStageTap : undefined}>
+            <div ref={mediaRef} className="stage-media" data-facing={facing} hidden={voice} onPointerDown={camOn && !voice ? onStageTap : undefined}>
               <video ref={camRef} playsInline muted />
               <canvas ref={ovRef} />
             </div>
+            {voice && camOn && (
+              <div className="voice-stage" style={{ '--lv': level / 100 } as React.CSSProperties}>
+                <span className="vs-mic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7" /></svg></span>
+                <p className="vs-t">음성만 녹음해요</p>
+                <p className="vs-s">카메라는 켜지 않아요. 말 빠르기·쉼·톤·군더더기 말·내용·시간을 분석해요.</p>
+              </div>
+            )}
             <div className="cam-empty" hidden={camOn}>
-              <p>카메라와 마이크를 켜는 중이에요.</p>
-              {showCamBtn && <button type="button" className="btn-fill" onClick={() => { setCamErr(''); startCamera(); }}>카메라와 마이크 켜기</button>}
+              <p>{voice ? '마이크를 켜는 중이에요.' : '카메라와 마이크를 켜는 중이에요.'}</p>
+              {showCamBtn && <button type="button" className="btn-fill" onClick={() => { setCamErr(''); startCamera(); }}>{voice ? '마이크 켜기' : '카메라와 마이크 켜기'}</button>}
               <p className="cam-err" role="alert">{camErr}</p>
+              {!voice && showCamBtn && <button type="button" className="btn-plain btn-sm cam-voice" onClick={() => onMode('voice')}>카메라 없이 음성만으로 하기</button>}
             </div>
-            {camOn && (picked || crowd) && phase !== 'calib' && (
+            {!voice && camOn && (picked || crowd) && phase !== 'calib' && (
               <div key={picked?.n ?? 0} className={`who-hint${picked ? (picked.ok ? ' is-ok' : ' is-warn') : ''}`} role="status">
                 {picked ? (picked.ok ? '이 사람을 분석해요' : '그 자리에서 사람을 찾지 못했어요') : '화면에서 본인을 눌러 주세요'}
               </div>
             )}
-            {camOn && phase === 'idle' && framing && <div className={`framing ${framing.ok ? 'is-ok' : 'is-warn'}`}>{framing.msg}</div>}
+            {!voice && camOn && phase === 'idle' && framing && <div className={`framing ${framing.ok ? 'is-ok' : 'is-warn'}`}>{framing.msg}</div>}
             {phase === 'calib' && (
-              <div className="countdown"><span>{count}</span><p>렌즈를 보고 바른 자세로 잠시 조용히 있어 주세요.<br />기준 자세와 주변 소음을 측정하고 있어요.</p></div>
+              <div className="countdown"><span>{count}</span><p>{voice ? <>잠시 조용히 있어 주세요.<br />주변 소음을 측정하고 있어요.</> : <>렌즈를 보고 바른 자세로 잠시 조용히 있어 주세요.<br />기준 자세와 주변 소음을 측정하고 있어요.</>}</p></div>
             )}
-            {canFlip && phase === 'idle' && (
+            {!voice && canFlip && phase === 'idle' && (
               <button type="button" className="cam-flip" onClick={flip} aria-label={facing === 'user' ? '뒤 카메라로 바꾸기' : '앞 카메라로 바꾸기'}>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5h3l1.6-2.2h6.8L17 8.5h3v10H4z" /><path d="M9.2 12.2a3 3 0 0 1 5.3-.9M14.8 14.6a3 3 0 0 1-5.3.9" /><path d="M14.6 9.6v1.8h-1.8M9.4 17.2v-1.8h1.8" /></svg>
               </button>
@@ -475,13 +499,15 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
                 </div>
               </div>
             )}
-            {phase === 'analyzing' && <div className="analyzing"><div className="spin" aria-hidden="true" /><p>녹화를 분석하고 하이라이트를 고르는 중…</p></div>}
+            {phase === 'analyzing' && <div className="analyzing"><div className="spin" aria-hidden="true" /><p>{voice ? '녹음을 분석하고 하이라이트를 고르는 중…' : '녹화를 분석하고 하이라이트를 고르는 중…'}</p></div>}
           </div>
           {/* 폰: 시간·목표·실시간 항목은 카메라 화면 밖(아래)에 둬서 화면을 가리지 않아요 */}
           {phase === 'rec' && <div className="hud-out">{hudBar}</div>}
           <div className="stage-bar">
-            <span><i className={`dot dot-${camOn ? 'ok' : 'idle'}`} />{camOn ? '카메라 켜짐' : '카메라 꺼짐'}</span>
-            <span><i className={`dot dot-${model === 'ok' ? 'ok' : model === 'failed' ? 'bad' : 'idle'}`} />{model === 'ok' ? '분석 준비됨' : model === 'failed' ? '음성만 분석' : '분석 모델 준비 중'}</span>
+            {voice ? <span><i className={`dot dot-${camOn ? 'ok' : 'idle'}`} />{camOn ? '마이크 켜짐 · 음성만' : '마이크 꺼짐'}</span> : <>
+              <span><i className={`dot dot-${camOn ? 'ok' : 'idle'}`} />{camOn ? '카메라 켜짐' : '카메라 꺼짐'}</span>
+              <span><i className={`dot dot-${model === 'ok' ? 'ok' : model === 'failed' ? 'bad' : 'idle'}`} />{model === 'ok' ? '분석 준비됨' : model === 'failed' ? '음성만 분석' : '분석 모델 준비 중'}</span>
+            </>}
             <span>마이크 <span className="meter"><i style={{ width: `${level}%` }} /></span></span>
           </div>
           {recording && (
@@ -493,7 +519,7 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
         </div>
 
         <aside className="ready">
-          <h2 className="ready-h">{draft.customPurpose?.name || p.label} · {POSTURES[draft.posture].label}</h2>
+          <h2 className="ready-h">{draft.customPurpose?.name || p.label} · {voice ? '음성만' : POSTURES[draft.posture].label}</h2>
           <ul className="group">{rows.map(([k, v]) => <li key={k} className="cell cell-kv"><span>{k}</span><b>{v}</b></li>)}</ul>
           <ul className="group">
             <li className="cell cell-switch"><label><span className="cell-t"><b>음성 받아쓰기</b><small>말 빠르기·군더더기 말·내용 구조 분석. 음성이 Google 서버로 전송돼요.</small></span><input type="checkbox" className="switch" checked={stt} onChange={(e) => setStt(e.target.checked)} /></label></li>
@@ -501,17 +527,22 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
           </ul>
           <div className="tips">
             <p className="group-h">준비 팁</p>
-            <ul className="tip-list"><li>{POSTURES[draft.posture].framing}</li>{p.tips.map((t) => <li key={t}>{t}</li>)}</ul>
+            <ul className="tip-list">{voice ? <li>마이크와 입 사이를 한 뼘 정도로 두고, 조용한 곳에서 실제 발표하듯 소리 내어 말해 주세요.</li> : <li>{POSTURES[draft.posture].framing}</li>}{(voice ? p.tips.filter((t) => !VISUAL_TIP.test(t)) : p.tips).map((t) => <li key={t}>{t}</li>)}</ul>
           </div>
           {setup.focus && (
             <p className="focus-note">집중 항목 <b>{CAT_LABEL[setup.focus]}</b> · 실시간 알림은 이 항목에만 떠요. <button type="button" className="btn-link" onClick={onFocusClear}>해제</button></p>
           )}
           {error && <p className="focus-note" role="alert">{error}</p>}
           <div className="rec-wrap">
-            <button type="button" className="btn-fill btn-rec" disabled={!ready || phase !== 'idle'} onClick={begin}><i aria-hidden="true" />녹화 시작</button>
-            <p className="rec-label">{!camOn ? '카메라를 켜는 중' : model === 'loading' ? '분석 모델 불러오는 중' : '준비됐어요. 시작하면 3초 동안 기준 자세를 재요.'}</p>
+            <button type="button" className="btn-fill btn-rec" disabled={!ready || phase !== 'idle'} onClick={begin}><i aria-hidden="true" />{voice ? '녹음 시작' : '녹화 시작'}</button>
+            <p className="rec-label">{voice ? (!camOn ? '마이크를 켜는 중' : '준비됐어요. 시작하면 3초 동안 주변 소음을 재요.') : !camOn ? '카메라를 켜는 중' : model === 'loading' ? '분석 모델 불러오는 중' : '준비됐어요. 시작하면 3초 동안 기준 자세를 재요.'}</p>
           </div>
           <button type="button" className="btn-plain" onClick={onEdit}>설정 수정</button>
+          {phase === 'idle' && (
+            <button type="button" className="link-btn mode-switch" onClick={() => onMode(voice ? 'full' : 'voice')}>
+              {voice ? '카메라도 켜고 영상까지 분석하기' : '카메라 없이 음성만으로 하기'}
+            </button>
+          )}
         </aside>
       </div>
     </section>

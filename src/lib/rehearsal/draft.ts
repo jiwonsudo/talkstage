@@ -21,12 +21,15 @@ export type Draft = {
   title: string;
   /** 무엇을 보여 주나요(면접은 대면/화상). null 이면 목적 기본값 */
   aid: AidId | null;
+  /** 연습 방식: full = 영상+음성, voice = 음성만(카메라 없이), script = 대본만 분석(녹화 없음, 크레딧 안 씀) */
+  mode: PracticeMode;
 };
+export type PracticeMode = 'full' | 'voice' | 'script';
 
 const KEY = 'rc-setup-v2';
 const DEFAULT: Draft = {
   purposeId: 'interview', posture: 'seated', customPurpose: null, customGoal: null, outcomeIdxs: [0],
-  targetSec: null, worry: null, prompt: '', hasScript: 'yes', script: '', key: '', title: '', aid: null,
+  targetSec: null, worry: null, prompt: '', hasScript: 'yes', script: '', key: '', title: '', aid: null, mode: 'full',
 };
 
 export function loadDraft(): Draft {
@@ -35,6 +38,7 @@ export function loadDraft(): Draft {
     const d = { ...DEFAULT, ...s };
     if (!Array.isArray(d.outcomeIdxs)) d.outcomeIdxs = [s.outcomeIdx ?? 0];
     if (!PURPOSE_BY_ID[d.purposeId]) d.purposeId = DEFAULT.purposeId;
+    if (d.mode !== 'voice' && d.mode !== 'script') d.mode = 'full';
     return d;
   } catch { return { ...DEFAULT }; }
 }
@@ -109,6 +113,7 @@ export function toSetup(d: Draft): Setup {
     keyMessage: d.key.trim(),
     outcomeText: '',
     profile: profileFrom(d.worry),
+    mode: d.mode === 'voice' ? 'voice' : 'full',
   };
 }
 
@@ -126,4 +131,5 @@ export const SCRIPT_EXAMPLES: Record<string, string> = {
 export const PROMPT_COPY = {
   yes: { title: '발표 대본을 넣어 주세요', sub: '녹화 전에 시간·흐름·긴 문장을 점검하고, AI 코칭으로 고칠 문장과 말하는 방법까지 받아요.' },
   no: { title: '제목과 핵심 메시지만 적어 주세요', sub: '대본 코칭은 건너뛰어요. 말한 내용은 녹화한 뒤 받아쓰기로 확인해요.' },
+  script: { title: '분석할 대본을 넣어 주세요', sub: '녹화 없이 대본만 봐요. 시간·흐름·긴 문장을 점검하고, AI 코칭으로 고칠 문장과 말하는 방법까지 받아요.' },
 };

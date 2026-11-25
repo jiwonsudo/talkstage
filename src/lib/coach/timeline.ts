@@ -3,13 +3,15 @@ import { fmtTime, type Purpose } from '@/lib/scenarios';
 import type { Analysis } from './analysis';
 
 export const TL_HEIGHT = 210;
+/** 음성만 리허설은 시선·자세·제스처 줄을 빼요 */
+export const TL_HEIGHT_VOICE = 210 - 3 * 30;
 export const TL_LEFT = 64;
 const TL_RIGHT = 8;
 
-export function drawTimeline(canvas: HTMLCanvasElement, R: Analysis, purpose: Purpose, currentTime: number) {
+export function drawTimeline(canvas: HTMLCanvasElement, R: Analysis, purpose: Purpose, currentTime: number, voice = false) {
   const css = getComputedStyle(document.documentElement);
   const col = (n: string) => css.getPropertyValue(n).trim();
-  const W = canvas.clientWidth, H = TL_HEIGHT;
+  const W = canvas.clientWidth, H = voice ? TL_HEIGHT_VOICE : TL_HEIGHT;
   const dpr = window.devicePixelRatio || 1;
   canvas.width = W * dpr; canvas.height = H * dpr;
   const g = canvas.getContext('2d')!;
@@ -17,7 +19,7 @@ export function drawTimeline(canvas: HTMLCanvasElement, R: Analysis, purpose: Pu
   g.clearRect(0, 0, W, H);
   const L = TL_LEFT;
   const x = (t: number) => L + (t / R.dur) * (W - L - TL_RIGHT);
-  const lanes: [string, number][] = [['발화', 22], ['속도', 44], ['시선', 22], ['자세', 22], ['제스처', 22], ['알림', 22]];
+  const lanes: [string, number][] = voice ? [['발화', 22], ['속도', 44], ['알림', 22]] : [['발화', 22], ['속도', 44], ['시선', 22], ['자세', 22], ['제스처', 22], ['알림', 22]];
   let y = 10;
   const Y: Record<string, [number, number]> = {};
   g.font = `12px ${col('--font-body') || 'sans-serif'}`;
@@ -59,9 +61,9 @@ export function drawTimeline(canvas: HTMLCanvasElement, R: Analysis, purpose: Pu
       g.fillRect(x(s), ly + 4, Math.max(1, x(s + 1) - x(s)) + 0.5, lh - 8);
     });
   };
-  ratioLane('시선', S.gazeSec, true);
-  ratioLane('자세', S.badSec, false);
-  {
+  if (!voice) ratioLane('시선', S.gazeSec, true);
+  if (!voice) ratioLane('자세', S.badSec, false);
+  if (!voice) {
     const [ly, lh] = Y['제스처'];
     S.gestSec.forEach((v, s) => {
       if (v == null || v === 0) return;

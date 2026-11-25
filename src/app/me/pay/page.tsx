@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { loadTossPayments, type TossPaymentsWidgets } from '@tosspayments/tosspayments-sdk';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { createOrder, type Order } from '@/lib/data/payments';
-import { PACKS, isPackId, won } from '@/lib/plans';
+import { PACKS, isPackId, packList, packSave, won } from '@/lib/plans';
 
 const CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ?? '';
 
@@ -79,6 +79,7 @@ export default function Pay() {
       <Link href="/me/plan" className="pay-back">← 요금제·크레딧 관리</Link>
       <h1 className="title1">크레딧 {pack?.credits ?? ''} 구매</h1>
       <p className="subtitle">
+        {pack && isPackId(product) && packSave(product) > 0 && <><s className="pay-list">{won(packList(product))}</s> <b className="pk-off">{packSave(product)}% 할인</b> </>}
         {pack ? `${won(pack.amount)} · 산 크레딧은 기한 없이 남고, 이번 달 크레딧을 다 쓴 뒤에 쓰여요.` : ''}
       </p>
       {pack && <CreditExamples />}

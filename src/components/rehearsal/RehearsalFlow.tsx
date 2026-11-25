@@ -14,6 +14,7 @@ import { clearText, loadDraft, purposeOf, saveDraft, toSetup, withPurpose, type 
 import { PURPOSE_BY_ID, type CatId, type PostureId } from '@/lib/scenarios';
 import { Report } from './Report';
 import { ScriptCheck } from './ScriptCheck';
+import { useToast } from '@/components/ui/Toast';
 import { Studio, type StudioResult } from './Studio';
 import { STEPS, Wizard, type StepId } from './Wizard';
 
@@ -40,6 +41,7 @@ const pushView = (step: number, view: 'wizard' | 'script' = 'wizard') => {
  */
 export function RehearsalFlow() {
   const router = useRouter();
+  const toast = useToast();
   const params = useSearchParams();
   const { user, requireAuth } = useAuth();
   const credits = useCredits(user);
@@ -61,6 +63,7 @@ export function RehearsalFlow() {
     if (posture === 'seated' || posture === 'standing') d = { ...d, posture: posture as PostureId };
     const title = params.get('title'); // '이 발표 다시 연습'에서 같은 제목으로 이어 가요
     if (title) d = { ...d, title: title.slice(0, 60) };
+    if (again && d.mode === 'script') d = { ...d, mode: 'full' }; // 다시 '연습'이니 녹화 방식으로
     return d;
   });
   const [step, setStep] = useState(() => (again ? STEPS.length - 1 : stepOf(params)));
@@ -159,6 +162,8 @@ export function RehearsalFlow() {
       {lowCr && <CreditDialog open left={lowCr.left} cost={lowCr.cost} runs={PLAN_RUNS} need={lowCr.cost * PLAN_RUNS} onContinue={lowCr.go} onClose={() => setLowCr(null)} />}
     </>
   );
+  // 대본만 분석하다가 녹화로 넘어가면 영상+음성으로 바꿔요(녹화 화면에서 음성만으로 바꿀 수 있어요).
+  const toFull = () => update((d) => (d.mode === 'script' ? { ...d, mode: 'full' } : d));
   const toStudio = (auto = false) => { setAutoStart(auto); setRun((n) => n + 1); setStage('studio'); top(); };
   // 마지막 단계에서만 로그인을 받아요. 소셜 로그인은 페이지를 떠났다가 마지막 단계로 돌아와요.
   const signedIn = (fn: () => void) => requireAuth(fn, '고른 설정은 그대로 남아 있어요. 로그인하면 바로 이어서 진행해요.', `/rehearsal/new?step=${STEPS.length - 1}&resume=1`);
@@ -174,14 +179,15 @@ export function RehearsalFlow() {
       saved = await recordRehearsal({
         purpose_id: r.setup.purposeId, posture: r.setup.posture, topic: r.setup.topic || null,
         overall: R.overall, scores: Object.fromEntries(Object.values(R.cats).map((c) => [c.id, c.score])),
-        focus: r.setup.focus ?? null, duration_sec: Math.round(r.durationSec),
+        focus: r.setup.focus ?? null, duration_sec: Math.round(r.durationSec), mode: r.setup.mode ?? 'full',
       });
     } catch (e) {
       if (e instanceof NoCreditsError) { dropVideo(); setSaving(null); setStage('nocredit'); top(); return; }
       setSaving({ r, failed: true });
       return;
     }
-    const same = (h: Rehearsal) => h.id !== saved.id && h.purpose_id === r.setup.purposeId && h.posture === r.setup.posture;
+    // 비교는 같은 상황·자세·방식끼리(음성만 회차는 시선·자세 점수가 없어서 영상 회차와 종합 점수를 바로 비교하지 않아요)
+    const same = (h: Rehearsal) => h.id !== saved.id && h.purpose_id === r.setup.purposeId && h.posture === r.setup.posture && (h.mode ?? 'full') === (r.setup.mode ?? 'full');
     let history: Rehearsal[] = [];
     try { history = (await listRehearsals()).filter(same); } catch { /* 지난 기록을 못 불러와도 리포트는 보여 줘요 */ }
     setPast(history);
@@ -248,7 +254,7 @@ export function RehearsalFlow() {
           <h1 className="title">크레딧을 다 썼어요</h1>
           <p className="subtitle">리허설 한 번에 {c.cost}크레딧이 필요해요. 남은 크레딧은 {c.left}이에요. 다음 달 1일에 다시 채워지고, 그 전에 크레딧만 따로 살 수도 있어요.</p>
           <div className="next-actions">
-            <Link className="btn" href="/me/pay?product=pack3">크레딧 36 구매</Link>
+            <Link className="btn" href="/me/pay?product=pack48">크레딧 48 구매</Link>
             <Link className="btn-ghost" href="/me/plan">요금제 보기</Link>
             <button type="button" className="btn-ghost" onClick={() => setStage('wizard')}>설정으로 돌아가기</button>
           </div>
@@ -259,13 +265,16 @@ export function RehearsalFlow() {
 
   switch (stage) {
     case 'script':
-      return <>{upsellDlg}<ScriptCheck draft={draft} update={update} onRecord={() => viaUpsell(() => viaCredits(() => toStudio()))} paid={isPaidPlan(user?.plan)} /></>;
+      return <>{upsellDlg}<ScriptCheck draft={draft} update={update} paid={isPaidPlan(user?.plan)}
+        onRecord={() => viaUpsell(() => viaCredits(() => { toFull(); toStudio(); }))}
+        onFinish={() => { toast('대본 분석을 마쳤어요. 결과는 이 기기에 남아 있어요.'); router.push('/me/rehearsals'); }} /></>;
     case 'studio':
       return (
         <Studio key={run} draft={draft} setup={setup} autoStart={autoStart}
           onFocusClear={() => setFocus(null)}
           onEdit={() => { pushView(0); setStage('wizard'); setStep(0); top(); }}
-          onDone={onDone} />
+          onDone={onDone}
+          onMode={(m) => { update((d) => ({ ...d, mode: m })); setRun((n) => n + 1); }} />
       );
     case 'report': {
       if (!done) return null;

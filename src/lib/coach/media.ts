@@ -1,7 +1,7 @@
 // 녹화 파일 다루기: 길이 고치기, 장면 이동, 썸네일, 파일 저장
 
 /** MediaRecorder 로 만든 webm 은 길이가 Infinity 로 나와서, 끝까지 한 번 넘겨 실제 길이를 알아내요. */
-export function fixDuration(video: HTMLVideoElement) {
+export function fixDuration(video: HTMLMediaElement) {
   return new Promise<void>((resolve) => {
     const go = () => {
       if (video.duration === Infinity || isNaN(video.duration)) {
@@ -16,7 +16,7 @@ export function fixDuration(video: HTMLVideoElement) {
   });
 }
 
-export const seekTo = (v: HTMLVideoElement, t: number) => new Promise<void>((r) => {
+export const seekTo = (v: HTMLMediaElement, t: number) => new Promise<void>((r) => {
   const to = setTimeout(r, 1500);
   v.addEventListener('seeked', () => { clearTimeout(to); r(); }, { once: true });
   v.currentTime = Math.max(0.05, t);
@@ -49,3 +49,6 @@ export function download(blob: Blob, name: string) {
 }
 
 export const pickMime = () => ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'].find((m) => window.MediaRecorder?.isTypeSupported?.(m)) ?? '';
+
+/** 음성만 녹음할 때 쓸 형식 */
+export const pickAudioMime = () => ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'].find((m) => window.MediaRecorder?.isTypeSupported?.(m)) ?? '';

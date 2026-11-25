@@ -32,10 +32,15 @@ export async function fetchCredits(): Promise<Credits> {
 
 /** 리허설 한 번을 저장하고 크레딧을 써요. 서버가 남은 크레딧을 확인해서 모자라면 NoCreditsError. */
 export async function recordRehearsal(r: Omit<Rehearsal, 'id' | 'created_at'>): Promise<Rehearsal> {
-  const { data, error } = await db().rpc('record_rehearsal', {
+  const args = {
     p_purpose_id: r.purpose_id, p_posture: r.posture, p_topic: r.topic, p_overall: r.overall,
     p_scores: r.scores, p_focus: r.focus, p_duration_sec: r.duration_sec,
-  });
+  };
+  let { data, error } = await db().rpc('record_rehearsal', { ...args, p_mode: r.mode ?? 'full' });
+  // 0009(방식 칸) 전 DB 면 방식 없이 저장해요(음성만 회차도 영상 회차처럼 저장돼요)
+  if (error && (error.code === 'PGRST202' || /p_mode|function/i.test(error.message)) && !error.message.includes('NO_CREDITS')) {
+    ({ data, error } = await db().rpc('record_rehearsal', args));
+  }
   if (error) {
     if (error.message.includes('NO_CREDITS')) { changed(); throw new NoCreditsError(); }
     throw error;

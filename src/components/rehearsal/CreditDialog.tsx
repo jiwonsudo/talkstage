@@ -1,7 +1,10 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from '@/lib/nav';
-import { PACKS, won, type PackId } from '@/lib/plans';
+import { PACKS, packList, packSave, perCredit, won, type PackId } from '@/lib/plans';
+
+// 창에는 작은·중간·가장 큰 묶음만(전부는 크레딧 관리에서)
+const SHOWN: PackId[] = ['pack48', 'pack192', 'pack480'];
 
 /**
  * 녹화로 넘어가기 전에 크레딧이 모자라거나(리허설 1번도 못 함) 빠듯하면(이 발표를 몇 번 더 연습하기엔 부족) 띄워요.
@@ -37,10 +40,10 @@ export function CreditDialog({ open, left, cost, need, runs, onContinue, onClose
           {' '}크레딧을 추가하면 기한 없이 남고, 이번 달 크레딧을 다 쓴 뒤에 쓰여요.
         </p>
         <ul className="cr-packs">
-          {(Object.keys(PACKS) as PackId[]).map((id) => (
+          {SHOWN.map((id) => (
             <li key={id}>
               <button type="button" onClick={() => shut(() => router.push(`/me/pay?product=${id}`))}>
-                <span><b>크레딧 {PACKS[id].credits}</b><small>기한 없음</small></span><em>{won(PACKS[id].amount)}</em>
+                <span><b>크레딧 {PACKS[id].credits}</b><small>1크레딧 약 {perCredit(PACKS[id].amount, PACKS[id].credits)}원 · 기한 없음</small></span><span className="pk-price">{packSave(id) > 0 && <><s>{won(packList(id))}</s><i className="pk-off">{packSave(id)}%</i></>}<em>{won(PACKS[id].amount)}</em></span>
               </button>
             </li>
           ))}
@@ -49,7 +52,7 @@ export function CreditDialog({ open, left, cost, need, runs, onContinue, onClose
           {short
             ? <button type="button" className="btn-plain" onClick={() => shut()}>나중에</button>
             : <button type="button" className="btn-plain" onClick={() => shut(onContinue)}>그대로 녹화</button>}
-          <button type="button" className="btn-fill" onClick={() => shut(() => router.push('/me/plan#packs'))}>크레딧 추가</button>
+          <button type="button" className="btn-fill" onClick={() => shut(() => router.push('/me/plan#packs'))}>다른 묶음 보기</button>
         </div>
       </div>
     </dialog>

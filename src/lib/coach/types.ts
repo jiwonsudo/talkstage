@@ -22,7 +22,10 @@ export type Setup = {
   focus?: CatId | null;
   /** 무엇을 보여 주며 발표하나요 / 어떤 면접 자리인가요. 없으면 목적의 기본값 */
   aid?: AidId;
+  /** full = 영상+음성, voice = 카메라 없이 음성만(시선·자세·제스처·보여 주기는 분석 안 함) */
+  mode?: RecordMode;
 };
+export type RecordMode = 'full' | 'voice';
 
 export type PickedOutcome = Omit<Outcome, 'focus'> & { focus: Outcome['focus'] | 'none'; custom?: boolean };
 export type Dir = 'low' | 'high' | 'ok' | null;

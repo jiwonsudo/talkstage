@@ -4,7 +4,7 @@ import { Picto } from '@/components/ui/Picto';
 import { outcomeWeight, pickOutcomes, REASON_TEXT, type Analysis } from '@/lib/coach/analysis';
 import { coachFor, EVIDENCE, NOT_USED, selfCompare, type Coaching } from '@/lib/coach/coach';
 import { download, fixDuration, makeThumbs, pickMime, seekTo } from '@/lib/coach/media';
-import { drawTimeline, TL_HEIGHT, timeAt } from '@/lib/coach/timeline';
+import { drawTimeline, TL_HEIGHT, TL_HEIGHT_VOICE, timeAt } from '@/lib/coach/timeline';
 import type { CatResult, Check, Highlight, Setup } from '@/lib/coach/types';
 import type { Rehearsal } from '@/lib/data/types';
 import { CATS, CAT_LABEL, fmtTime, type CatId, type Purpose } from '@/lib/scenarios';
@@ -58,6 +58,9 @@ function RangeBar({ c, purpose, posture }: { c: CatResult; purpose: Purpose; pos
 /** 리포트: 요약, 우선순위, AI 하이라이트, 타임라인, 항목별 코칭, 내용 구조, 자기 인식 비교, 다음 리허설 */
 export function Report({ result: R, videoURL, setup, purpose, prev, history, onRetry, onEdit, onHome }: ReportProps) {
   const posture = setup.posture;
+  /** 음성만 리허설: 영상 대신 녹음, 시선·자세·제스처·보여 주기 카드는 빼요 */
+  const voice = setup.mode === 'voice';
+  const VISUAL: CatId[] = ['gaze', 'posture', 'gesture', 'showing'];
   const cats = R.cats;
   const outs = pickOutcomes(purpose, setup);
   const outcome = outs.map((o) => o.label).join(' · ');
@@ -157,7 +160,7 @@ export function Report({ result: R, videoURL, setup, purpose, prev, history, onR
   useEffect(() => {
     const v = videoRef.current!, cv = canvasRef.current!;
     let raf = 0;
-    const draw = () => drawTimeline(cv, R, purpose, v.currentTime);
+    const draw = () => drawTimeline(cv, R, purpose, v.currentTime, voice);
     const loop = () => { draw(); if (!v.paused) raf = requestAnimationFrame(loop); };
     const onPlay = () => { cancelAnimationFrame(raf); loop(); };
     const onTime = () => {
@@ -171,18 +174,18 @@ export function Report({ result: R, videoURL, setup, purpose, prev, history, onR
       cancelAnimationFrame(raf); ro.disconnect();
       v.removeEventListener('play', onPlay); v.removeEventListener('seeked', draw); v.removeEventListener('pause', draw); v.removeEventListener('timeupdate', onTime);
     };
-  }, [R, purpose]);
+  }, [R, purpose, voice]);
 
   // 하이라이트 썸네일
   useEffect(() => {
     const all = [...strengths.map((h, i) => [`s${i}`, h] as const), ...weaknesses.map((h, i) => [`w${i}`, h] as const)];
-    if (!all.length) return;
+    if (!all.length || voice) return; // 녹음만 있으면 썸네일이 없어요
     let live = true;
     makeThumbs(videoURL, all.map(([, h]) => (h.t0 + h.t1) / 2))
       .then((urls) => { if (live) setThumbs(Object.fromEntries(all.map(([k], n) => [k, urls[n]]))); })
       .catch((e) => console.warn('썸네일 생성 실패', e));
     return () => { live = false; };
-  }, [videoURL, strengths, weaknesses]);
+  }, [videoURL, strengths, weaknesses, voice]);
 
   const usedEvidence = [...new Set([
     ...Object.values(coached).flatMap((c) => c.evidence),
@@ -198,7 +201,7 @@ export function Report({ result: R, videoURL, setup, purpose, prev, history, onR
     const play = () => { toReview(); playClip(h); };
     return (
       <article className={`hl ${isW ? 'hl-w' : 'hl-s'}`}>
-        <button className="hl-thumb" type="button" onClick={play} aria-label={`${h.title} 구간 재생`}>
+        <button className={`hl-thumb${voice ? ' is-audio' : ''}`} type="button" onClick={play} aria-label={`${h.title} 구간 재생`}>
           <span className="thumb-img" style={thumbs[k] ? { backgroundImage: `url(${thumbs[k]})` } : undefined} />
           <span className="hl-time">{fmtTime(h.t0)} – {fmtTime(h.t1)}</span><span className="hl-play">▶</span>
         </button>
@@ -209,7 +212,7 @@ export function Report({ result: R, videoURL, setup, purpose, prev, history, onR
           {isW && co && <><p className="hl-fix"><b>이렇게 고쳐 보세요</b> {co.advice}</p><EvidenceList ids={co.evidence} /></>}
           <div className="hl-actions">
             <button type="button" className="btn-ghost sm" onClick={play}>재생</button>
-            <button type="button" className="btn-ghost sm" disabled={saving !== null} onClick={() => saveClip(h, k)}>{saving === k ? '구간 재생하며 저장 중…' : '클립 저장'}</button>
+            {!voice && <button type="button" className="btn-ghost sm" disabled={saving !== null} onClick={() => saveClip(h, k)}>{saving === k ? '구간 재생하며 저장 중…' : '클립 저장'}</button>}
           </div>
         </div>
       </article>
@@ -265,7 +268,7 @@ export function Report({ result: R, videoURL, setup, purpose, prev, history, onR
           <div className="r-meta">
             <div className="chips">
               <span className="chip">{setup.purposeName || purpose.label}</span>
-              <span className="chip">{posture === 'seated' ? '앉아서' : '서서'}</span>
+              <span className="chip">{voice ? '음성만' : posture === 'seated' ? '앉아서' : '서서'}</span>
               <span className="chip">{fmtTime(R.dur)} / 목표 {fmtTime(setup.targetSec)}</span>
               {setup.focus && <span className="chip chip-accent">집중: {CAT_LABEL[setup.focus]}</span>}
             </div>
@@ -286,7 +289,7 @@ export function Report({ result: R, videoURL, setup, purpose, prev, history, onR
 
         <section className="r-sec">
           <div className="sec-head">
-            <div><h2>AI 하이라이트</h2><p className="sec-lead">녹화에서 잘한 순간과 고칠 순간을 자동으로 잘라냈어요.</p></div>
+            <div><h2>AI 하이라이트</h2><p className="sec-lead">{voice ? '녹음' : '녹화'}에서 잘한 순간과 고칠 순간을 자동으로 잘라냈어요.</p></div>
             <button type="button" className="btn" disabled={!(strengths.length + weaknesses.length)} onClick={playReel}>하이라이트 이어서 보기</button>
           </div>
           {anxious ? <>{strengthsSection}{weakSection}</> : <>{weakSection}{strengthsSection}</>}
@@ -295,16 +298,18 @@ export function Report({ result: R, videoURL, setup, purpose, prev, history, onR
         {anxious && priSection}
 
         <section className="r-sec" ref={reviewRef}>
-          <h2>전체 영상과 타임라인</h2>
-          <p className="sec-lead">청중에게 보이는 방향(좌우 반전 없음)으로 재생돼요. 타임라인이나 시각을 누르면 그 장면으로 이동해요.</p>
+          <h2>{voice ? '전체 녹음과 타임라인' : '전체 영상과 타임라인'}</h2>
+          <p className="sec-lead">{voice ? '타임라인이나 시각을 누르면 그 부분부터 들려 드려요.' : '청중에게 보이는 방향(좌우 반전 없음)으로 재생돼요. 타임라인이나 시각을 누르면 그 장면으로 이동해요.'}</p>
           <div className="review">
             <div className="player-col">
-              <div className="player">
-                <video ref={videoRef} controls playsInline src={videoURL} />
+              <div className={`player${voice ? ' is-audio' : ''}`}>
+                {voice
+                  ? <audio ref={videoRef as unknown as React.RefObject<HTMLAudioElement>} controls src={videoURL} />
+                  : <video ref={videoRef} controls playsInline src={videoURL} />}
                 {banner && <div className={`clip-banner ${banner.cls}`}>{banner.text}</div>}
               </div>
               <div className="tl-wrap">
-                <canvas ref={canvasRef} className="tl-canvas" height={TL_HEIGHT} aria-label="발화, 속도, 시선, 자세, 제스처 타임라인"
+                <canvas ref={canvasRef} className={`tl-canvas${voice ? " is-voice" : ""}`} height={voice ? TL_HEIGHT_VOICE : TL_HEIGHT} aria-label={voice ? '발화, 속도 타임라인' : '발화, 속도, 시선, 자세, 제스처 타임라인'}
                   onClick={(e) => { const t = timeAt(e.currentTarget, e.clientX, R.dur); if (t >= 0 && t <= R.dur) { clip.current = null; setBanner(null); videoRef.current!.currentTime = t; } }} />
               </div>
               <div className="tl-legend"><span><i className="lg lg-voice" />말한 구간</span><span><i className="lg lg-band" />목표 속도</span><span><i className="lg lg-good" />좋음</span><span><i className="lg lg-bad" />문제</span><span><i className="lg lg-filler" />군더더기 말</span></div>
@@ -324,11 +329,11 @@ export function Report({ result: R, videoURL, setup, purpose, prev, history, onR
 
         <section className="r-sec">
           <h2>항목별 코칭</h2>
-          <p className="sec-lead">목표 범위는 {purpose.label} · {posture === 'seated' ? '앉아서' : '서서'} 기준이에요.{prev ? ' 숫자 옆의 증감은 지난 리허설과 비교한 값이에요.' : ''}</p>
+          <p className="sec-lead">목표 범위는 {purpose.label} · {voice ? '음성만' : posture === 'seated' ? '앉아서' : '서서'} 기준이에요.{voice ? ' 음성만 리허설이라 시선·자세·제스처는 빼고 채점했어요.' : ''}{prev ? ' 숫자 옆의 증감은 지난 리허설과 비교한 값이에요.' : ''}</p>
           <div className="cat-grid">
             {CATS.map(({ id }) => {
               const c = cats[id];
-              if (!c || (id === 'showing' && c.score == null)) return null; // 보여 줄 것 없는 발표면 카드 자체를 숨겨요
+              if (!c || (id === 'showing' && c.score == null) || (voice && VISUAL.includes(id))) return null; // 보여 줄 것 없는 발표면 카드 자체를 숨겨요
               const co = coached[id];
               const pd = prev?.scores?.[id];
               const d = c.score != null && pd != null ? c.score - pd : null;
@@ -403,9 +408,9 @@ export function Report({ result: R, videoURL, setup, purpose, prev, history, onR
             ))}
           </div>
           <div className="next-actions">
-            <button type="button" className="btn" onClick={() => onRetry(focus)}>같은 설정으로 다시 녹화</button>
+            <button type="button" className="btn" onClick={() => onRetry(focus)}>{voice ? '같은 설정으로 다시 녹음' : '같은 설정으로 다시 녹화'}</button>
             <button type="button" className="btn-ghost" onClick={() => onEdit(focus)}>발표 설정 바꾸기</button>
-            <button type="button" className="btn-ghost" onClick={() => fetch(videoURL).then((r) => r.blob()).then((b) => download(b, `리허설_${purpose.label}_${new Date().toISOString().slice(0, 10)}.${b.type.includes('mp4') ? 'mp4' : 'webm'}`))}>전체 녹화 파일 저장</button>
+            <button type="button" className="btn-ghost" onClick={() => fetch(videoURL).then((r) => r.blob()).then((b) => download(b, `리허설_${purpose.label}_${new Date().toISOString().slice(0, 10)}.${b.type.includes('mp4') ? (voice ? 'm4a' : 'mp4') : 'webm'}`))}>{voice ? '전체 녹음 파일 저장' : '전체 녹화 파일 저장'}</button>
             <button type="button" className="btn-ghost" onClick={onHome}>홈으로</button>
           </div>
           {history.length > 0 && (
