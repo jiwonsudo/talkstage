@@ -38,14 +38,14 @@ export default function SubscribeSuccess() {
         <>
           <h1 className="title1">카드를 바꿨어요</h1>
           <p className="subtitle">다음 결제부터 새 카드로 결제돼요.</p>
-          <div className="pay-actions"><Link href="/me/plan" className="btn-fill">요금제 관리로</Link></div>
+          <div className="pay-actions"><Link href="/me/plan" className="btn-fill">요금제·크레딧 관리로</Link></div>
         </>
       )}
       {state.s === 'err' && (
         <>
           <h1 className="title1">결제를 마치지 못했어요</h1>
-          <p className="subtitle">{state.msg} 카드가 등록됐다면 요금제 관리에서 다시 시도할 수 있어요.</p>
-          <div className="pay-actions"><Link href="/me/plan" className="btn-plain">요금제 관리로</Link></div>
+          <p className="subtitle">{state.msg} 카드가 등록됐다면 요금제·크레딧 관리에서 다시 시도할 수 있어요.</p>
+          <div className="pay-actions"><Link href="/me/plan" className="btn-plain">요금제·크레딧 관리로</Link></div>
         </>
       )}
     </div>

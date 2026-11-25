@@ -13,8 +13,8 @@ import { creditTone } from '@/lib/colors';
 const MENU = [
   { href: '/me/rehearsals', label: '내 리허설' },
   { href: '/me/account', label: '계정 관리' },
-  { href: '/me/plan', label: '요금제 관리' },
-  { href: '/me/billing', label: '결제·크레딧 내역' },
+  { href: '/me/plan', label: '요금제·크레딧 관리' },
+  { href: '/me/billing', label: '결제 관리' },
   { href: '/me/support', label: '지원 받기' },
   { href: '/me/settings', label: '설정', icon: true },
 ];
@@ -23,8 +23,8 @@ const TITLES: Record<string, string> = {
   '/rehearsal/new': '새 리허설',
   '/me/rehearsals': '내 리허설',
   '/me/account': '계정 관리',
-  '/me/plan': '요금제 관리',
-  '/me/billing': '결제·크레딧 내역',
+  '/me/plan': '요금제·크레딧 관리',
+  '/me/billing': '결제 관리',
   '/me/support': '지원 받기',
   '/me/settings': '설정',
 };

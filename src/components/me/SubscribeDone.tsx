@@ -16,7 +16,7 @@ export function SubscribeDone({ plan, periodEnd, fromWizard }: { plan: PlanId; p
         {fromWizard
           ? <Link href="/rehearsal/new?resume=1" className="btn-fill">리허설 설정으로 돌아가기</Link>
           : <Link href="/rehearsal/new" className="btn-fill">새 리허설 시작</Link>}
-        <Link href="/me/plan" className="btn-plain">요금제 관리</Link>
+        <Link href="/me/plan" className="btn-plain">요금제·크레딧 관리</Link>
       </div>
     </div>
   );

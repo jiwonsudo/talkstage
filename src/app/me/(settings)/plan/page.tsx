@@ -63,7 +63,7 @@ export default function Plan() {
 
   return (
     <>
-      <h1 className="title1">요금제 관리</h1>
+      <h1 className="title1">요금제·크레딧 관리</h1>
       <p className="subtitle">리허설 한 번에 {CREDIT_PER_REHEARSAL}크레딧, AI 대본 코칭은 대본 길이에 따라 3~9크레딧(Spotlight부터)을 써요. 기록을 지워도 쓴 크레딧은 돌아오지 않아요.</p>
       <UsageHelp />
       <div className="hub-card hub-plan">
@@ -88,7 +88,7 @@ export default function Plan() {
         {sub?.status === 'past_due' && (
           <p className="hp-sub is-warn"><span>지난 결제가 되지 않았어요. 카드를 확인해 주세요(하루에 한 번 다시 시도해요).</span><Link href="/me/subscribe?card=1" className="link-btn">카드 바꾸기</Link></p>
         )}
-        <Link href="/me/billing" className="link-btn hp-hist">결제·크레딧 내역 보기</Link>
+        <Link href="/me/billing" className="link-btn hp-hist">결제 관리(카드·영수증)</Link>
       </div>
       <ul className="hub-plans">
         {ids.map((n) => {
