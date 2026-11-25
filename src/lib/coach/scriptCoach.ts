@@ -51,7 +51,7 @@ export const aiCoachCost = (chars: number) => (AI_COACH_TIERS.find((t) => chars 
 
 /** 지금 이 사용자가 AI 코칭을 쓸 수 있는지(서버가 정해요) */
 export type CoachStatus =
-  | { mode: 'promo'; trial: 'none' | 'ready' | 'busy' | 'used' }
+  | { mode: 'promo'; paid: boolean; trial: 'none' | 'ready' | 'busy' | 'used' }
   | { mode: 'credits'; paid: boolean; left: number | null }
   | { mode: 'off'; reason: string };
 

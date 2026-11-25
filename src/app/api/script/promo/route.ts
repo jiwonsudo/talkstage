@@ -13,6 +13,8 @@ export async function POST(req: Request) {
   const c = typeof code === 'string' ? code.trim().toUpperCase() : '';
   if (!c) return fail('코드를 입력해 주세요.');
   if (!promoCodes().includes(c)) return fail('맞지 않는 코드예요. 다시 확인해 주세요.');
+  const st = await coachStatus(me.user.id, me.supabase);
+  if (st.mode === 'promo' && !st.paid) return fail('AI 대본 코칭은 Spotlight 요금제부터 쓸 수 있어요.', 402);
   const admin = getAdminSupabase();
   if (!admin) return fail('서버 설정이 끝나지 않았어요.', 500);
   const { data, error } = await admin.rpc('ai_trial_redeem', { p_uid: me.user.id, p_code: c });

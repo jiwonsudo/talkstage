@@ -44,6 +44,7 @@ export async function POST(req: Request) {
   let charged: CoachResult['charged'];
   let undo: () => Promise<unknown>;
   if (status.mode === 'promo') {
+    if (!status.paid) return fail('AI 대본 코칭은 Spotlight 요금제부터 쓸 수 있어요.', 402);
     if (status.trial === 'none') return fail('프로모션 코드를 먼저 넣어 주세요.', 402);
     if (status.trial === 'used') return fail('테스트 코칭 1회를 이미 썼어요.', 402);
     const { data: ok, error } = await admin.rpc('ai_trial_claim', { p_uid: uid });
