@@ -13,7 +13,7 @@ import { PURPOSES, fmtMin, fmtTime } from '@/lib/scenarios';
 const BASE_RATE: Record<string, number> = { interview: 1, ir: 1.05, report: 1.02, lecture: 0.95, conference: 1, speech: 0.92 };
 const SPEEDS = [0.9, 1, 1.15];
 
-type Props = { draft: Draft; update: (fn: (d: Draft) => Draft) => void; onRecord: () => void; paid: boolean };
+type Props = { draft: Draft; update: (fn: (d: Draft) => Draft) => void; onRecord: () => void; paid: boolean; /** 대본만 분석(녹화 없이) — 끝내기 */ onFinish: () => void };
 type Ai = { status: 'idle' | 'loading' | 'done' | 'error'; res?: CoachResult; err?: string; key?: string };
 // 받은 AI 코칭은 이 기기에 남겨 둬요(테스트 1회·크레딧을 쓴 결과가 화면을 떠나도 사라지지 않게).
 const AI_SAVE = 'ts-ai-coach-v1';
@@ -26,7 +26,9 @@ const loadSaved = (): Ai => {
  * AI 대본 코칭(/api/script/coach)은 서버가 정한 조건에서만: 지금(테스트)은 프로모션 코드로 1회,
  * 정식은 유료 요금제 + 대본 길이별 크레딧(쓰기 전에 몇 크레딧인지 보여 줘요).
  */
-export function ScriptCheck({ draft, update, onRecord, paid }: Props) {
+export function ScriptCheck({ draft, update, onRecord, paid, onFinish }: Props) {
+  // 대본만(녹화 없이) 분석하러 왔으면 '분석 마치기'가 주 버튼이고, 녹화는 원하면 이어서 해요.
+  const only = draft.mode === 'script';
   const toast = useToast();
   const p = purposeOf(draft);
   const targetSec = targetSecOf(draft);
@@ -95,7 +97,7 @@ export function ScriptCheck({ draft, update, onRecord, paid }: Props) {
   return (
     <section className="screen">
       <div className="page sc-page">
-        <h1 className="title1">{paid ? '대본 점검' : '대본'}</h1>
+        <h1 className="title1">{only ? '대본 분석' : paid ? '대본 점검' : '대본'}</h1>
         <p className="subtitle">{paid ? `${p.label} 기준으로 시간·흐름·읽기 가이드를 바로 확인하고, AI 코칭으로 대본을 먼저 이해한 뒤 고칠 문장과 말하는 방법까지 받아요.` : `대본을 적어 두면 ${p.label} 기준 간단 코칭을 근거와 함께 보여 드려요.`}</p>
         <div className="sc-setup">
           <label className="sel"><span>발표 상황</span>
@@ -129,7 +131,8 @@ export function ScriptCheck({ draft, update, onRecord, paid }: Props) {
         {!paid ? (
           <>
             {n >= 20 && <SimpleCoach draft={draft} />}
-            <button type="button" className="btn-fill btn-block sc-go" disabled={!draft.title.trim()} onClick={onRecord}>이 대본으로 녹화 준비</button>
+            {only && <button type="button" className="btn-fill btn-block sc-go" onClick={onFinish}>분석 마치기</button>}
+            <button type="button" className={`${only ? 'btn-plain' : 'btn-fill'} btn-block sc-go`} disabled={!draft.title.trim()} onClick={onRecord}>이 대본으로 녹화 준비</button>
           </>
         ) : <>
         <button type="button" className="btn-fill btn-block" disabled={n < 20} onClick={check}>대본 점검하기</button>
@@ -139,9 +142,9 @@ export function ScriptCheck({ draft, update, onRecord, paid }: Props) {
             onUseKey={(k) => { update((d) => ({ ...d, key: k })); toast('핵심 메시지로 넣었어요'); }} />
         </div>
         <div ref={outRef} aria-live="polite">
-          {result && result.stats.n > 0 && <ScriptResult result={result} purposeId={p.id} purposeLabel={p.label} onRecord={onRecord} />}
+          {result && result.stats.n > 0 && <ScriptResult result={result} purposeId={p.id} purposeLabel={p.label} onRecord={onRecord} onFinish={only ? onFinish : undefined} />}
         </div>
-        {!result && <button type="button" className="btn-plain btn-block sc-skip" onClick={onRecord}>점검 없이 녹화</button>}
+        {!result && !only && <button type="button" className="btn-plain btn-block sc-skip" onClick={onRecord}>점검 없이 녹화</button>}
         </>}
       </div>
     </section>
@@ -283,7 +286,7 @@ function curve(s: Sent) {
   return d;
 }
 
-function ScriptResult({ result: r, purposeId, purposeLabel, onRecord }: { result: ScriptAnalysis; purposeId: string; purposeLabel: string; onRecord: () => void }) {
+function ScriptResult({ result: r, purposeId, purposeLabel, onRecord, onFinish }: { result: ScriptAnalysis; purposeId: string; purposeLabel: string; onRecord: () => void; onFinish?: () => void }) {
   const s = r.stats;
   const reader = useRef<Reader | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -400,12 +403,20 @@ function ScriptResult({ result: r, purposeId, purposeLabel, onRecord }: { result
         </div>
       </section>
 
-      <div className="sc-cta">
-        <button type="button" className="btn-fill btn-block" onClick={() => { stop(); onRecord(); }}>
-          이 대본으로 녹화 리허설<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7" /></svg>
-        </button>
-        <p>대본과 핵심 메시지를 녹화 설정에 넘겨요. 녹화 후 리포트에서 대본대로 말했는지도 함께 봐요.</p>
-      </div>
+      {onFinish ? (
+        <div className="sc-cta">
+          <button type="button" className="btn-fill btn-block" onClick={() => { stop(); onFinish(); }}>분석 마치기</button>
+          <button type="button" className="btn-plain btn-block" onClick={() => { stop(); onRecord(); }}>이 대본으로 녹화 리허설도 하기</button>
+          <p>대본만 분석해서 리허설 크레딧은 쓰지 않았어요. AI 코칭 결과는 이 기기에 남아서, 같은 대본을 다시 넣으면 크레딧 없이 다시 볼 수 있어요.</p>
+        </div>
+      ) : (
+        <div className="sc-cta">
+          <button type="button" className="btn-fill btn-block" onClick={() => { stop(); onRecord(); }}>
+            이 대본으로 녹화 리허설<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7" /></svg>
+          </button>
+          <p>대본과 핵심 메시지를 녹화 설정에 넘겨요. 녹화 후 리포트에서 대본대로 말했는지도 함께 봐요.</p>
+        </div>
+      )}
     </>
   );
 }

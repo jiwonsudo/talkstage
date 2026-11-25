@@ -18,6 +18,8 @@ export type Rehearsal = {
   scores: Record<string, number | null>;
   focus: string | null;
   duration_sec: number | null;
+  /** full = 영상+음성, voice = 음성만(0009 전에 저장된 기록은 없음 = full) */
+  mode?: 'full' | 'voice';
 };
 
 /** 이번 달 크레딧 현황. 서버 함수 credits_left() 가 돌려줘요. */

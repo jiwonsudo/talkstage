@@ -459,7 +459,8 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
   const poseFrames = V.filter((f) => f.pose).length;
   const faceOK = V.length > 0 && faceFrames / V.length >= 0.4;
   const poseOK = V.length > 0 && poseFrames / V.length >= 0.4;
-  if (!V.length) limits.push('영상 분석 모델을 쓰지 못해 시선·자세·제스처는 분석하지 않았어요.');
+  if (setup.mode === 'voice') limits.push('음성만 리허설이라 시선·자세·제스처·보여 주기는 분석하지 않고, 목소리와 내용 항목으로만 점수를 냈어요.');
+  else if (!V.length) limits.push('영상 분석 모델을 쓰지 못해 시선·자세·제스처는 분석하지 않았어요.');
   else {
     if (!faceOK) limits.push('얼굴이 화면에서 자주 사라져 시선 분석이 정확하지 않을 수 있어요. 조명을 얼굴 정면에 두세요.');
     if (!poseOK) limits.push(posture === 'seated' ? '어깨가 화면에 잘 잡히지 않아 자세 분석을 생략했어요.' : '상체가 화면에 잘 잡히지 않아 자세 분석을 생략했어요.');

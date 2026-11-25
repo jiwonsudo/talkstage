@@ -8,9 +8,11 @@ import { syllables } from '@/lib/coach/audio';
 import { readScriptFile } from '@/lib/coach/script';
 import { AID_OPTS, aidOf, deliveryOf } from '@/lib/delivery';
 import { SimpleCoach } from './SimpleCoach';
+import { SegPill } from '@/components/ui/SegPill';
+import Link from 'next/link';
 import {
   CUSTOM_WARN, defaultTitle, PROMPT_COPY, SCRIPT_EXAMPLES, WORRIES,
-  purposeOf, recommendTime, targetSecOf, timeOpts, withPurpose, type Draft,
+  purposeOf, recommendTime, targetSecOf, timeOpts, withPurpose, type Draft, type PracticeMode,
 } from '@/lib/rehearsal/draft';
 import { CAT_LABEL, POSTURES, PURPOSES, fmtMin, type CatId } from '@/lib/scenarios';
 
@@ -333,10 +335,19 @@ function CustomGoalBox({ draft, update, paid }: { draft: Draft; update: Props['u
   );
 }
 
+const MODES: [PracticeMode, string][] = [['full', '영상+음성'], ['voice', '음성만'], ['script', '대본만']];
+const MODE_NOTE: Record<PracticeMode, string> = {
+  full: '권장 · 카메라와 마이크로 말·시선·자세·제스처까지 봐요.',
+  voice: '카메라가 없거나 켜기 어려울 때 · 마이크로 말 빠르기·쉼·톤·군더더기 말·시간만 봐요. 리허설 1번과 같은 크레딧이에요.',
+  script: '말하기 어려울 때 · 녹화 없이 대본만 분석해요. 리허설 크레딧은 쓰지 않아요.',
+};
+
 function PromptStep({ draft, update, guest, paid, onAnalyzeScript, onRecord }: Pick<Props, 'draft' | 'update' | 'guest' | 'paid' | 'onAnalyzeScript' | 'onRecord'>) {
   const has = draft.hasScript;
   const p = purposeOf(draft);
-  const copy = PROMPT_COPY[has];
+  const mode = draft.mode;
+  const scriptOnly = mode === 'script';
+  const copy = scriptOnly ? PROMPT_COPY.script : PROMPT_COPY[has];
   const [err, setErr] = useState('');
   const [over, setOver] = useState(false);
   // 버튼은 늘 누를 수 있어요. 누르면 빠진 칸을 빨간 윤곽과 이유로 바로 보여 주고 그 칸으로 데려가요.
@@ -349,7 +360,7 @@ function PromptStep({ draft, update, guest, paid, onAnalyzeScript, onRecord }: P
   const scN = syllables(draft.script);
   const titleErr = draft.title.trim() ? '' : '리허설 제목을 적어 주세요. 같은 제목끼리 연습 기록이 모여요.';
   // 대본 점검·AI 코칭으로 가려면 대본이 있어야 해요(무료는 대본 없이도 녹화할 수 있어요).
-  const needScript = has === 'yes' && (guest || paid);
+  const needScript = has === 'yes' && (guest || paid || scriptOnly);
   const scriptErr = needScript && scN < 20 ? (scN ? `대본이 너무 짧아요. 지금 ${scN}음절, 20음절 이상 적어 주세요.` : '대본을 붙여넣거나 파일을 올려 주세요.') : '';
 
   function attempt(next: () => void, checkScript: boolean) {
@@ -380,17 +391,33 @@ function PromptStep({ draft, update, guest, paid, onAnalyzeScript, onRecord }: P
     </label>
   );
 
+  // 연습 방식: 영상+음성(기본) · 음성만(카메라 없이) · 대본만(녹화 없이). 대본만은 대본이 있어야 해요.
+  const pickMode = (m: PracticeMode) => update((d) => ({ ...d, mode: m, hasScript: m === 'script' ? 'yes' : d.hasScript }));
+  const recLabel = mode === 'voice' ? '녹음 준비' : '녹화 준비';
+  const modeField = (
+    <div className="field w-mode"><span id="wModeLab">연습 방식</span>
+      <div className="seg seg-3" role="radiogroup" aria-labelledby="wModeLab">
+        {MODES.map(([m, l]) => <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => pickMode(m)}>{l}</button>)}
+        <SegPill />
+      </div>
+      <small className="w-mode-note" key={mode}>{MODE_NOTE[mode]}</small>
+    </div>
+  );
+
   return (
     <>
       <h1 className="title1">{copy.title}</h1>
       <p className="subtitle">{copy.sub}</p>
-      {has === 'yes' ? (
+      {has === 'yes' || scriptOnly ? (
         <div className="wiz-pane">
           {titleField}
-          <button type="button" className="alt-path" onClick={() => update((d) => ({ ...d, hasScript: 'no' }))}>
-            <b>대본이 없나요?</b><span>제목과 핵심 메시지만 적고 바로 녹화해요</span>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7" /></svg>
-          </button>
+          {modeField}
+          {!scriptOnly && (
+            <button type="button" className="alt-path" onClick={() => update((d) => ({ ...d, hasScript: 'no' }))}>
+              <b>대본이 없나요?</b><span>제목과 핵심 메시지만 적고 바로 {mode === 'voice' ? '녹음' : '녹화'}해요</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7" /></svg>
+            </button>
+          )}
           <div className={`textview wiz-drop${over ? ' is-over' : ''}${showScriptErr ? ' is-bad' : ''}`}
             onDragOver={(e) => { e.preventDefault(); setOver(true); }}
             onDragLeave={() => setOver(false)}
@@ -410,13 +437,21 @@ function PromptStep({ draft, update, guest, paid, onAnalyzeScript, onRecord }: P
             <input type="text" maxLength={80} value={draft.key} onChange={(e) => update((d) => ({ ...d, key: e.target.value }))} placeholder="청중이 기억했으면 하는 한 문장" />
           </label>
           {!guest && !paid && scN >= 20 && <SimpleCoach draft={draft} />}
-          {guest ? <button type="button" className="btn-fill btn-block w-analyze" onClick={() => attempt(onAnalyzeScript, true)}>로그인하고 계속하기</button>
-            : paid ? <button type="button" className="btn-fill btn-block w-analyze" onClick={() => attempt(onAnalyzeScript, true)}>대본 점검·AI 코칭 받기</button>
-            : <button type="button" className="btn-fill btn-block w-analyze" onClick={() => attempt(onRecord, false)}>녹화 준비</button>}
+          {guest ? <button type="button" className="btn-fill btn-block w-analyze" onClick={() => attempt(onAnalyzeScript, true)}>{scriptOnly ? '로그인하고 대본 분석하기' : '로그인하고 계속하기'}</button>
+            : paid ? <button type="button" className="btn-fill btn-block w-analyze" onClick={() => attempt(onAnalyzeScript, true)}>{scriptOnly ? '대본 분석·AI 코칭 받기' : '대본 점검·AI 코칭 받기'}</button>
+            : scriptOnly ? (
+              <div className="w-script-free">
+                <p className="wiz-note">무료 요금제는 위의 간단 코칭까지 볼 수 있어요. 시간·흐름·읽기 가이드와 AI 대본 코칭은 Spotlight부터예요.</p>
+                <Link href="/me/plan?pick=Spotlight&from=wizard" className="btn-fill btn-block">요금제 보고 AI 코칭 받기</Link>
+                <button type="button" className="btn-plain btn-block" onClick={() => attempt(() => { pickMode('full'); onRecord(); }, true)}>이 대본으로 녹화 준비</button>
+              </div>
+            )
+            : <button type="button" className="btn-fill btn-block w-analyze" onClick={() => attempt(onRecord, false)}>{recLabel}</button>}
         </div>
       ) : (
         <div className="wiz-pane">
           {titleField}
+          {modeField}
           <button type="button" className="back-path" onClick={() => update((d) => ({ ...d, hasScript: 'yes' }))}>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 5l-7 7 7 7" /></svg>대본이 있어요
           </button>
@@ -425,8 +460,8 @@ function PromptStep({ draft, update, guest, paid, onAnalyzeScript, onRecord }: P
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); attempt(onRecord, false); } }}
               placeholder="청중이 기억했으면 하는 한 문장" />
           </label>
-          <p className="wiz-note">적어 두면 녹화한 뒤 이 문장을 처음과 끝에 말했는지 확인해요.</p>
-          <button type="button" className="btn-fill btn-block" onClick={() => attempt(onRecord, false)}>{guest ? '로그인하고 녹화 준비' : '녹화 준비'}</button>
+          <p className="wiz-note">적어 두면 {mode === 'voice' ? '녹음' : '녹화'}한 뒤 이 문장을 처음과 끝에 말했는지 확인해요.</p>
+          <button type="button" className="btn-fill btn-block" onClick={() => attempt(onRecord, false)}>{guest ? `로그인하고 ${recLabel}` : recLabel}</button>
         </div>
       )}
     </>

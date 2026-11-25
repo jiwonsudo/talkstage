@@ -38,7 +38,7 @@ alter table public.support_requests drop constraint if exists support_requests_c
 alter table public.support_requests add constraint support_requests_category_check
   check (category in ('record', 'report', 'credit', 'payment', 'account', 'etc'));
 alter table public.support_requests drop constraint if exists support_requests_message_check;
-alter table public.support_requests add constraint support_requests_message_check check (char_length(message) between 10 and 2000);
+alter table public.support_requests add constraint support_requests_message_check check (char_length(message) between 10 and 2000) not valid; -- 예전 짧은 문의가 있어도 막히지 않게(새 문의부터 적용)
 
 -- ── 도입 문의(랜딩, 로그인 없이). 예전엔 브라우저(localStorage)에만 남았어요. 넣기만 되고 읽기는 대시보드에서. ──
 create table if not exists public.leads (

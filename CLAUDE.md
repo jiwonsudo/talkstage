@@ -69,15 +69,15 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
   - `colors.ts` 항목·상황별 고정 원색
   - `scenarios.ts` 발표 상황(interview, ir, report, lecture, conference, capstone, speech)·목표·기준값
   - `plans.ts` 요금제, `data/` Supabase 읽기·쓰기, `supabase/` 클라이언트 생성
-- `supabase/migrations/` 0001 스키마+RLS, 0002 권한(GRANT) — 원격 적용 완료. 0003 크레딧 사용 내역(`credit_ledger`, `credits_left()`, `record_rehearsal()`) — 원격 적용 완료. 0004 요금제 크레딧 조정(`plan_credits()` 120/360) — 원격 적용 완료. 0005 회차 구매(`orders`, `create_order()`, 서버 전용 `order_for_confirm()`·`complete_order()`, 산 크레딧 `bonus_left()`, 20초 미만 저장 거절) — 원격 적용 완료. 0006 월 요금제 정기결제(`billing_cards`·`subscriptions`·`subscription_payments`, `profiles.plan` 은 서버만 수정) — 원격 적용 완료. 0007 AI 대본 코칭(`ai_trials` 테스트 1회권, `ai_coach_cost()`·`charge_ai_coach()`·`refund_ai_coach()`, 전부 service_role 전용) — 원격 적용 완료. 0008 크레딧 구매 가격(`pack_info` 36cr 1,900원·72cr 3,500원, 구독보다 크레딧당 비쌈)·다운그레이드 사유(`plan_changes`)·지원 문의 분류/동의(`support_requests.category·consent_at`)·도입 문의 서버 저장(`leads`, 비로그인도 insert만) — 원격 적용 완료.
+- `supabase/migrations/` 0001 스키마+RLS, 0002 권한(GRANT) — 원격 적용 완료. 0003 크레딧 사용 내역(`credit_ledger`, `credits_left()`, `record_rehearsal()`) — 원격 적용 완료. 0004 요금제 크레딧 조정(`plan_credits()` 120/360) — 원격 적용 완료. 0005 회차 구매(`orders`, `create_order()`, 서버 전용 `order_for_confirm()`·`complete_order()`, 산 크레딧 `bonus_left()`, 20초 미만 저장 거절) — 원격 적용 완료. 0006 월 요금제 정기결제(`billing_cards`·`subscriptions`·`subscription_payments`, `profiles.plan` 은 서버만 수정) — 원격 적용 완료. 0007 AI 대본 코칭(`ai_trials` 테스트 1회권, `ai_coach_cost()`·`charge_ai_coach()`·`refund_ai_coach()`, 전부 service_role 전용) — 원격 적용 완료. 0008 크레딧 구매 가격·다운그레이드 사유(`plan_changes`)·지원 문의 분류/동의(`support_requests.category·consent_at`)·도입 문의 서버 저장(`leads`, 비로그인도 insert만) — 원격 적용 완료. 0009 리허설 방식(`rehearsals.mode` full/voice, `record_rehearsal(..., p_mode)`)·다운그레이드 사유 여러 개(`plan_changes.reasons` 최대 3, 순서=우선순위)·`plan_credits()` 36/144/384·`pack_info()` 48 단위 — **원격 적용 필요**(적용 전에도 앱은 예전 함수로 대체해서 동작, 단 묶음 결제는 새 pack id 라 0009 후에 됨).
 - `legacy/` 이전 plain JS 버전. 참고용, 빌드·lint 대상 아님.
 
 ## 제품 규칙(이미 구현됨, 바꿀 때 지킬 것)
 
 - 리허설 설정(마법사)은 로그인 없이 고를 수 있고, 첫 단계에 "녹화할 때 로그인" 안내를 띄움. 마지막 단계 버튼("로그인하고 녹화 준비/대본 분석하기")에서 로그인 모달 → 로그인 후 그대로 이어감(소셜 로그인은 `?step=5&resume=1` 로 돌아옴). `/me` 만 proxy 가 막음.
 - 마법사: 지난 설정·기본값은 체크로 안 보여 줌(이번에 직접 고른 단계만 체크). 단계마다 history 를 쌓아서 내비 뒤로 화살표·폰 뒤로 가기가 이전 단계로 감. 그만두기 버튼은 없음(내비의 홈 버튼 사용). 로그인 후 내비: "새 리허설 +" CTA + 메뉴(내 리허설 / 계정 관리 / 요금제 관리 / 지원 받기 / 로그아웃).
-- 요금제: Opening 36크레딧(무료), Spotlight 120(월 4,900원, 연 3,900원), Headliner 360(월 9,900원, 연 7,900원), 대학·팀·기업 단체 요금제는 문의. 리허설 1회 = 12크레딧.
-- 결제(토스페이먼츠 결제위젯, 지금은 테스트 키 `test_gck`/`test_gsk`): **크레딧 구매**(회차로 팔지 않음, 구매 화면에 리허설 횟수 쓰지 말 것). 36크레딧 1,900원·72크레딧 3,500원 — `plans.ts` `PACKS` 와 SQL `pack_info()` 둘 다. 구매 화면에는 사용 예시(`ui/CreditExamples`, 대략 몇 크레딧)를 보여 줌. 무료 요금제도 크레딧을 살 수 있음. 금액은 DB 가 정하고, `/api/payments/confirm` 이 DB 금액과 대조 → 토스 승인(멱등 키 `confirm-{orderId}`) → `complete_order()`(service_role 만). 산 크레딧은 매달 초기화 안 되고, 이번 달 크레딧을 먼저 씀. 환경 변수 `NEXT_PUBLIC_TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY`(NEXT_PUBLIC_ 금지) — Vercel 에도 넣어 둠. 사업자등록 전이라 실결제(live 키) 불가.
+- 요금제: Opening 36크레딧(무료, 리허설 3번), Spotlight 144(월 4,900원, 연 3,900원), Headliner 384(월 9,900원, 연 7,900원), 대학·팀·기업 단체 요금제는 문의. 리허설 1회 = 12크레딧. **크레딧 기준 단위 = 발표 하나 준비 ≈ 48크레딧**(`CREDIT_PER_TALK`, AI 코칭 1번 + 같은 발표 3~4번 연습). 유료 요금제는 "발표 약 N개 준비(예상)"로 설명(`planUsage`), 무료는 리허설 횟수.
+- 결제(토스페이먼츠 결제위젯, 지금은 테스트 키 `test_gck`/`test_gsk`): **크레딧 구매**(회차로 팔지 않음, 구매 화면에 리허설 횟수 쓰지 말 것). 묶음은 48의 배수 48·96·192·288·480(2,400~19,200원, 48묶음 값 기준 정가에서 6~20% 할인 표시, 어떤 묶음도 구독보다 1크레딧이 비쌈 — `PACKS_ABOVE_SUBS`) — `plans.ts` `PACKS` 와 SQL `pack_info()`(0009) 둘 다. 구매 화면에는 사용 예시(`ui/CreditExamples`, 대략 몇 크레딧)를 보여 줌. 무료 요금제도 크레딧을 살 수 있음. 금액은 DB 가 정하고, `/api/payments/confirm` 이 DB 금액과 대조 → 토스 승인(멱등 키 `confirm-{orderId}`) → `complete_order()`(service_role 만). 산 크레딧은 매달 초기화 안 되고, 이번 달 크레딧을 먼저 씀. 환경 변수 `NEXT_PUBLIC_TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY`(NEXT_PUBLIC_ 금지) — Vercel 에도 넣어 둠. 사업자등록 전이라 실결제(live 키) 불가.
 - 월 요금제 정기결제(토스 자동결제·빌링): 결제위젯 키가 아니라 **API 개별 연동 키**(`NEXT_PUBLIC_TOSS_BILLING_CLIENT_KEY`=test_ck, `TOSS_BILLING_SECRET_KEY`=test_sk). `/me/subscribe?plan=` 에서 카드 등록(`requestBillingAuth`) → `/me/subscribe/success` → `/api/billing/start` 가 빌링키 발급·저장 후 결제(금액은 SQL `sub_new_payment`, 업그레이드는 남은 날만큼 차감). 토스는 자동으로 매달 결제하지 않아서 Vercel Cron(`vercel.json`, 매일 UTC 0시)이 `/api/billing/cron`(Bearer `CRON_SECRET`)을 불러 결제일 지난 구독을 결제. 실패하면 하루 한 번 3번까지 재시도 후 Opening. 해지는 예약(기간 끝까지 사용), 낮은 유료 요금제는 다음 결제일부터. 빌링키는 서버 전용 표에만, 계정 삭제 때 토스에서도 지움. 가격을 바꾸면 `plans.ts` `PLAN_PRICE` 와 SQL `plan_price()` 둘 다. 연 결제는 아직 없음.
 - 크레딧은 서버가 센다: `credit_ledger` 사용 내역 합계(한국 시간 매월 1일 초기화). 기록을 지워도 차감은 유지. 저장은 `record_rehearsal()` RPC 로만(앱의 rehearsals 직접 insert 권한 없음), "종료하고 분석" 뒤 저장이 성공해야 리포트를 보여 줌. 크레딧을 못 불러오거나 모자라면 녹화 화면 진입 차단. 요금제 크레딧을 바꾸면 `plans.ts` 와 SQL `plan_credits()` 둘 다.
 - 리허설 성립 조건(`analysis.ts` 의 `MIN_REHEARSAL_SEC` 등): 20초 미만이거나 실제 목소리가 max(8초, 녹화의 20%) 미만이면 `invalid` → 점수·리포트·저장·크레딧 차감 없이 녹화 화면으로 돌아감.
@@ -101,10 +101,12 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
 - 크레딧 표시: 이번 달 남은 것 / 이번 달 총량 + 산 크레딧은 "+N 추가"로 따로(400/360 같은 표시 금지). 막대 색은 `creditTone`(초록→빨강), 산 크레딧은 옅은 두 번째 조각. 요금제 뱃지는 `ui/PlanBadge`(`PLAN_COLOR`), 유료 요금제 기능 뱃지는 `PLAN_PERKS`.
 - 예상 횟수는 반드시 "약/대략"과 "(예상)"을 붙일 것. 기준은 `ui/UsageHelp`("예상 횟수 산정 기준 ?").
 - 녹화로 넘어갈 때: 무료 요금제는 `UpsellDialog`, 그다음 크레딧이 리허설 1번도 안 되거나 같은 발표 3번 연습에 모자라면 `CreditDialog`(제목마다 한 번, 크레딧 추가 구매로 유도).
-- 다운그레이드(해지 포함, 버튼 이름 통일)는 `me/DowngradeDialog` 로 사유 필수(직접 작성은 10자 이상) → `plan_changes` 저장(실패해도 진행).
+- 다운그레이드(해지 포함, 버튼 이름 통일)는 `me/DowngradeDialog` 로 사유 필수(최대 3개, 고른 순서가 우선순위·번호 표시, 직접 작성은 10자 이상) → `plan_changes` 저장(실패해도 진행).
 - 필수 입력: 버튼은 잠그지 않고, 누르면 빠진 칸에 빨간 윤곽(`.field.is-bad`)과 이유(`.field-err`)를 보여 주고 그 칸으로 데려감. 필수 표시는 `.req`.
 - 문의: 지원 받기 → `support_requests`(분류·개인정보 동의 필수), 도입 문의 → `leads`(동의 필수). 둘 다 Supabase Table Editor 에서 확인.
 - 마법사 직접 입력: 이름에서 비슷한 기본 유형을 추천, 기본 유형과 같으면 그걸 고르게 안내, "비슷한 유형이 없어요"(일반 발표 기준 = conference, `general`)·"딱 맞는 항목이 없어요"(focus `none`, 가중치 없음).
+
+- 연습 방식(마법사 마지막 단계 `.seg` 3칸, `draft.mode`): **영상+음성**(기본) / **음성만**(카메라 없이 오디오만 녹음, 시선·자세·제스처·보여 주기 분석 안 함, 리포트는 `<audio>`·시각 레인 없는 타임라인, 크레딧은 리허설과 같은 12, 기록에 `mode='voice'` → 회차 목록에 "음성만") / **대본만**(녹화 없이 `ScriptCheck` 만, 리허설 크레딧 안 씀, "분석 마치기" → 내 리허설, 원하면 "녹화 리허설도 하기"로 영상+음성 전환. 무료는 SimpleCoach + 요금제 안내). 녹화 화면에서 카메라가 안 되면 "카메라 없이 음성만으로 하기", 대기 중엔 방식 전환 링크. 같은 발표 회차 비교(`same()`)는 방식이 같을 때만.
 
 ## 목적별 비언어 분석(바꿀 때 지킬 것)
 

@@ -1,7 +1,7 @@
 import { ContactButton, StartButton, PlanButton } from './actions';
 import { PlansFold, PlansProvider, PlanSwitch, PlanTable } from './Plans';
 import { UsageHelp } from '@/components/ui/UsageHelp';
-import { PLAN_PERKS, type PlanId } from '@/lib/plans';
+import { CREDIT_PER_REHEARSAL, CREDIT_PER_TALK, PLAN_PERKS, PLANS, approxRuns, approxTalks, type PlanId } from '@/lib/plans';
 
 const Perks = ({ plan }: { plan: PlanId }) => <span className="perks">{PLAN_PERKS[plan].map((k) => <i key={k}>{k}</i>)}</span>;
 
@@ -61,24 +61,24 @@ export function Teams() {
       <PlanSwitch />
       <PlanTable className="cmp cmp-3 rv" role="table" aria-label="개인 요금제 비교" which="solo">
         <div className="cmp-head" role="row">
-          <div className="cmp-lab" role="columnheader"><b>개인 요금제</b><small>쓴 만큼 크레딧이 줄어요. 리허설 한 번에 12크레딧, AI 대본 코칭은 대본 길이에 따라 3~9크레딧이에요.</small></div>
+          <div className="cmp-lab" role="columnheader"><b>개인 요금제</b><small>쓴 만큼 크레딧이 줄어요. 리허설 한 번에 {CREDIT_PER_REHEARSAL}크레딧, AI 대본 코칭은 대본 길이에 따라 3~9크레딧, 발표 하나 준비(AI 코칭 1번 + 3~4번 연습)에 대략 {CREDIT_PER_TALK}크레딧이에요.</small></div>
           <div className="cmp-plan" role="columnheader">
-            <h3>Opening<span>처음 서 보는 무대</span></h3>
+            <h3>Opening<span>{PLANS.Opening.who}</span></h3>
             <p>무료</p>
-            <small>월 36크레딧 · 리허설 약 3회(예상)</small>
+            <small>월 {PLANS.Opening.credits}크레딧 · 리허설 약 {approxRuns(PLANS.Opening.credits)}회(예상)</small>
             <StartButton className="btn-plain btn-sm">무료로 시작</StartButton>
           </div>
           <div className="cmp-plan is-hi" role="columnheader">
-            <h3>Spotlight<span>매주 연습하는 사람</span></h3>
+            <h3>Spotlight<span>{PLANS.Spotlight.who}</span></h3>
             <p>월 4,900원</p>
-            <small>연간 결제 시 월 3,900원 · 월 120크레딧</small>
+            <small>연간 결제 시 월 3,900원 · 월 {PLANS.Spotlight.credits}크레딧</small>
             <Perks plan="Spotlight" />
             <PlanButton className="btn-fill btn-sm" plan="Spotlight">Spotlight 시작</PlanButton>
           </div>
           <div className="cmp-plan" role="columnheader">
-            <h3>Headliner<span>큰 발표를 앞둔 사람</span></h3>
+            <h3>Headliner<span>{PLANS.Headliner.who}</span></h3>
             <p>월 9,900원</p>
-            <small>연간 결제 시 월 7,900원 · 월 360크레딧</small>
+            <small>연간 결제 시 월 7,900원 · 월 {PLANS.Headliner.credits}크레딧</small>
             <Perks plan="Headliner" />
             <PlanButton className="btn-plain btn-sm" plan="Headliner">Headliner 시작</PlanButton>
           </div>
@@ -86,15 +86,21 @@ export function Teams() {
         <div className="cmp-group" role="row"><span role="rowheader">크레딧</span></div>
         <div className="cmp-row" role="row">
           <div className="cmp-lab" role="rowheader">월 크레딧</div>
-          <div className="cmp-cell" role="cell">36</div>
-          <div className="cmp-cell" role="cell">120</div>
-          <div className="cmp-cell" role="cell">360</div>
+          <div className="cmp-cell" role="cell">{PLANS.Opening.credits}</div>
+          <div className="cmp-cell" role="cell">{PLANS.Spotlight.credits}</div>
+          <div className="cmp-cell" role="cell">{PLANS.Headliner.credits}</div>
         </div>
         <div className="cmp-row" role="row">
-          <div className="cmp-lab cmp-lab-help" role="rowheader">예상 리허설 횟수<UsageHelp /></div>
-          <div className="cmp-cell" role="cell">월 약 3회</div>
-          <div className="cmp-cell" role="cell">월 약 10회</div>
-          <div className="cmp-cell" role="cell">월 약 30회</div>
+          <div className="cmp-lab cmp-lab-help" role="rowheader">예상 발표 준비<UsageHelp /></div>
+          <div className="cmp-cell" role="cell">AI 코칭 없이 약 1개</div>
+          <div className="cmp-cell" role="cell">월 약 {approxTalks(PLANS.Spotlight.credits)}개</div>
+          <div className="cmp-cell" role="cell">월 약 {approxTalks(PLANS.Headliner.credits)}개</div>
+        </div>
+        <div className="cmp-row" role="row">
+          <div className="cmp-lab" role="rowheader">리허설만 한다면</div>
+          <div className="cmp-cell" role="cell">월 약 {approxRuns(PLANS.Opening.credits)}회</div>
+          <div className="cmp-cell" role="cell">월 약 {approxRuns(PLANS.Spotlight.credits)}회</div>
+          <div className="cmp-cell" role="cell">월 약 {approxRuns(PLANS.Headliner.credits)}회</div>
         </div>
         <div className="cmp-row" role="row">
           <div className="cmp-lab" role="rowheader">AI 대본 코칭</div>
@@ -219,8 +225,8 @@ export function Teams() {
         <div className="cmp-group" role="row"><span role="rowheader">크레딧</span></div>
         <div className="cmp-row" role="row">
           <div className="cmp-lab" role="rowheader">1인당 월 크레딧</div>
-          <div className="cmp-cell" role="cell">120</div>
-          <div className="cmp-cell" role="cell">360</div>
+          <div className="cmp-cell" role="cell">{PLANS.Spotlight.credits}</div>
+          <div className="cmp-cell" role="cell">{PLANS.Headliner.credits}</div>
         </div>
         <div className="cmp-row" role="row">
           <div className="cmp-lab" role="rowheader">크레딧 공유</div>

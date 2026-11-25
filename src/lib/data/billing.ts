@@ -65,9 +65,17 @@ export const DOWN_REASONS: { id: string; label: string }[] = [
   { id: 'feature', label: '필요한 기능이 없어요' },
   { id: 'other', label: '직접 작성' },
 ];
-export async function savePlanChange(p: { from: PlanId; to: PlanId; reason: string; detail: string }) {
-  const { error } = await db().from('plan_changes').insert({ from_plan: p.from, to_plan: p.to, reason: p.reason, detail: p.detail.trim() || null });
-  if (error) throw error;
+/** 다운그레이드 사유 저장. reasons 는 우선순위 순(최대 3개), reason 은 1순위. reasons 칸(0009)이 아직 없으면 1순위만 저장해요. */
+export async function savePlanChange(p: { from: PlanId; to: PlanId; reasons: string[]; detail: string }) {
+  const base = { from_plan: p.from, to_plan: p.to, reason: p.reasons[0], detail: p.detail.trim() || null };
+  const { error } = await db().from('plan_changes').insert({ ...base, reasons: p.reasons.slice(0, 3) });
+  if (!error) return;
+  if (error.code === 'PGRST204' || /reasons/.test(error.message)) {
+    const { error: e2 } = await db().from('plan_changes').insert(base);
+    if (e2) throw e2;
+    return;
+  }
+  throw error;
 }
 
 // ── 결제 관리: 결제·크레딧 사용 내역(내 것만 읽을 수 있어요, RLS) ──
