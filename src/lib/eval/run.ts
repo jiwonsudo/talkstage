@@ -7,7 +7,7 @@
  */
 import { analyze, buildCalibration, type Analysis } from '@/lib/coach/analysis';
 import { AudioMeter, type TranscriptResult } from '@/lib/coach/audio';
-import { detect, extractFeatures, type VisionFrame, type VisionModels } from '@/lib/coach/vision';
+import { detect, extractFeatures, type VisionFrame, type VisionModels, resetPerson } from '@/lib/coach/vision';
 import type { Setup } from '@/lib/coach/types';
 import { PURPOSE_BY_ID } from '@/lib/scenarios';
 import type { EvalLabel } from './compare';
@@ -42,6 +42,7 @@ export async function runClip(file: File, label: EvalLabel, models: VisionModels
     await new Promise<void>((res, rej) => { video.onloadedmetadata = () => res(); video.onerror = () => rej(new Error('영상을 열지 못했어요(코덱 확인).')); });
     await new Promise<void>((res) => { if (video.readyState >= 2) res(); else video.onloadeddata = () => res(); });
     // 모델을 한 번 미리 돌려 둬요(첫 실행이 느려서 기준 측정 구간이 밀리는 것 방지)
+    resetPerson(); // 앞 영상의 발표자 위치를 지워요
     try { detect(models, video); } catch { /* 첫 프레임이 비어 있어도 괜찮아요 */ }
     const stream = (video as HTMLVideoElement & { captureStream: () => MediaStream }).captureStream();
     await video.play();

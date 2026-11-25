@@ -8,10 +8,10 @@ import { syllables } from '@/lib/coach/audio';
 import { readScriptFile } from '@/lib/coach/script';
 import { AID_OPTS, aidOf, deliveryOf } from '@/lib/delivery';
 import {
-  CUSTOM_WARN, defaultTitle, EXAMPLES, PROMPT_COPY, SCRIPT_EXAMPLES, WORRIES,
-  outcomeLabel, parsePrompt, purposeOf, recommendTime, targetSecOf, timeOpts, withPurpose, type Draft,
+  CUSTOM_WARN, defaultTitle, PROMPT_COPY, SCRIPT_EXAMPLES, WORRIES,
+  purposeOf, recommendTime, targetSecOf, timeOpts, withPurpose, type Draft,
 } from '@/lib/rehearsal/draft';
-import { CAT_LABEL, POSTURES, PURPOSES, fmtMin, fmtTime, type CatId } from '@/lib/scenarios';
+import { CAT_LABEL, POSTURES, PURPOSES, fmtMin, type CatId } from '@/lib/scenarios';
 
 export const STEPS = ['purpose', 'posture', 'aid', 'outcome', 'time', 'worry', 'prompt'] as const;
 export type StepId = typeof STEPS[number];
@@ -52,7 +52,7 @@ export function Wizard({ draft, update, step, go, paid, guest, chosen, mark, onA
         {guest && step === 0 && <p className="wiz-note wiz-guest">설정은 로그인 없이 골라 볼 수 있어요. 녹화를 시작할 때 로그인해 주세요.</p>}
         <div aria-live="polite" key={id} className={`step ${dir < 0 ? 'from-left' : 'from-right'}`}>
           {id === 'prompt'
-            ? <PromptStep draft={draft} update={update} guest={guest} onAnalyzeScript={onAnalyzeScript} onRecord={onRecord} />
+            ? <PromptStep draft={draft} update={update} guest={guest} paid={paid} onAnalyzeScript={onAnalyzeScript} onRecord={onRecord} />
             : <ChoiceStep id={id} draft={draft} update={update} go={go} paid={paid} chosen={chosen} mark={mark} />}
         </div>
       </div>
@@ -240,18 +240,16 @@ function CustomGoalBox({ draft, update, paid }: { draft: Draft; update: Props['u
   );
 }
 
-function PromptStep({ draft, update, guest, onAnalyzeScript, onRecord }: Pick<Props, 'draft' | 'update' | 'guest' | 'onAnalyzeScript' | 'onRecord'>) {
+function PromptStep({ draft, update, guest, paid, onAnalyzeScript, onRecord }: Pick<Props, 'draft' | 'update' | 'guest' | 'paid' | 'onAnalyzeScript' | 'onRecord'>) {
   const has = draft.hasScript;
   const p = purposeOf(draft);
   const copy = PROMPT_COPY[has];
   const [err, setErr] = useState('');
   const [over, setOver] = useState(false);
-  const focusRef = useRef<HTMLTextAreaElement>(null);
+  const focusRef = useRef<HTMLTextAreaElement & HTMLInputElement>(null);
   useEffect(() => { const t = setTimeout(() => focusRef.current?.focus(), 80); return () => clearTimeout(t); }, [has]);
 
   const scN = syllables(draft.script);
-  const prN = syllables(draft.prompt);
-  const parsed = parsePrompt(draft.prompt);
 
   async function load(f: File | undefined) {
     if (!f) return;
@@ -265,16 +263,6 @@ function PromptStep({ draft, update, guest, onAnalyzeScript, onRecord }: Pick<Pr
     </label>
   );
 
-  const rows: [string, string][] = [
-    ['주제', parsed.topic],
-    ['핵심 메시지', parsed.keyMessage ? `“${parsed.keyMessage}”` : ''],
-    ['원하는 결과', parsed.outcomeText || outcomeLabel(draft)],
-  ];
-  if (parsed.script) {
-    const sec = (prN / ((p.targets.spm[0] + p.targets.spm[1]) / 2)) * 60 * 1.12;
-    rows.push(['대본 예상 시간', `${fmtTime(sec)} (목표 ${fmtTime(targetSecOf(draft))})`]);
-  }
-
   return (
     <>
       <h1 className="title1">{copy.title}</h1>
@@ -283,7 +271,7 @@ function PromptStep({ draft, update, guest, onAnalyzeScript, onRecord }: Pick<Pr
         <div className="wiz-pane">
           {titleField}
           <button type="button" className="alt-path" onClick={() => update((d) => ({ ...d, hasScript: 'no' }))}>
-            <b>대본이 없나요?</b><span>한두 줄 설명만 적고 바로 녹화해요</span>
+            <b>대본이 없나요?</b><span>제목과 핵심 메시지만 적고 바로 녹화해요</span>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7" /></svg>
           </button>
           <div className={`textview wiz-drop${over ? ' is-over' : ''}`}
@@ -302,7 +290,8 @@ function PromptStep({ draft, update, guest, onAnalyzeScript, onRecord }: Pick<Pr
           <label className="field"><span>핵심 메시지 <small>(선택)</small></span>
             <input type="text" maxLength={80} value={draft.key} onChange={(e) => update((d) => ({ ...d, key: e.target.value }))} placeholder="청중이 기억했으면 하는 한 문장" />
           </label>
-          <button type="button" className="btn-fill btn-block w-analyze" disabled={scN < 20} onClick={onAnalyzeScript}>{guest ? '로그인하고 대본 분석하기' : '대본 분석하기'}</button>
+          {!guest && !paid && <p className="wiz-note">AI 대본 코칭은 Spotlight 요금제부터 쓸 수 있어요. 지금 요금제는 대본 없이 바로 녹화할 수 있어요.</p>}
+          <button type="button" className="btn-fill btn-block w-analyze" disabled={scN < 20} onClick={onAnalyzeScript}>{guest ? '로그인하고 대본 코칭 받기' : '대본 코칭 받기'}</button>
         </div>
       ) : (
         <div className="wiz-pane">
@@ -310,20 +299,12 @@ function PromptStep({ draft, update, guest, onAnalyzeScript, onRecord }: Pick<Pr
           <button type="button" className="back-path" onClick={() => update((d) => ({ ...d, hasScript: 'yes' }))}>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 5l-7 7 7 7" /></svg>대본이 있어요
           </button>
-          <div className="textview">
-            <textarea ref={focusRef} rows={4} value={draft.prompt} onChange={(e) => update((d) => ({ ...d, prompt: e.target.value }))}
-              onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); onRecord(); } }}
-              placeholder={`어떤 발표인지 한두 줄만 적어 주세요 (선택). 예: ${EXAMPLES[p.id]}`} />
-          </div>
-          <div className="chips-row">
-            <button type="button" className="chip-btn" onClick={() => update((d) => ({ ...d, prompt: EXAMPLES[p.id] }))}>예시로 채우기</button>
-            <span className="count">{prN ? `${prN}음절` : ''}</span>
-          </div>
-          <p className="group-h">자동으로 찾은 내용</p>
-          <ul className="group w-parsed">
-            {rows.map(([k, v]) => <li key={k} className="cell cell-kv"><span>{k}</span><b className={v ? '' : 'empty'}>{v || '아직 없음'}</b></li>)}
-            {!parsed.keyMessage && <li className="cell cell-note">핵심 메시지는 따옴표로 감싸거나 “핵심은 ~”처럼 쓰면 찾아요. 녹화 후 이 문장이 처음과 끝에 나왔는지 확인해요.</li>}
-          </ul>
+          <label className="field"><span>핵심 메시지 <small>(선택)</small></span>
+            <input ref={focusRef} type="text" maxLength={80} value={draft.key} onChange={(e) => update((d) => ({ ...d, key: e.target.value }))}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onRecord(); } }}
+              placeholder="청중이 기억했으면 하는 한 문장" />
+          </label>
+          <p className="wiz-note">적어 두면 녹화한 뒤 이 문장을 처음과 끝에 말했는지 확인해요.</p>
           <button type="button" className="btn-fill btn-block" onClick={onRecord}>{guest ? '로그인하고 녹화 준비' : '녹화 준비'}</button>
         </div>
       )}

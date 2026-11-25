@@ -1,18 +1,24 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useToast } from '@/components/ui/Toast';
 import { syllables } from '@/lib/coach/audio';
 import { analyzeScript, contour, readScriptFile, Reader, type ScriptAnalysis, type Sent } from '@/lib/coach/script';
-import { SCRIPT_EXAMPLES, purposeOf, targetSecOf, timeOpts, withPurpose, type Draft } from '@/lib/rehearsal/draft';
+import { requestScriptCoach, type ScriptCoach } from '@/lib/coach/scriptCoach';
+import { SCRIPT_EXAMPLES, defaultTitle, outcomeLabel, purposeOf, targetSecOf, timeOpts, withPurpose, type Draft } from '@/lib/rehearsal/draft';
 import { PURPOSES, fmtMin, fmtTime } from '@/lib/scenarios';
 
 const BASE_RATE: Record<string, number> = { interview: 1, ir: 1.05, report: 1.02, lecture: 0.95, conference: 1, speech: 0.92 };
 const SPEEDS = [0.9, 1, 1.15];
 
-type Props = { draft: Draft; update: (fn: (d: Draft) => Draft) => void; onRecord: () => void };
+type Props = { draft: Draft; update: (fn: (d: Draft) => Draft) => void; onRecord: () => void; paid: boolean };
+type Ai = { status: 'idle' | 'loading' | 'done' | 'error'; coach?: ScriptCoach; err?: string; key?: string };
 
-/** 대본 점검: 녹화 전에 대본만으로 시간·흐름·문장을 확인하고 예시 억양으로 들어 봐요. */
-export function ScriptCheck({ draft, update, onRecord }: Props) {
+/**
+ * 대본 코칭(유료 요금제 전용): AI 가 발표 상황 기준으로 대본을 읽고 고칠 문장을 고쳐 써 주고(/api/script/coach),
+ * 시간·흐름·읽기 가이드는 브라우저에서 바로 계산해요. 무료 요금제는 요금제 안내만 보여 줘요.
+ */
+export function ScriptCheck({ draft, update, onRecord, paid }: Props) {
   const toast = useToast();
   const p = purposeOf(draft);
   const targetSec = targetSecOf(draft);
@@ -27,6 +33,29 @@ export function ScriptCheck({ draft, update, onRecord }: Props) {
     [ran, draft.script, draft.key, p, targetSec],
   );
   const n = syllables(draft.script);
+  const [ai, setAi] = useState<Ai>({ status: 'idle' });
+  const aiKey = JSON.stringify([draft.script.trim(), p.id, targetSec, draft.key.trim()]);
+  const abortRef = useRef<AbortController | null>(null);
+  useEffect(() => () => abortRef.current?.abort(), []);
+
+  async function runAi() {
+    abortRef.current?.abort();
+    const ac = new AbortController(); abortRef.current = ac;
+    const key = aiKey;
+    setAi({ status: 'loading', key });
+    try {
+      const coach = await requestScriptCoach({ script: draft.script, purposeId: p.id, targetSec, topic: draft.title.trim() || defaultTitle(draft), keyMessage: draft.key.trim(), outcome: outcomeLabel(draft) }, ac.signal);
+      setAi({ status: 'done', coach, key });
+    } catch (e) {
+      if (ac.signal.aborted) return;
+      setAi({ status: 'error', err: (e as Error).message, key });
+    }
+  }
+  function analyze() {
+    setRan(true);
+    if (ai.key !== aiKey || ai.status === 'error') runAi();
+    setTimeout(() => outRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+  }
 
   async function take(f: File | undefined) {
     if (!f) return;
@@ -43,7 +72,7 @@ export function ScriptCheck({ draft, update, onRecord }: Props) {
     <section className="screen">
       <div className="page sc-page">
         <h1 className="title1">대본 점검</h1>
-        <p className="subtitle">녹화 전에 대본만으로 시간, 흐름, 문장을 확인하고 예시 억양으로 들어 보세요.</p>
+        <p className="subtitle">AI가 {p.label} 기준으로 대본을 읽고 고칠 문장을 고쳐 써 드려요. 시간·흐름과 읽기 가이드도 함께 봐요.</p>
         <div className="sc-setup">
           <label className="sel"><span>발표 상황</span>
             <select value={draft.purposeId} onChange={(e) => update((d) => withPurpose(d, e.target.value))}>
@@ -73,11 +102,56 @@ export function ScriptCheck({ draft, update, onRecord }: Props) {
           <div className="sc-dropmask">여기에 놓으면 대본을 불러와요</div>
         </div>
         <p className="sc-err" role="alert">{err}</p>
-        <button type="button" className="btn-fill btn-block" disabled={n < 20} onClick={() => { setRan(true); setTimeout(() => outRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60); }}>대본 분석하기</button>
-        <div ref={outRef} aria-live="polite">
-          {result && result.stats.n > 0 && <ScriptResult result={result} purposeId={p.id} purposeLabel={p.label} onRecord={onRecord} />}
-        </div>
+        {paid ? (
+          <>
+            <button type="button" className="btn-fill btn-block" disabled={n < 20 || ai.status === 'loading'} onClick={analyze}>{ai.status === 'loading' ? 'AI가 대본을 읽는 중…' : '대본 코칭 받기'}</button>
+            <div ref={outRef} aria-live="polite">
+              {ran && <AiCoach ai={ai} stale={ai.key !== undefined && ai.key !== aiKey} label={p.label} onRetry={runAi} onUseKey={(k) => update((d) => ({ ...d, key: k }))} />}
+              {result && result.stats.n > 0 && <ScriptResult result={result} purposeId={p.id} purposeLabel={p.label} onRecord={onRecord} />}
+            </div>
+          </>
+        ) : (
+          <div className="sc-lock">
+            <b>대본 코칭은 Spotlight 요금제부터 쓸 수 있어요</b>
+            <p>AI가 {p.label} 기준으로 대본을 읽고, 고칠 문장을 바로 고쳐 써 드려요. 예상 시간·흐름·읽기 가이드도 함께 봐요.</p>
+            <div>
+              <Link className="btn-fill" href="/me/plan?pick=Spotlight&from=wizard">요금제 보기</Link>
+              <button type="button" className="btn-plain" onClick={onRecord}>대본 코칭 없이 녹화</button>
+            </div>
+          </div>
+        )}
       </div>
+    </section>
+  );
+}
+
+/** AI 대본 코칭 결과. 대본을 고치면 '다시 받기'를 보여 줘요. */
+function AiCoach({ ai, stale, label, onRetry, onUseKey }: { ai: Ai; stale: boolean; label: string; onRetry: () => void; onUseKey: (k: string) => void }) {
+  if (ai.status === 'loading') return <section className="sc-sec sc-ai"><h2 className="sc-h">AI 대본 코칭 <small>{label} 기준</small></h2><p className="sc-ai-wait"><span className="spin" aria-hidden="true" />대본을 읽고 있어요. 보통 20~40초 걸려요.</p></section>;
+  if (ai.status === 'error') return <section className="sc-sec sc-ai"><h2 className="sc-h">AI 대본 코칭</h2><p className="sc-err">{ai.err}</p><button type="button" className="btn-plain btn-sm" onClick={onRetry}>다시 시도</button></section>;
+  const c = ai.coach;
+  if (ai.status !== 'done' || !c) return null;
+  return (
+    <section className="sc-sec sc-ai">
+      <h2 className="sc-h">AI 대본 코칭 <small>{label} 기준</small></h2>
+      {stale && <p className="sc-ai-stale">대본이나 설정이 바뀌었어요. <button type="button" className="btn-link" onClick={onRetry}>바뀐 대본으로 다시 받기</button></p>}
+      <p className="sc-ai-verdict">{c.verdict}</p>
+      {c.strengths.length > 0 && <ul className="goods">{c.strengths.map((g) => <li key={g}>{g}</li>)}</ul>}
+      <ol className="ai-fixes">
+        {c.fixes.map((f, k) => (
+          <li key={k}>
+            <b>{f.title}</b>
+            <p>{f.why}</p>
+            {f.quote && <p className="ai-from"><span>지금</span>{f.quote}</p>}
+            {f.rewrite && <p className="ai-to"><span>이렇게</span>{f.rewrite}</p>}
+          </li>
+        ))}
+      </ol>
+      <div className="ai-ends">
+        {c.opening && <div><span>첫 문장</span><p>{c.opening}</p></div>}
+        {c.closing && <div><span>마지막 문장</span><p>{c.closing}</p></div>}
+      </div>
+      {c.keyLine && <p className="ai-key"><span>핵심 메시지</span><b>{c.keyLine}</b><button type="button" className="btn-link" onClick={() => onUseKey(c.keyLine)}>핵심 메시지로 쓰기</button></p>}
     </section>
   );
 }
