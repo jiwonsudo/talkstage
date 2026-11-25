@@ -407,6 +407,30 @@ main { max-width: 1240px; margin: 0 auto; padding-block: 0 72px; padding-left: m
 .meter { width: 70px; height: 6px; border-radius: 999px; background: var(--surface-2); display: inline-block; overflow: hidden; }
 .meter i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--green), var(--yellow), var(--red)); background-size: 70px 100%; transition: width .06s linear; }
 .rec-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; padding-top: 6px; }
+/* 녹화 표시: 데스크톱은 카메라 화면 위(.hud-in), 폰은 화면 밖 아래(.hud-out). 진행 막대는 데스크톱에선 화면 맨 위 가장자리. */
+.hud-in .hud-prog { top: -16px; left: -16px; right: -16px; }
+.hud-out { display: none; }
+.stage-media[data-facing="environment"] { transform: none; } /* 뒤 카메라는 거울처럼 뒤집지 않아요 */
+.cam-flip { position: absolute; z-index: 3; top: 14px; right: 14px; width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 50%; background: #fff; color: #111; box-shadow: var(--shadow); cursor: pointer; transition: transform .3s var(--spring); }
+.cam-flip:active { transform: scale(.92) rotate(-30deg); }
+.cam-flip svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+@media (pointer: fine) { .cam-flip { display: none; } }
+@media (max-width: 760px) {
+  /* 카메라 화면이 무지갯빛 영역을 꽉 채워요(cover). 인식 선(canvas)도 같은 cover 라 영상과 딱 맞아요. */
+  .stage { height: min(calc(100svh - 220px), 150vw); min-height: 360px; }
+  .studio.is-rec .stage { height: max(340px, calc(100svh - 64px - 300px)); }
+  .stage-media { position: absolute; inset: 0; }
+  .stage-media video, .stage-media canvas { width: 100%; height: 100%; max-height: none; object-fit: cover; }
+  .hud-in .hud-top, .hud-in .hud-chips { display: none; }
+  .hud-out { display: grid; gap: 8px; }
+  .hud-out .hud-top { position: static; display: flex; align-items: center; gap: 10px; }
+  .hud-out .hud-prog { position: static; flex: 1; height: 6px; border-radius: 3px; overflow: hidden; background: var(--surface-2); }
+  .hud-out .hud-target { background: var(--surface); box-shadow: var(--shadow); color: var(--ink); }
+  .hud-out .hud-chips { position: static; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 0; }
+  .hud-out .hc { justify-content: center; padding: 8px 6px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+  .hud-out .hc.is-bad { background: var(--red); color: #fff; transform: none; }
+  .hud-out .vol { width: 28px; background: var(--surface-2); }
+}
 .btn-stop { display: inline-flex; align-items: center; gap: 10px; height: 56px; padding: 0 28px; border: 0; border-radius: 999px; background: var(--red); color: #fff; font-weight: 800; font-size: 16px; transition: transform .3s var(--spring); }
 .btn-stop:hover { transform: scale(1.04); }
 .btn-stop i { width: 12px; height: 12px; border-radius: 3px; background: #fff; }
@@ -2261,7 +2285,7 @@ p, li, .catch-sub, .lead2, .display-sub, small { word-break: keep-all; text-wrap
   /* 원·점·얇은 막대 */
   .av, .avatar, .bar-dot, .bezel-ring, .btn-rec i, .ck-ico, .clip-banner::before, .cue-chip i, .dc-dot, .dir, .dlg-x, .dot, .dp-btn, .flow-steps li i,
   .framing::before, .hc i, .hl-play, .issue > i, .live, .marquee-track i, .ml-dot, .nav-btn, .nv-meter li::before, .opt .check, .opt-num, .pc-go, .pl-btn,
-  .rec-pill i, .recent-acct .avatar, .spin, .spot, .st i, .switch::before, .tl-head i::before,
+  .rec-pill i, .recent-acct .avatar, .cam-flip, .spin, .spot, .st i, .switch::before, .tl-head i::before,
   .bar, .bar-band, .bar-fill, .db-bar, .flow-bar, .hp-bar, .meter, .r-score-bar, .r-score-bar i, .sm-bar, .sm-bar i, .wiz-bar, .wiz-bar i, .issues button::before, .lg-filler, .pf-eq i { corner-shape: round; }
   /* 알약 */
   .avatar-btn, .badge, .btn-fill, .btn, .btn-plain, .btn-ghost, .btn-stop, .btn-white, .chip, .chip-btn, .clip-banner, .cue-chip, .db-cats em, .ev-grid em, .ev-type,
