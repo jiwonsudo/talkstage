@@ -543,6 +543,9 @@ main { max-width: 1240px; margin: 0 auto; padding-block: 0 72px; padding-left: m
 .player-col { display: grid; gap: 10px; min-width: 0; }
 .player { position: relative; background: #121212; border-radius: var(--r-lg); overflow: hidden; }
 .player video { width: 100%; display: block; max-height: 60vh; }
+.player video[hidden], .player audio[hidden] { display: none; }
+.player-err { margin: 0; padding: 28px 22px; color: rgba(255, 255, 255, .82); font-size: 14px; line-height: 1.6; text-align: center; }
+.player.is-audio .player-err { color: var(--ink-2); padding: 10px; }
 .clip-banner { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); max-width: calc(100% - 24px); padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 800; color: #111; background: #fff; pointer-events: none; display: flex; align-items: center; gap: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: tile-in .4s var(--spring); }
 .clip-banner::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--blue); flex: none; }
 .clip-banner.is-s::before { background: var(--green); }
@@ -616,6 +619,7 @@ table.self { width: 100%; border-collapse: collapse; font-size: 14px; min-width:
 .kind { font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 999px; }
 .kind-match { background: var(--orange); color: #fff; }
 .kind-better { background: var(--green); color: #0b2015; }
+.kind-other { background: var(--yellow); color: #2a2000; }
 .kind-blind { background: var(--red); color: #fff; }
 .kind-ok { background: var(--surface-2); color: var(--ink-3); }
 
@@ -926,7 +930,8 @@ table.self { width: 100%; border-collapse: collapse; font-size: 14px; min-width:
 @keyframes flash { 0%, 40% { background: color-mix(in oklab, var(--yellow) 35%, transparent); } 100% { background: transparent; } }
 .rd .tag { font-size: 11px; font-weight: 800; color: #fff; padding: 2px 8px; border-radius: 999px; margin-right: 6px; vertical-align: 2px; }
 
-.player { position: sticky; bottom: 16px; z-index: 5; margin-top: 16px; display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 10px; border-radius: 999px; background: #121212; color: #fff; box-shadow: var(--shadow-lg); }
+/* 대본 읽어 주기 플레이어(알약). 리포트 영상 칸(.player)과 이름이 겹쳐 영상이 알약 모양으로 찌그러졌었어요. */
+.rd-player { position: sticky; bottom: 16px; z-index: 5; margin-top: 16px; display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 10px; border-radius: 999px; background: #121212; color: #fff; box-shadow: var(--shadow-lg); }
 .pl-btn { width: 44px; height: 44px; flex: none; border: 0; border-radius: 50%; background: #fff; color: #111; display: grid; place-items: center; transition: transform .3s var(--spring); }
 .pl-btn:hover { transform: scale(1.08); }
 .pl-btn svg { width: 18px; height: 18px; fill: currentColor; }
@@ -2591,12 +2596,12 @@ p.field-err { margin: 6px 0 0; }
   .perks i, .avatar-btn, .badge, .btn-fill, .btn, .btn-plain, .btn-ghost, .btn-stop, .btn-white, .chip, .chip-btn, .clip-banner, .cue-chip, .db-cats em, .ev-grid em, .ev-type,
   .flow-steps li, .foot-lang, .foot-lang b, .foot-lang span, .fp span, .framing, .who-hint, .ai-cues li > span, .plan-badge, .goods li, .hc, .hl-tag, .hl-time, .hp-rec, .hud-target, .kind, .lang-note span,
   .menu-btn, .nav-cta, .nav-link, .nav-login, .nvd-chip, .nvd-issues em, .pc-time, .pf-sound, .pf-hint, .pill, .pl-speed, .pl-speed button, .r-delta, .rd .tag,
-  .rec-pill, .ref, .sb-new, .seg, .seg button, .seg-pill, .sm-chips i, .soc-soon, .soc-last, .sref, .switch, .tchip, .toast, .wiz-exit, .custom-chips button {
+  .rec-pill, .rd-player, .ref, .sb-new, .seg, .seg button, .seg-pill, .sm-chips i, .soc-soon, .soc-last, .sref, .switch, .tchip, .toast, .wiz-exit, .custom-chips button {
     --pill-x: 1.09em; corner-shape: superellipse(1.08); border-radius: var(--pill-x) / 50%;
   }
   .btn-fill, .btn, .btn-plain, .btn-ghost, .btn-stop { --pill-x: 32px; }
   .btn-white { --pill-x: 35px; }
-  .pf-hint { --pill-x: 37px; }
+  .pf-hint, .rd-player { --pill-x: 37px; }
   .seg, .toast { --pill-x: 27px; }
   .pf-sound { --pill-x: 26px; }
   .avatar-btn, .menu-btn, .nav-cta, .nav-link, .nav-login, .chip-btn, .framing, .who-hint, .cue-chip { --pill-x: 23px; }

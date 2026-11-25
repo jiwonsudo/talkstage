@@ -121,10 +121,15 @@ export function classifyFrame(f: VisionFrame, calib: Calibration, posture: Postu
   }
   if (f.pose) {
     const r = [];
-    if (calib.slouch0 && f.slouchR < calib.slouch0 * 0.8) r.push('slouch');
-    if (f.shoulderTilt > 7) r.push('shoulderTilt');
-    const ht = f.face ? f.faceTilt : f.headTilt;
-    if (ht != null && ht > 12) r.push('headTilt');
+    // 고개를 옆으로 돌린 동안(옆 면접관·청중을 볼 때)은 코·눈·어깨가 비스듬히 찍혀서 "등이 굽음·고개 기울임·어깨 기울어짐"으로
+    // 잘못 잡혔어요. 그때는 머리·어깨 각도로 자세를 판단하지 않아요(팔짱·화면 밖은 그대로 봐요).
+    const turned = f.face && Math.abs(f.yawP - calib.yaw0) >= 0.11;
+    if (!turned) {
+      if (calib.slouch0 && f.slouchR < calib.slouch0 * 0.8) r.push('slouch');
+      if (f.shoulderTilt > 7) r.push('shoulderTilt');
+      const ht = f.face ? f.faceTilt : f.headTilt;
+      if (ht != null && ht > 12) r.push('headTilt');
+    }
     if (f.armsCrossed) r.push('crossed');
     if (posture === 'seated' && (f.noseX < 0.18 || f.noseX > 0.82)) r.push('offCenter');
     c.bad = r.length > 0;
@@ -258,6 +263,8 @@ export const CHECK_LABEL: Record<string, string> = {
 export const MIN_REHEARSAL_SEC = 20;
 /** 실제 목소리(음높이가 잡히는 소리)가 이만큼은 있어야 해요: 최소 8초, 그리고 녹화의 20% 이상 */
 const MIN_VOICE_SEC = 8, MIN_VOICE_FRAC = 0.2;
+/** 말이 거의 알아들을 수 없을 때 종합 점수 상한 */
+const UNCLEAR_CAP = 35;
 
 export type AnalyzeInput = { audio: AudioFrame[]; vision: VisionFrame[]; transcript: TranscriptResult | null; calib: Calibration; purpose: Purpose; setup: Setup; durationSec: number };
 export type Analysis = ReturnType<typeof analyze>;
@@ -347,12 +354,40 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
     mergeRuns(mono, 0.1).slice(0, 3).forEach((r) => pushIssue({ t0: r.t0, t1: r.t1, cat: 'tone', sev: 2, title: '억양이 단조로움', detail: '음높이가 거의 변하지 않아 같은 톤이 이어졌어요.' }));
   }
 
-  // ---------- 말 빠르기 ----------
+  // ---------- 또렷함 ----------
+  // 받아쓰기가 돌았는데 목소리 길이에 비해 알아들은 말이 거의 없으면 웅얼거린 거예요. 소리만 보면 억양·쉼·시선은 멀쩡해서
+  // 말 한마디 안 하고도 60점대가 나왔어요. 또렷하게 말하면 말한 1초에 4~7음절쯤 받아써져요(받아쓰기가 일부 놓쳐도 3 이상).
   const finals = transcript?.finals || [];
   const syllTotalT = sum(finals.map((f) => syllables(f.text)));
+  const sttRan = !!transcript && !transcript.error && setup.source !== 'file';
+  const clarityRatio = sttRan && speechTime >= 10 ? syllTotalT / speechTime : null;
+  const clarity: 'low' | 'part' | 'ok' | null = clarityRatio == null ? null : clarityRatio < 1 ? 'low' : clarityRatio < 2 ? 'part' : 'ok';
+  if (clarity === 'low' || clarity === 'part') {
+    // 말소리는 있는데 받아쓴 말이 적은 10초 구간
+    const tSyll = new Array(nSec).fill(0);
+    for (const f of finals) {
+      const n = syllables(f.text), a = Math.max(0, Math.floor(f.t0)), b = Math.max(a + 1, Math.ceil(f.t));
+      for (let k = a; k < b && k < nSec; k++) tSyll[k] += n / (b - a);
+    }
+    const bad: Run[] = [];
+    for (let s0 = 0; s0 + 10 <= nSec; s0 += 5) {
+      const v = sum(voicedSec.slice(s0, s0 + 10));
+      if (v >= 4 && sum(tSyll.slice(s0, s0 + 10)) / v < 1.2) bad.push({ t0: s0, t1: s0 + 10 });
+    }
+    mergeRuns(bad, 0.1).sort((a, b) => (b.t1 - b.t0) - (a.t1 - a.t0)).slice(0, 3).forEach((r) => pushIssue({
+      t0: r.t0, t1: r.t1, cat: 'tone', sev: clarity === 'low' ? 3 : 2, title: '말이 또렷하게 들리지 않음',
+      detail: `목소리는 났지만 ${Math.round(r.t1 - r.t0)}초 동안 알아들을 수 있는 말이 거의 없었어요. 입을 크게 열고 단어 끝까지 또박또박 말해 보세요.`,
+    }));
+    limits.push(clarity === 'low'
+      ? `목소리는 ${Math.round(speechTime)}초 났는데 받아쓴 말이 ${Math.round(syllTotalT)}음절뿐이라, 말이 또렷하지 않았다고 보고 종합 점수를 ${UNCLEAR_CAP}점 아래로 낮췄어요. 또렷하게 말했는데도 이렇게 나왔다면 받아쓰기가 끊긴 거라 다시 녹화해 주세요.`
+      : '받아쓴 말이 목소리 길이에 비해 적어요. 일부 구간은 말이 또렷하지 않았을 수 있어요.');
+  }
+
+  // ---------- 말 빠르기 ----------
   let rateSource: 'transcript' | 'estimate' | 'audio' | null = null;
   let syllTimes: { t: number; n: number }[] = [];
-  if (syllTotalT >= 15) {
+  // 웅얼거려서 받아쓴 말이 적으면 그걸로 세면 "아주 느림"이 돼요. 그때는 소리로 추정해요.
+  if (syllTotalT >= 15 && clarity !== 'low') {
     rateSource = 'transcript';
     const ev = transcript?.events || [];
     const evTotal = sum(ev.map((e) => e.n));
@@ -381,7 +416,7 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
       last = tA[i];
       syllTimes.push({ t: tA[i], n: 1.3 }); // 음량 봉우리는 음절을 적게 세는 경향이 있어 보정
     }
-    limits.push('받아쓰기가 없어서 말 빠르기는 음량 변화로 추정했어요. 실제와 차이가 클 수 있어요.');
+    limits.push(clarity === 'low' ? '받아쓴 말이 너무 적어서 말 빠르기는 음량 변화로 추정했어요. 실제와 차이가 클 수 있어요.' : '받아쓰기가 없어서 말 빠르기는 음량 변화로 추정했어요. 실제와 차이가 클 수 있어요.');
   }
   const syllTotal = sum(syllTimes.map((s) => s.n));
   const effTime = Math.max(1, span - bigSilTotal);
@@ -723,7 +758,9 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
       ? '말소리가 거의 들리지 않았어요. 마이크가 켜져 있는지 확인하고, 실제로 발표하듯 말해 주세요.'
       : null;
   const avail = invalid ? [] : Object.values(cats).filter((c) => c.score != null);
-  const overall = avail.length ? Math.round(sum(avail.map((c) => (c.score ?? 0) * weightOf(c.id))) / sum(avail.map((c) => weightOf(c.id)))) : null;
+  const avg = avail.length ? Math.round(sum(avail.map((c) => (c.score ?? 0) * weightOf(c.id))) / sum(avail.map((c) => weightOf(c.id)))) : null;
+  // 말이 거의 알아들을 수 없었으면 카메라 항목이 좋아도 종합 점수를 낮게 묶어요.
+  const overall = avg != null && clarity === 'low' ? Math.min(avg, UNCLEAR_CAP) : avg;
 
   // 문제 구간 정리: 같은 종류는 심각한 순으로 최대 6개
   const byKey: Record<string, Issue[]> = {};
@@ -737,7 +774,7 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
   if (transcript?.error) limits.push(transcript.error);
   if (rateSource === 'transcript') limits.push('음성 인식은 “어”, “음” 같은 소리를 받아쓰지 않을 때가 많아서, 군더더기 말 횟수가 실제보다 적게 나올 수 있어요.');
 
-  return { invalid, voiceSec, dur, overall, cats, issues: finalIssues, highlights, series, finals, rateSource, limits, smileRatio, calib, thr };
+  return { invalid, voiceSec, dur, overall, clarity, clarityRatio, cats, issues: finalIssues, highlights, series, finals, rateSource, limits, smileRatio, calib, thr };
 }
 
 // ---------------- 하이라이트 ----------------
