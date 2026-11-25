@@ -58,6 +58,10 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
   const [prefs] = useState(() => {
     try { return JSON.parse(localStorage.getItem(PREFS) ?? '{}') as { stt?: unknown; cues?: unknown }; } catch { return {}; }
   });
+  // 폰은 앞(셀카)·뒤 카메라를 바꿀 수 있어요. 녹화 전(idle)에만 바꿔요(녹화 중에 바꾸면 녹화 파일이 끊겨서).
+  const [facing, setFacing] = useState<'user' | 'environment'>('user');
+  const facingRef = useRef<'user' | 'environment'>('user');
+  const [canFlip, setCanFlip] = useState(false);
   const [stt, setStt] = useState(typeof prefs.stt === 'boolean' ? prefs.stt : true);
   const [cues, setCues] = useState(typeof prefs.cues === 'boolean' ? prefs.cues : true);
 
@@ -85,7 +89,7 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: { ideal: facingRef.current } },
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false },
       });
     } catch (e) {
@@ -109,7 +113,20 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
     await r.current.audio.resume();
     if (stale()) return;
     setCamOn(true); setShowCamBtn(false);
+    // 카메라가 둘 이상이면 전환 버튼을 보여 줘요(권한을 받은 뒤라야 목록이 다 나와요)
+    navigator.mediaDevices.enumerateDevices?.().then((ds) => { if (!stale()) setCanFlip(ds.filter((d) => d.kind === 'videoinput').length > 1); }).catch(() => {});
   }, []);
+
+  /** 앞·뒤 카메라 전환. iOS 는 카메라를 하나만 열 수 있어서 지금 카메라를 먼저 꺼요. */
+  const flip = useCallback(() => {
+    const st = r.current;
+    if (st.phase !== 'idle') return;
+    const next = facingRef.current === 'user' ? 'environment' : 'user';
+    facingRef.current = next; setFacing(next);
+    st.stream?.getTracks().forEach((t) => t.stop()); st.stream = null;
+    setCamOn(false);
+    startCamera();
+  }, [startCamera]);
 
   // 카메라와 분석 모델을 켜고, 화면을 떠나면 모두 꺼요.
   useEffect(() => {
@@ -354,13 +371,29 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
   ];
   const chip = (g: Chip) => (g === true ? ' is-good' : g === false ? ' is-bad' : '');
   const fc = (c: CatId) => (setup.focus === c ? ' is-focus' : '');
+  // 녹화 중 표시(데스크톱은 카메라 화면 위, 폰은 화면 밖)
+  const hudBar = (
+    <>
+      <div className="hud-top">
+        <span className="rec-pill"><i /><b>{fmtTime(hud.t)}</b></span>
+        <div className="hud-prog"><i className={hud.t > setup.targetSec * 1.1 ? 'over' : ''} style={{ width: `${Math.min(100, (hud.t / setup.targetSec) * 100)}%` }} /></div>
+        <span className="hud-target">목표 <span>{fmtTime(setup.targetSec)}</span></span>
+      </div>
+      <div className="hud-chips">
+        <span className={`hc${chip(hud.gaze)}${fc('gaze')}`}><i />시선</span>
+        <span className={`hc${chip(hud.posture)}${fc('posture')}`}><i />자세</span>
+        <span className={`hc${chip(hud.pace)}${fc('pace')}`}>속도 <b>{hud.rate}</b></span>
+        <span className={`hc${fc('tone')}`}>음량 <span className="vol"><i style={{ width: `${level}%` }} /></span></span>
+      </div>
+    </>
+  );
 
   return (
     <section className="screen">
       <div className={`studio${recording ? ' is-rec' : ''}`}>
         <div className="stage-col">
           <div className="stage">
-            <div className="stage-media">
+            <div className="stage-media" data-facing={facing}>
               <video ref={camRef} playsInline muted />
               <canvas ref={ovRef} />
             </div>
@@ -373,19 +406,14 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
             {phase === 'calib' && (
               <div className="countdown"><span>{count}</span><p>렌즈를 보고 바른 자세로 잠시 조용히 있어 주세요.<br />기준 자세와 주변 소음을 측정하고 있어요.</p></div>
             )}
+            {canFlip && phase === 'idle' && (
+              <button type="button" className="cam-flip" onClick={flip} aria-label={facing === 'user' ? '뒤 카메라로 바꾸기' : '앞 카메라로 바꾸기'}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5h3l1.6-2.2h6.8L17 8.5h3v10H4z" /><path d="M9.2 12.2a3 3 0 0 1 5.3-.9M14.8 14.6a3 3 0 0 1-5.3.9" /><path d="M14.6 9.6v1.8h-1.8M9.4 17.2v-1.8h1.8" /></svg>
+              </button>
+            )}
             {phase === 'rec' && (
               <div className="hud">
-                <div className="hud-top">
-                  <span className="rec-pill"><i /><b>{fmtTime(hud.t)}</b></span>
-                  <span className="hud-target">목표 <span>{fmtTime(setup.targetSec)}</span></span>
-                </div>
-                <div className="hud-prog"><i className={hud.t > setup.targetSec * 1.1 ? 'over' : ''} style={{ width: `${Math.min(100, (hud.t / setup.targetSec) * 100)}%` }} /></div>
-                <div className="hud-chips">
-                  <span className={`hc${chip(hud.gaze)}${fc('gaze')}`}><i />시선</span>
-                  <span className={`hc${chip(hud.posture)}${fc('posture')}`}><i />자세</span>
-                  <span className={`hc${chip(hud.pace)}${fc('pace')}`}>속도 <b>{hud.rate}</b></span>
-                  <span className={`hc${fc('tone')}`}>음량 <span className="vol"><i style={{ width: `${level}%` }} /></span></span>
-                </div>
+                <div className="hud-in">{hudBar}</div>
                 {cue && <div key={cue.n} className="cue pop">{cue.text}</div>}
                 <div className="hud-transcript">{hud.tx}</div>
               </div>
@@ -402,6 +430,8 @@ export function Studio({ draft, setup, autoStart, onFocusClear, onEdit, onDone }
             )}
             {phase === 'analyzing' && <div className="analyzing"><div className="spin" aria-hidden="true" /><p>녹화를 분석하고 하이라이트를 고르는 중…</p></div>}
           </div>
+          {/* 폰: 시간·목표·실시간 항목은 카메라 화면 밖(아래)에 둬서 화면을 가리지 않아요 */}
+          {phase === 'rec' && <div className="hud-out">{hudBar}</div>}
           <div className="stage-bar">
             <span><i className={`dot dot-${camOn ? 'ok' : 'idle'}`} />{camOn ? '카메라 켜짐' : '카메라 꺼짐'}</span>
             <span><i className={`dot dot-${model === 'ok' ? 'ok' : model === 'failed' ? 'bad' : 'idle'}`} />{model === 'ok' ? '분석 준비됨' : model === 'failed' ? '음성만 분석' : '분석 모델 준비 중'}</span>
