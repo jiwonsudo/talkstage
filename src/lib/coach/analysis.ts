@@ -459,6 +459,7 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
   const poseFrames = V.filter((f) => f.pose).length;
   const faceOK = V.length > 0 && faceFrames / V.length >= 0.4;
   const poseOK = V.length > 0 && poseFrames / V.length >= 0.4;
+  if (setup.source === 'file') limits.push('올린 영상 파일은 받아쓰기를 할 수 없어서 군더더기 말·내용 구조는 분석하지 않았고, 말 빠르기는 소리로 추정했어요. 영상 처음 3초를 기준 자세·주변 소음으로 썼어요.');
   if (setup.mode === 'voice') limits.push('음성만 리허설이라 시선·자세·제스처·보여 주기는 분석하지 않고, 목소리와 내용 항목으로만 점수를 냈어요.');
   else if (!V.length) limits.push('영상 분석 모델을 쓰지 못해 시선·자세·제스처는 분석하지 않았어요.');
   else {

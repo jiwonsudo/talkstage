@@ -112,7 +112,7 @@ registerProcessor('talkstage-meter', TalkstageMeter);
 
 export class AudioMeter {
   ctx: AudioContext;
-  src: MediaStreamAudioSourceNode;
+  src: AudioNode;
   level = -90;
   frames: AudioFrame[] | null = null;
   t0 = 0;
@@ -127,10 +127,14 @@ export class AudioMeter {
   sink: GainNode | null = null;
   ready: Promise<void>;
   private gate = -50;
-  constructor(stream: MediaStream) {
+  /** 마이크(MediaStream) 또는 영상 파일(video 요소). 영상 파일은 소리를 스피커로도 내보내요(한 요소에 한 번만 이을 수 있어요). */
+  constructor(input: MediaStream | HTMLMediaElement) {
     const Ctx = window.AudioContext || (window as SpeechWindow).webkitAudioContext!;
     this.ctx = new Ctx();
-    this.src = this.ctx.createMediaStreamSource(stream);
+    if (input instanceof HTMLMediaElement) {
+      this.src = this.ctx.createMediaElementSource(input);
+      this.src.connect(this.ctx.destination);
+    } else this.src = this.ctx.createMediaStreamSource(input);
     this.ready = this.setupWorklet().catch(() => this.setupFallback());
   }
   get pitchGate() { return this.gate; }
