@@ -1,6 +1,7 @@
 // 마이크 음량·음높이 측정과 브라우저 음성 인식(받아쓰기)
 
-export type AudioFrame = { t: number; db: number; pitch: number };
+/** fc: 소리의 '밝기'(RMS 주파수, Hz). 자음(ㅅ·ㅊ·ㅌ…)이 섞인 또렷한 말은 높게 튀고, 입을 다문 채 웅얼거리면 낮게 머물러요. */
+export type AudioFrame = { t: number; db: number; pitch: number; fc?: number };
 export type FinalText = { t0: number; t: number; text: string };
 export type SyllEvent = { t: number; n: number };
 export type TranscriptResult = { finals: FinalText[]; events: SyllEvent[]; error: string | null };
@@ -25,9 +26,14 @@ export function syllables(text: string) {
   return h + lat * 2 + dig;
 }
 
+/** 신호 에너지 s 와 1차 차분 에너지 d 로 RMS 주파수(Hz). 사인파 f 면 정확히 f 가 나와요. 워클릿에서도 써요. */
+export function rmsFreq(s: number, d: number, sr: number) {
+  return s > 1e-12 ? (Math.asin(Math.min(1, Math.sqrt(d / s) / 2)) * sr) / Math.PI : 0;
+}
+
 // 정규화 자기상관으로 기본 주파수 추정 (70–450Hz). 창의 앞 절반(n)을 뒤로 밀어 가며 비교해요.
 // AudioWorklet 안에서도 그대로 쓰려고 바깥 변수를 쓰지 않는 순수 함수로 둬요(toString 으로 옮겨 감).
-function detectPitch(buf: Float32Array, sr: number, pre: Float64Array) {
+export function detectPitch(buf: Float32Array, sr: number, pre: Float64Array) {
   const n = buf.length >> 1;
   const minLag = Math.floor(sr / 450);
   const maxLag = Math.min(Math.floor(sr / 70), buf.length - n - 1);
@@ -73,6 +79,7 @@ function detectPitch(buf: Float32Array, sr: number, pre: Float64Array) {
 const HOP_SEC = 0.025;
 const WORKLET_SRC = () => `
 const DP = ${detectPitch.toString()};
+const RF = ${rmsFreq.toString()};
 class TalkstageMeter extends AudioWorkletProcessor {
   constructor() {
     super();
@@ -84,7 +91,8 @@ class TalkstageMeter extends AudioWorkletProcessor {
   }
   frame(t) {
     const N = this.N; let s = 0;
-    for (let k = 0; k < N; k++) { const v = this.ring[(this.w + k) % N]; this.lin[k] = v; s += v * v; }
+    let df = 0, prev = 0;
+    for (let k = 0; k < N; k++) { const v = this.ring[(this.w + k) % N]; this.lin[k] = v; s += v * v; if (k) df += (v - prev) * (v - prev); prev = v; }
     const db = 20 * Math.log10(Math.sqrt(s / N) + 1e-9);
     let pitch = 0;
     if (db > this.gate) {
@@ -92,7 +100,7 @@ class TalkstageMeter extends AudioWorkletProcessor {
       for (let k = 0; k < m; k++) { let a = 0; for (let j = 0; j < d; j++) a += this.lin[k * d + j]; this.dbuf[k] = a / d; }
       pitch = DP(this.dbuf, sampleRate / d, this.pre);
     }
-    this.out.push(t, db, pitch);
+    this.out.push(t, db, pitch, RF(s, df, sampleRate));
   }
   process(inputs) {
     const ch = inputs[0] && inputs[0][0];
@@ -102,7 +110,7 @@ class TalkstageMeter extends AudioWorkletProcessor {
         if (this.filled < this.N) this.filled++;
         if (++this.since >= this.hop) { this.since = 0; if (this.filled >= this.N) this.frame(currentTime + (i + 1) / sampleRate); }
       }
-      if (this.out.length >= 6) { this.port.postMessage(this.out); this.out = []; }
+      if (this.out.length >= 8) { this.port.postMessage(this.out); this.out = []; }
     }
     return true;
   }
@@ -153,11 +161,11 @@ export class AudioMeter {
     node.port.postMessage({ gate: this.gate });
     node.port.onmessage = (e: MessageEvent<number[]>) => {
       const d = e.data;
-      for (let i = 0; i < d.length; i += 3) {
+      for (let i = 0; i < d.length; i += 4) {
         this.level = d[i + 1];
         if (this.frames) {
           const t = d[i] - this.audioT0;
-          if (t >= 0) this.frames.push({ t, db: d[i + 1], pitch: d[i + 2] });
+          if (t >= 0) this.frames.push({ t, db: d[i + 1], pitch: d[i + 2], fc: d[i + 3] });
         }
       }
     };
@@ -181,14 +189,14 @@ export class AudioMeter {
   tick() {
     if (!this.an || !this.buf || !this.pre) return;
     this.an.getFloatTimeDomainData(this.buf);
-    let s = 0;
-    for (let i = 0; i < this.buf.length; i++) s += this.buf[i] * this.buf[i];
+    let s = 0, df = 0;
+    for (let i = 0; i < this.buf.length; i++) { s += this.buf[i] * this.buf[i]; if (i) df += (this.buf[i] - this.buf[i - 1]) ** 2; }
     const db = 20 * Math.log10(Math.sqrt(s / this.buf.length) + 1e-9);
     this.level = db;
     if (this.frames) {
       const t = (performance.now() - this.t0) / 1000;
       const pitch = db > this.gate ? detectPitch(this.buf, this.ctx.sampleRate, this.pre) : 0;
-      this.frames.push({ t, db, pitch });
+      this.frames.push({ t, db, pitch, fc: rmsFreq(s, df, this.ctx.sampleRate) });
     }
   }
   /** t0 = performance.now() 기준 시작 시각. 오디오 시계를 같은 기준으로 맞춰요. */
@@ -349,15 +357,15 @@ export async function framesFromRecording(blob: Blob, gate: number): Promise<Aud
   const dbuf = new Float32Array(m), pre = new Float64Array(m + 2), out: AudioFrame[] = [];
   let lastYield = performance.now();
   for (let end = N; end <= len; end += hop) {
-    let s = 0;
-    for (let k = end - N; k < end; k++) s += x[k] * x[k];
+    let s = 0, df = 0;
+    for (let k = end - N; k < end; k++) { s += x[k] * x[k]; if (k > end - N) df += (x[k] - x[k - 1]) ** 2; }
     const db = 20 * Math.log10(Math.sqrt(s / N) + 1e-9);
     let pitch = 0;
     if (db > gate) {
       for (let k = 0; k < m; k++) { let a = 0; for (let j = 0; j < dec; j++) a += x[end - N + k * dec + j]; dbuf[k] = a / dec; }
       pitch = detectPitch(dbuf, sr / dec, pre);
     }
-    out.push({ t: end / sr, db, pitch });
+    out.push({ t: end / sr, db, pitch, fc: rmsFreq(s, df, sr) });
     if (performance.now() - lastYield > 40) { await new Promise((r) => setTimeout(r, 0)); lastYield = performance.now(); }
   }
   return out;

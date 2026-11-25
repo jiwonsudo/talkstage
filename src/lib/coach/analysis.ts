@@ -265,6 +265,8 @@ export const MIN_REHEARSAL_SEC = 20;
 const MIN_VOICE_SEC = 8, MIN_VOICE_FRAC = 0.2;
 /** 말이 거의 알아들을 수 없을 때 종합 점수 상한 */
 const UNCLEAR_CAP = 35;
+/** 받아쓰기가 없을 때 또렷함 기준: 말한 프레임 밝기(RMS 주파수) p90. 또렷한 말 ≈ 3,000~4,000Hz, 웅얼거림 ≈ 300~600Hz */
+const ARTIC_LOW_HZ = 1000, ARTIC_PART_HZ = 1600;
 
 export type AnalyzeInput = { audio: AudioFrame[]; vision: VisionFrame[]; transcript: TranscriptResult | null; calib: Calibration; purpose: Purpose; setup: Setup; durationSec: number };
 export type Analysis = ReturnType<typeof analyze>;
@@ -355,38 +357,56 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
   }
 
   // ---------- 또렷함 ----------
-  // 받아쓰기가 돌았는데 목소리 길이에 비해 알아들은 말이 거의 없으면 웅얼거린 거예요. 소리만 보면 억양·쉼·시선은 멀쩡해서
-  // 말 한마디 안 하고도 60점대가 나왔어요. 또렷하게 말하면 말한 1초에 4~7음절쯤 받아써져요(받아쓰기가 일부 놓쳐도 3 이상).
+  // 웅얼거려도 소리만 보면 억양·쉼·시선은 멀쩡해서 말 한마디 안 하고도 60~70점대가 나왔어요. 두 가지로 봐요.
+  // 1) 받아쓰기가 돌았으면: 또렷하게 말하면 말한 1초에 4~7음절쯤 받아써져요(일부 놓쳐도 3 이상).
+  // 2) 받아쓰기가 없으면(아이폰·영상 파일): 소리의 밝기(RMS 주파수). 또렷한 말은 자음(ㅅ·ㅊ·ㅌ)에서 3,000Hz 넘게 튀고,
+  //    입을 다문 채 웅얼거리면 300~600Hz 에 머물러요. 말한 프레임의 위쪽 10%(p90)로 판단해요.
   const finals = transcript?.finals || [];
   const syllTotalT = sum(finals.map((f) => syllables(f.text)));
   const sttRan = !!transcript && !transcript.error && setup.source !== 'file';
   const clarityRatio = sttRan && speechTime >= 10 ? syllTotalT / speechTime : null;
-  const clarity: 'low' | 'part' | 'ok' | null = clarityRatio == null ? null : clarityRatio < 1 ? 'low' : clarityRatio < 2 ? 'part' : 'ok';
+  const fcAt = (i: number) => (voiced[i] && audio[i].fc ? audio[i].fc! : null);
+  const fcVoiced = audio.map((_, i) => fcAt(i)).filter((v): v is number => v != null);
+  const articHz = clarityRatio == null && fcVoiced.length * dtA >= 10 ? quantile(fcVoiced, 0.9) : null;
+  const clarityBy: 'stt' | 'sound' | null = clarityRatio != null ? 'stt' : articHz != null ? 'sound' : null;
+  const clarity: 'low' | 'part' | 'ok' | null = clarityBy === 'stt'
+    ? (clarityRatio! < 1 ? 'low' : clarityRatio! < 2 ? 'part' : 'ok')
+    : clarityBy === 'sound' ? (articHz! < ARTIC_LOW_HZ ? 'low' : articHz! < ARTIC_PART_HZ ? 'part' : 'ok') : null;
   if (clarity === 'low' || clarity === 'part') {
-    // 말소리는 있는데 받아쓴 말이 적은 10초 구간
+    // 말소리는 있는데 또렷하지 않은 10초 구간
     const tSyll = new Array(nSec).fill(0);
     for (const f of finals) {
       const n = syllables(f.text), a = Math.max(0, Math.floor(f.t0)), b = Math.max(a + 1, Math.ceil(f.t));
       for (let k = a; k < b && k < nSec; k++) tSyll[k] += n / (b - a);
     }
+    const unclearWin = (a: number, b: number) => {
+      const v = sum(voicedSec.slice(a, b));
+      if (v < 4) return false;
+      if (clarityBy === 'stt') return sum(tSyll.slice(a, b)) / v < 1.2;
+      const i0 = lowerBound(audio, a), i1 = lowerBound(audio, b);
+      const w: number[] = [];
+      for (let i = i0; i < i1; i++) { const f = fcAt(i); if (f != null) w.push(f); }
+      return w.length >= 40 && quantile(w, 0.9) < ARTIC_PART_HZ;
+    };
     const bad: Run[] = [];
-    for (let s0 = 0; s0 + 10 <= nSec; s0 += 5) {
-      const v = sum(voicedSec.slice(s0, s0 + 10));
-      if (v >= 4 && sum(tSyll.slice(s0, s0 + 10)) / v < 1.2) bad.push({ t0: s0, t1: s0 + 10 });
-    }
+    for (let s0 = 0; s0 + 10 <= nSec; s0 += 5) if (unclearWin(s0, s0 + 10)) bad.push({ t0: s0, t1: s0 + 10 });
     mergeRuns(bad, 0.1).sort((a, b) => (b.t1 - b.t0) - (a.t1 - a.t0)).slice(0, 3).forEach((r) => pushIssue({
       t0: r.t0, t1: r.t1, cat: 'tone', sev: clarity === 'low' ? 3 : 2, title: '말이 또렷하게 들리지 않음',
-      detail: `목소리는 났지만 ${Math.round(r.t1 - r.t0)}초 동안 알아들을 수 있는 말이 거의 없었어요. 입을 크게 열고 단어 끝까지 또박또박 말해 보세요.`,
+      detail: clarityBy === 'stt'
+        ? `목소리는 났지만 ${Math.round(r.t1 - r.t0)}초 동안 알아들을 수 있는 말이 거의 없었어요. 입을 크게 열고 단어 끝까지 또박또박 말해 보세요.`
+        : `목소리는 났지만 ${Math.round(r.t1 - r.t0)}초 동안 자음이 거의 들리지 않았어요(웅얼거림). 입을 크게 열고 단어 끝까지 또박또박 말해 보세요.`,
     }));
     limits.push(clarity === 'low'
-      ? `목소리는 ${Math.round(speechTime)}초 났는데 받아쓴 말이 ${Math.round(syllTotalT)}음절뿐이라, 말이 또렷하지 않았다고 보고 종합 점수를 ${UNCLEAR_CAP}점 아래로 낮췄어요. 또렷하게 말했는데도 이렇게 나왔다면 받아쓰기가 끊긴 거라 다시 녹화해 주세요.`
-      : '받아쓴 말이 목소리 길이에 비해 적어요. 일부 구간은 말이 또렷하지 않았을 수 있어요.');
+      ? clarityBy === 'stt'
+        ? `목소리는 ${Math.round(speechTime)}초 났는데 받아쓴 말이 ${Math.round(syllTotalT)}음절뿐이라, 말이 또렷하지 않았다고 보고 종합 점수를 ${UNCLEAR_CAP}점 아래로 낮추고 말 빠르기는 재지 않았어요. 또렷하게 말했는데도 이렇게 나왔다면 받아쓰기가 끊긴 거라 다시 녹화해 주세요.`
+        : `목소리는 ${Math.round(speechTime)}초 났지만 자음(ㅅ·ㅊ·ㅌ 같은 또렷한 소리)이 거의 들리지 않아 웅얼거린 것으로 보고, 종합 점수를 ${UNCLEAR_CAP}점 아래로 낮추고 말 빠르기는 재지 않았어요. 또렷하게 말했는데도 이렇게 나왔다면 마이크를 손이나 옷으로 가리지 않았는지 확인해 주세요.`
+      : clarityBy === 'stt' ? '받아쓴 말이 목소리 길이에 비해 적어요. 일부 구간은 말이 또렷하지 않았을 수 있어요.' : '자음이 또렷하게 들리지 않는 구간이 있어요. 일부는 웅얼거리듯 말했을 수 있어요.');
   }
 
   // ---------- 말 빠르기 ----------
   let rateSource: 'transcript' | 'estimate' | 'audio' | null = null;
   let syllTimes: { t: number; n: number }[] = [];
-  // 웅얼거려서 받아쓴 말이 적으면 그걸로 세면 "아주 느림"이 돼요. 그때는 소리로 추정해요.
+  // 웅얼거렸으면(clarity low) 받아쓴 말로 세면 "아주 느림", 소리로 세면 아무 숫자가 나와서 말 빠르기를 재지 않아요.
   if (syllTotalT >= 15 && clarity !== 'low') {
     rateSource = 'transcript';
     const ev = transcript?.events || [];
@@ -401,7 +421,7 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
         for (let k = 0; k < steps; k++) syllTimes.push({ t: f.t0 + ((f.t - f.t0) * (k + 0.5)) / steps, n: n / steps });
       }
     }
-  } else if (hasSpeech) {
+  } else if (hasSpeech && clarity !== 'low') {
     rateSource = 'estimate';
     const sm = dbs.map((_, i) => (dbs[Math.max(0, i - 1)] + dbs[i] + dbs[Math.min(dbs.length - 1, i + 1)]) / 3);
     const w = 3, back = 6, minGap = 0.11;
@@ -416,7 +436,7 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
       last = tA[i];
       syllTimes.push({ t: tA[i], n: 1.3 }); // 음량 봉우리는 음절을 적게 세는 경향이 있어 보정
     }
-    limits.push(clarity === 'low' ? '받아쓴 말이 너무 적어서 말 빠르기는 음량 변화로 추정했어요. 실제와 차이가 클 수 있어요.' : '받아쓰기가 없어서 말 빠르기는 음량 변화로 추정했어요. 실제와 차이가 클 수 있어요.');
+    limits.push('받아쓰기가 없어서 말 빠르기는 음량 변화로 추정했어요. 실제와 차이가 클 수 있어요.');
   }
   const syllTotal = sum(syllTimes.map((s) => s.n));
   const effTime = Math.max(1, span - bigSilTotal);
@@ -774,7 +794,7 @@ export function analyze({ audio, vision, transcript, calib, purpose, setup, dura
   if (transcript?.error) limits.push(transcript.error);
   if (rateSource === 'transcript') limits.push('음성 인식은 “어”, “음” 같은 소리를 받아쓰지 않을 때가 많아서, 군더더기 말 횟수가 실제보다 적게 나올 수 있어요.');
 
-  return { invalid, voiceSec, dur, overall, clarity, clarityRatio, cats, issues: finalIssues, highlights, series, finals, rateSource, limits, smileRatio, calib, thr };
+  return { invalid, voiceSec, dur, overall, clarity, clarityBy, clarityRatio, articHz, cats, issues: finalIssues, highlights, series, finals, rateSource, limits, smileRatio, calib, thr };
 }
 
 // ---------------- 하이라이트 ----------------
