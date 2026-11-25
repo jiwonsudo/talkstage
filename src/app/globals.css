@@ -2669,3 +2669,17 @@ p.field-err { margin: 6px 0 0; }
   .voice-stage, .file-pick { padding-bottom: 150px; }
 }
 .stt-ios { display: block; margin-top: 6px; font-size: 12px; line-height: 1.5; color: var(--ink-3); }
+
+/* AI 코칭이 만든 부분 표시: 진한 보라 단색 태그(규칙 분석과 구분) */
+.ai-tag { display: inline-flex; align-items: center; justify-content: center; flex: none; height: 20px; padding: 0 7px; margin-right: 6px; border-radius: 6px; background: var(--purple); color: #fff; font-size: 11px; font-weight: 800; letter-spacing: .02em; line-height: 1; vertical-align: 2px; font-style: normal; }
+.ai-h { display: flex; align-items: center; flex-wrap: wrap; gap: 0 2px; }
+.ai-h small { margin-left: 6px; font-size: 12px; font-weight: 600; color: var(--ink-3); }
+.ai-ends > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 0; }
+.rd-ai { list-style: none; margin: 8px 0 2px; padding: 0; display: grid; gap: 6px; }
+.rd-ai li { display: block; padding: 8px 10px; border-radius: var(--r-md); background: color-mix(in oklab, var(--purple) 8%, var(--surface)); font-size: 14px; line-height: 1.5; color: var(--ink); }
+.rd-ai li .ai-tag { vertical-align: 1px; }
+.rd-ai b { margin-right: 6px; font-weight: 800; color: var(--purple); }
+.lg-ai { display: inline-flex; align-items: center; color: var(--ink) !important; font-weight: 700; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .rd-ai b { color: color-mix(in oklab, var(--purple) 55%, #fff); } }
+:root[data-theme="dark"] .rd-ai b { color: color-mix(in oklab, var(--purple) 55%, #fff); }
+.ai-to .ai-tag, .ai-ends .ai-tag { display: inline-block; height: auto; background: var(--purple); color: #fff; padding: 2px 7px; margin-right: 4px; font-size: 12px; line-height: inherit; vertical-align: 1px; }
