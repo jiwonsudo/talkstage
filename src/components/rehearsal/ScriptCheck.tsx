@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useToast } from '@/components/ui/Toast';
 import { UsageHelp } from '@/components/ui/UsageHelp';
+import { SimpleCoach } from './SimpleCoach';
 import { syllables } from '@/lib/coach/audio';
 import { analyzeScript, contour, readScriptFile, Reader, type ScriptAnalysis, type Sent } from '@/lib/coach/script';
 import { AI_COACH_TIERS, aiCoachChars, aiCoachCost, getCoachStatus, redeemPromo, requestScriptCoach, type CoachResult, type CoachStatus, type DeliveryCue } from '@/lib/coach/scriptCoach';
@@ -12,7 +13,7 @@ import { PURPOSES, fmtMin, fmtTime } from '@/lib/scenarios';
 const BASE_RATE: Record<string, number> = { interview: 1, ir: 1.05, report: 1.02, lecture: 0.95, conference: 1, speech: 0.92 };
 const SPEEDS = [0.9, 1, 1.15];
 
-type Props = { draft: Draft; update: (fn: (d: Draft) => Draft) => void; onRecord: () => void };
+type Props = { draft: Draft; update: (fn: (d: Draft) => Draft) => void; onRecord: () => void; paid: boolean };
 type Ai = { status: 'idle' | 'loading' | 'done' | 'error'; res?: CoachResult; err?: string; key?: string };
 // 받은 AI 코칭은 이 기기에 남겨 둬요(테스트 1회·크레딧을 쓴 결과가 화면을 떠나도 사라지지 않게).
 const AI_SAVE = 'ts-ai-coach-v1';
@@ -25,7 +26,7 @@ const loadSaved = (): Ai => {
  * AI 대본 코칭(/api/script/coach)은 서버가 정한 조건에서만: 지금(테스트)은 프로모션 코드로 1회,
  * 정식은 유료 요금제 + 대본 길이별 크레딧(쓰기 전에 몇 크레딧인지 보여 줘요).
  */
-export function ScriptCheck({ draft, update, onRecord }: Props) {
+export function ScriptCheck({ draft, update, onRecord, paid }: Props) {
   const toast = useToast();
   const p = purposeOf(draft);
   const targetSec = targetSecOf(draft);
@@ -45,10 +46,11 @@ export function ScriptCheck({ draft, update, onRecord }: Props) {
   const [access, setAccess] = useState<CoachStatus | null>(null);
   const [accessErr, setAccessErr] = useState('');
   useEffect(() => {
+    if (!paid) return;
     let live = true;
     getCoachStatus().then((s) => { if (live) setAccess(s); }).catch((e) => { if (live) setAccessErr((e as Error).message); });
     return () => { live = false; };
-  }, []);
+  }, [paid]);
   const abortRef = useRef<AbortController | null>(null);
   useEffect(() => () => abortRef.current?.abort(), []);
 
@@ -61,7 +63,7 @@ export function ScriptCheck({ draft, update, onRecord }: Props) {
       const res = await requestScriptCoach({ script: draft.script, purposeId: p.id, targetSec, topic: draft.title.trim() || defaultTitle(draft), keyMessage: draft.key.trim(), outcome: outcomeLabel(draft), aid: draft.aid ?? '', posture: draft.posture }, ac.signal);
       setAi({ status: 'done', res, key });
       try { localStorage.setItem(AI_SAVE, JSON.stringify({ key, res })); } catch { /* 저장 못 해도 화면엔 보여요 */ }
-      if (res.charged.kind === 'trial') setAccess({ mode: 'promo', trial: 'used' });
+      if (res.charged.kind === 'trial') setAccess({ mode: 'promo', paid: true, trial: 'used' });
       else setAccess((a) => (a?.mode === 'credits' && a.left != null ? { ...a, left: Math.max(0, a.left - (res.charged as { cost: number }).cost) } : a));
     } catch (e) {
       if (ac.signal.aborted) return;
@@ -93,8 +95,8 @@ export function ScriptCheck({ draft, update, onRecord }: Props) {
   return (
     <section className="screen">
       <div className="page sc-page">
-        <h1 className="title1">대본 점검</h1>
-        <p className="subtitle">{p.label} 기준으로 시간·흐름·읽기 가이드를 바로 확인하고, AI 코칭으로 대본을 먼저 이해한 뒤 고칠 문장과 말하는 방법까지 받아요.</p>
+        <h1 className="title1">{paid ? '대본 점검' : '대본'}</h1>
+        <p className="subtitle">{paid ? `${p.label} 기준으로 시간·흐름·읽기 가이드를 바로 확인하고, AI 코칭으로 대본을 먼저 이해한 뒤 고칠 문장과 말하는 방법까지 받아요.` : `대본을 적어 두면 ${p.label} 기준 간단 코칭을 근거와 함께 보여 드려요.`}</p>
         <div className="sc-setup">
           <label className="sel"><span>발표 상황</span>
             <select value={draft.purposeId} onChange={(e) => update((d) => withPurpose(d, e.target.value))}>
@@ -124,6 +126,12 @@ export function ScriptCheck({ draft, update, onRecord }: Props) {
           <div className="sc-dropmask">여기에 놓으면 대본을 불러와요</div>
         </div>
         <p className="sc-err" role="alert">{err}</p>
+        {!paid ? (
+          <>
+            {n >= 20 && <SimpleCoach draft={draft} />}
+            <button type="button" className="btn-fill btn-block sc-go" disabled={!draft.title.trim()} onClick={onRecord}>이 대본으로 녹화 준비</button>
+          </>
+        ) : <>
         <button type="button" className="btn-fill btn-block" disabled={n < 20} onClick={check}>대본 점검하기</button>
         <div ref={aiRef}>
           <AiPanel access={access} accessErr={accessErr} ai={ai} chars={aiCoachChars(draft.script)} ok={n >= 20}
@@ -134,6 +142,7 @@ export function ScriptCheck({ draft, update, onRecord }: Props) {
           {result && result.stats.n > 0 && <ScriptResult result={result} purposeId={p.id} purposeLabel={p.label} onRecord={onRecord} />}
         </div>
         {!result && <button type="button" className="btn-plain btn-block sc-skip" onClick={onRecord}>점검 없이 녹화</button>}
+        </>}
       </div>
     </section>
   );
@@ -173,10 +182,11 @@ function AiPanel({ access, accessErr, ai, chars, ok, stale, onRun, onAccess, onU
   if (accessErr) gate = <p className="sc-err">{accessErr}</p>;
   else if (!access) gate = <p className="ai-note">AI 코칭을 쓸 수 있는지 확인하는 중이에요…</p>;
   else if (access.mode === 'off') gate = <p className="ai-note">{access.reason}</p>;
+  else if (access.mode === 'promo' && !access.paid) gate = <p className="ai-note">AI 대본 코칭은 <b>Spotlight 요금제부터</b> 쓸 수 있어요. <Link href="/me/plan?pick=Spotlight&from=wizard">요금제 보기</Link></p>;
   else if (access.mode === 'promo') {
     if (access.trial === 'none') gate = (
       <>
-        <p className="ai-note">지금은 테스트 기간이라 <b>프로모션 코드</b>가 있으면 AI 코칭을 <b>한 번</b> 무료로 받을 수 있어요.</p>
+        <p className="ai-note">지금은 테스트 기간이라 <b>프로모션 코드</b>를 넣으면 AI 코칭을 <b>한 번</b> 받을 수 있어요(크레딧 안 씀).</p>
         <form className="ai-code" onSubmit={(e) => { e.preventDefault(); if (code.trim()) apply(); }}>
           <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="프로모션 코드" autoCapitalize="characters" autoComplete="off" maxLength={40} aria-label="프로모션 코드" />
           <button type="submit" className="btn-plain" disabled={busy || !code.trim()}>{busy ? '확인 중…' : '적용'}</button>

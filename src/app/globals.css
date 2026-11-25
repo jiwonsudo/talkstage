@@ -2357,6 +2357,26 @@ p, li, .catch-sub, .lead2, .display-sub, small { word-break: keep-all; text-wrap
 .usage-tbl tbody th { text-align: left; }
 .usage-act { grid-template-columns: 1fr; }
 
+/* 무료 요금제 간단 코칭(근거 포함)·제목 필수 */
+.simple-coach { margin: 18px 0 16px; padding: 18px 20px; border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow); }
+.simple-coach h3 { margin: 0 0 8px; font-size: 16px; font-weight: 800; }
+.simple-coach h3 small { margin-left: 6px; font-size: 12px; font-weight: 600; color: var(--ink-3); }
+.simple-coach .sc-time { margin: 0 0 6px; font-size: 15px; }
+.simple-coach ol { list-style: none; margin: 0; padding: 0; }
+.simple-coach li { padding: 12px 0 12px 16px; border-top: 1px solid var(--line); position: relative; }
+.simple-coach li::before { content: ""; position: absolute; left: 0; top: 19px; width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); }
+.simple-coach li[data-sev="high"]::before { background: var(--red); }
+.simple-coach li[data-sev="mid"]::before { background: var(--orange); }
+.simple-coach li b { font-size: 15px; }
+.simple-coach li p { margin: 4px 0 0; font-size: 14px; line-height: 1.55; color: var(--ink-2); }
+.simple-coach .basis { display: block; margin-top: 4px; font-size: 13px; color: var(--ink-3); }
+.simple-coach .sc-good { margin: 8px 0 0; font-size: 14px; }
+.simple-coach .sc-up { margin: 12px 0 0; padding-top: 12px; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.55; color: var(--ink-2); }
+.simple-coach .sc-up a { color: var(--blue); font-weight: 700; }
+.field .req { margin-left: 4px; font-style: normal; font-size: 12px; font-weight: 700; color: var(--red); }
+.wiz-need { margin: 0 0 8px; font-size: 13px; color: var(--ink-3); text-align: center; }
+.sc-go { margin-top: 6px; }
+
 /* ── 스쿼클(연속 곡률) 전체 통일 ──
    보통 둥근 모서리는 직선→원호로 넘어갈 때 곡률이 뚝 바뀌어요. 스쿼클은 곡률이 0 에서 서서히 커져 매끄럽게 이어져요(iOS 모서리).
    - 둥근 사각형: corner-shape: squircle + 반지름 1.6배(같은 반지름이면 덜 둥글어 보여서) — 카드와 같은 방식.
@@ -2371,7 +2391,7 @@ p, li, .catch-sub, .lead2, .display-sub, small { word-break: keep-all; text-wrap
   /* 원·점·얇은 막대 */
   .av, .avatar, .bar-dot, .bezel-ring, .btn-rec i, .ck-ico, .clip-banner::before, .cue-chip i, .dc-dot, .dir, .dlg-x, .dot, .dp-btn, .flow-steps li i,
   .framing::before, .who-hint::before, .hc i, .hl-play, .issue > i, .live, .marquee-track i, .ml-dot, .nav-btn, .nv-meter li::before, .opt .check, .opt-num, .pc-go, .pl-btn,
-  .rec-pill i, .ai-fixes li::before, .help-q, .recent-acct .avatar, .cam-flip, .spin, .spot, .st i, .switch::before, .tl-head i::before,
+  .rec-pill i, .ai-fixes li::before, .help-q, .simple-coach li::before, .recent-acct .avatar, .cam-flip, .spin, .spot, .st i, .switch::before, .tl-head i::before,
   .bar, .bar-band, .bar-fill, .db-bar, .flow-bar, .hp-bar, .meter, .r-score-bar, .r-score-bar i, .sm-bar, .sm-bar i, .wiz-bar, .wiz-bar i, .issues button::before, .lg-filler, .pf-eq i { corner-shape: round; }
   /* 알약 */
   .avatar-btn, .badge, .btn-fill, .btn, .btn-plain, .btn-ghost, .btn-stop, .btn-white, .chip, .chip-btn, .clip-banner, .cue-chip, .db-cats em, .ev-grid em, .ev-type,
