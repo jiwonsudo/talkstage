@@ -110,6 +110,7 @@ pnpm dev        # http://localhost:5180 (Supabase 리다이렉트와 맞추려�
 - `window.alert/confirm/prompt` 금지. 확인은 `useConfirm()`, 입력이 필요한 확인은 `useAsk()`(ui/Confirm, fields·match·check) 모달로.
 - `.seg` 토글에는 `<SegPill />` 을 넣어 고른 칸으로 미끄러지게. 상태가 바뀌는 곳은 뚝 바뀌지 않게 전환 모션을 넣을 것.
 - `<dialog>` 는 열 때 창 자체에 포커스(`tabIndex={-1}` + `focus()`) — 첫 버튼에 파란 포커스 링이 뜨지 않게.
+- 모서리는 스쿼클(연속 곡률): `globals.css` 맨 아래 블록. 둥근 사각형은 squircle + 반지름 1.6배, 알약은 모양 유지한 채 `superellipse(1.4)` + 가로 반지름 `--px`(높이 약 0.72배), 원·점·얇은 막대는 원 그대로. 새 알약·동그라미를 만들면 그 목록에 넣을 것. Chrome 계열만 적용(Safari 는 corner-shape 미지원).
 - 테마 변경은 `setThemeAnimated`(누른 자리에서 원으로 번짐, View Transitions).
 
 ## 브랜드 파일·OG
