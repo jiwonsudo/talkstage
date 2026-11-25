@@ -188,27 +188,89 @@ function Lock({ title }: { title: string }) {
   );
 }
 
+// 직접 입력한 발표 이름에서 가장 가까운 기본 유형을 찾아요(키워드). 못 찾으면 null.
+const PURPOSE_WORDS: Record<string, string[]> = {
+  interview: ['면접', '인터뷰', '채용', '입사', '전형', 'pt면접', '임원'],
+  ir: ['ir', '투자', '피칭', '데모데이', '스타트업', '창업', '경진', '공모전', '시연', '데모', '제품', '세일즈', '영업', '제안'],
+  report: ['보고', '회의', '브리핑', '사내', '팀장', '주간', '월간', '분기', '기획', '결과'],
+  lecture: ['강의', '수업', '교육', '강연', '워크숍', '튜토리얼', '온보딩', '특강'],
+  conference: ['학회', '세미나', '컨퍼런스', '포럼', '논문', '연구', '심포지엄', '콜로키엄'],
+  capstone: ['졸업', '캡스톤', '과제', '조별', '팀플', '수행평가', '해커톤', '프로젝트', '학기'],
+  speech: ['축사', '연설', '스피치', '건배', '인사말', '추도', '결혼', '사회', '스토리'],
+};
+const GENERAL_BASE = 'conference';
+function guessPurpose(name: string): string | null {
+  const t = name.toLowerCase().replace(/\s+/g, '');
+  if (!t) return null;
+  let best: string | null = null, hits = 0;
+  for (const [id, words] of Object.entries(PURPOSE_WORDS)) {
+    const n = words.filter((w) => t.includes(w)).length;
+    if (n > hits) { best = id; hits = n; }
+  }
+  return best;
+}
+const plabel = (id: string) => PURPOSES.find((x) => x.id === id)?.label ?? id;
+const norm = (s: string) => s.toLowerCase().replace(/[\s·,.!?~\-()]/g, '');
+/** 두 문구가 거의 같은지(글자 2개씩 겹치는 비율) */
+function similar(a: string, b: string) {
+  const A = norm(a), B = norm(b);
+  if (!A || !B) return false;
+  if (A === B || A.includes(B) || B.includes(A)) return true;
+  const grams = (s: string) => new Set(Array.from({ length: Math.max(0, s.length - 1) }, (_, i) => s.slice(i, i + 2)));
+  const ga = grams(A), gb = grams(B);
+  const common = [...ga].filter((g) => gb.has(g)).length;
+  return common / Math.max(1, Math.min(ga.size, gb.size)) >= 0.6;
+}
+
 function CustomPurpose({ draft, update, go, paid, mark }: Pick<ChoiceProps, 'draft' | 'update' | 'go' | 'paid' | 'mark'>) {
-  const toast = useToast();
   const cp = draft.customPurpose;
   const [name, setName] = useState(cp?.name ?? '');
-  const [base, setBase] = useState(cp?.base ?? draft.purposeId);
+  // base: 고른 유형 id, 'none' = 비슷한 유형이 없어요. picked: 사용자가 직접 골랐는지(자동 추천이 덮어쓰지 않게)
+  const [base, setBase] = useState<string>(cp ? (cp.general ? 'none' : cp.base) : '');
+  const [picked, setPicked] = useState(!!cp);
+  const [tried, setTried] = useState(false);
+  const nameRef = useRef<HTMLInputElement>(null);
   if (!paid) return <Lock title="원하는 발표가 없나요? 직접 입력하기" />;
+
+  const n = name.trim();
+  const guess = guessPurpose(n);
+  const shown = picked ? base : (guess ?? base);
+  const same = PURPOSES.find((x) => similar(x.label, n) || x.label.split(/\s*·\s*/).some((w) => norm(w) === norm(n)));
+  const nameErr = !n ? '발표 이름을 적어 주세요.' : n.length < 2 ? '두 글자 이상으로 적어 주세요.' : '';
+  const baseErr = shown ? '' : '가장 비슷한 유형을 하나 골라 주세요. 없으면 "비슷한 유형이 없어요"를 골라 주세요.';
+  const choose = (id: string) => { setBase(id); setPicked(true); };
+  const submit = () => {
+    if (nameErr || baseErr) { setTried(true); if (nameErr) nameRef.current?.focus(); return; }
+    const general = shown === 'none';
+    const b = general ? GENERAL_BASE : shown;
+    mark('purpose', DEPENDS.purpose);
+    update((d) => ({ ...withPurpose(d, b), customPurpose: { name: n, base: b, ...(general ? { general: true } : {}) } }));
+    go(1);
+  };
   return (
     <details className="custom-box" open={!!cp}>
       <summary>원하는 발표가 없나요? 직접 입력하기</summary>
-      <label className="field"><span>발표 이름</span><input type="text" maxLength={30} value={name} onChange={(e) => setName(e.target.value)} placeholder="예: 사내 해커톤 결선 발표" /></label>
-      <p className="group-h">가장 비슷한 유형 <small>이 유형의 속도·쉼·시선 기준으로 코칭해요</small></p>
-      <div className="custom-chips">
-        {PURPOSES.map((x) => <button key={x.id} type="button" className={x.id === base ? 'is-on' : ''} onClick={() => setBase(x.id)}>{x.label}</button>)}
+      <label className={`field${tried && nameErr ? ' is-bad' : ''}`}>
+        <span>발표 이름 <em className="req">필수</em></span>
+        <input ref={nameRef} type="text" maxLength={30} value={name} onChange={(e) => setName(e.target.value)} placeholder="예: 사내 해커톤 결선 발표" aria-invalid={(tried && !!nameErr) || undefined} />
+        {tried && nameErr && <em className="field-err" role="alert">{nameErr}</em>}
+      </label>
+      {same && (
+        <p className="custom-hint">
+          &lsquo;{same.label}&rsquo;은 이미 있는 유형이에요. 기본 유형으로 고르면 목표·기준이 더 잘 맞아요.{' '}
+          <button type="button" className="link-btn" onClick={() => { mark('purpose', DEPENDS.purpose); update((d) => ({ ...withPurpose(d, same.id), customPurpose: null })); go(1); }}>{same.label}(으)로 고르기</button>
+        </p>
+      )}
+      <p className="group-h">가장 비슷한 유형 <em className="req">필수</em> <small>이 유형의 속도·쉼·시선 기준으로 코칭해요</small></p>
+      <div className={`custom-chips${tried && baseErr ? ' is-bad' : ''}`}>
+        {PURPOSES.map((x) => <button key={x.id} type="button" className={x.id === shown ? 'is-on' : ''} aria-pressed={x.id === shown} onClick={() => choose(x.id)}>{x.label}</button>)}
+        <button type="button" className={`chip-none${shown === 'none' ? ' is-on' : ''}`} aria-pressed={shown === 'none'} onClick={() => choose('none')}>비슷한 유형이 없어요</button>
       </div>
+      {!picked && guess && <p className="custom-hint">발표 이름을 보고 &lsquo;{plabel(guess)}&rsquo;를 골라 뒀어요. 다르면 바꿔 주세요.</p>}
+      {shown === 'none' && <p className="custom-hint">청중 앞에서 설명하는 일반 발표 기준({plabel(GENERAL_BASE)}과 같은 속도·쉼·시선)으로 코칭해요. 상황에 꼭 맞는 기준이 아니라 점수가 덜 정확할 수 있어요.</p>}
+      {tried && baseErr && <p className="field-err" role="alert">{baseErr}</p>}
       <p className="custom-warn">{CUSTOM_WARN}</p>
-      <button type="button" className="btn-fill btn-block" onClick={() => {
-        if (!name.trim()) { toast('발표 이름을 적어 주세요'); return; }
-        mark('purpose', DEPENDS.purpose);
-        update((d) => ({ ...withPurpose(d, base), customPurpose: { name: name.trim(), base } }));
-        go(1);
-      }}>이 설정으로 다음</button>
+      <button type="button" className="btn-fill btn-block" onClick={submit}>이 설정으로 다음</button>
     </details>
   );
 }
@@ -217,41 +279,90 @@ function CustomGoalBox({ draft, update, paid }: { draft: Draft; update: Props['u
   const toast = useToast();
   const cg = draft.customGoal;
   const [label, setLabel] = useState(cg?.label ?? '');
-  const [focus, setFocus] = useState<CatId>(cg?.focus ?? 'content');
+  const [focus, setFocus] = useState<CatId | 'none' | ''>(cg?.focus ?? '');
+  const [tried, setTried] = useState(false);
+  const inRef = useRef<HTMLInputElement>(null);
   if (!paid) return <Lock title="원하는 목표를 직접 추가하기" />;
+
+  const t = label.trim();
+  const outs = purposeOf(draft).outcomes;
+  const dupIdx = t ? outs.findIndex((o) => similar(o.label, t)) : -1;
+  const full = !cg && draft.outcomeIdxs.length >= MULTI;
+  const labelErr = !t ? '목표를 적어 주세요.' : t.length < 4 ? '조금 더 구체적으로 적어 주세요(4자 이상).' : '';
+  const focusErr = focus ? '' : '가장 가까운 코칭 항목을 골라 주세요. 없으면 "딱 맞는 항목이 없어요"를 골라 주세요.';
+  const fullErr = full ? `목표는 최대 ${MULTI}개예요. 위에서 하나를 빼고 추가해 주세요.` : '';
+  const submit = () => {
+    if (labelErr || focusErr || fullErr) { setTried(true); if (labelErr) inRef.current?.focus(); return; }
+    update((d) => ({ ...d, customGoal: { label: t, focus: focus as CatId | 'none', cta: false } }));
+    setTried(false);
+    toast('목표에 추가했어요');
+  };
   return (
     <details className="custom-box" open={!!cg}>
       <summary>{cg ? `직접 추가한 목표: ${cg.label}` : '원하는 목표를 직접 추가하기'}</summary>
-      <label className="field"><span>목표 <small>(고른 목표와 합쳐 최대 {MULTI}개)</small></span><input type="text" maxLength={40} value={label} onChange={(e) => setLabel(e.target.value)} placeholder="예: 기술 질문에 막힘없이 답하기" /></label>
-      <p className="group-h">가장 가까운 코칭 항목 <small>이 항목을 더 무겁게 봐요</small></p>
-      <div className="custom-chips">
-        {(Object.entries(CAT_LABEL) as [CatId, string][]).map(([k, l]) => <button key={k} type="button" className={k === focus ? 'is-on' : ''} onClick={() => setFocus(k)}>{l}</button>)}
+      <label className={`field${tried && labelErr ? ' is-bad' : ''}`}>
+        <span>목표 <em className="req">필수</em> <small>(고른 목표와 합쳐 최대 {MULTI}개)</small></span>
+        <input ref={inRef} type="text" maxLength={40} value={label} onChange={(e) => setLabel(e.target.value)} placeholder="예: 기술 질문에 막힘없이 답하기" aria-invalid={(tried && !!labelErr) || undefined} />
+        {tried && labelErr && <em className="field-err" role="alert">{labelErr}</em>}
+      </label>
+      {dupIdx >= 0 && (
+        <p className="custom-hint">
+          위 목록의 &lsquo;{outs[dupIdx].label}&rsquo;과 거의 같아요.{' '}
+          {draft.outcomeIdxs.includes(dupIdx) ? '이미 골라 둔 목표예요.' : (
+            <button type="button" className="link-btn" disabled={draft.outcomeIdxs.length >= MULTI}
+              onClick={() => { update((d) => ({ ...d, outcomeIdxs: [...d.outcomeIdxs, dupIdx] })); setLabel(''); toast('목록의 목표를 골랐어요'); }}>
+              {draft.outcomeIdxs.length >= MULTI ? `목표가 이미 ${MULTI}개예요` : '목록에서 고르기'}
+            </button>
+          )}
+        </p>
+      )}
+      <p className="group-h">가장 가까운 코칭 항목 <em className="req">필수</em> <small>이 항목을 더 무겁게 봐요</small></p>
+      <div className={`custom-chips${tried && focusErr ? ' is-bad' : ''}`}>
+        {(Object.entries(CAT_LABEL) as [CatId, string][]).map(([k, l]) => <button key={k} type="button" className={k === focus ? 'is-on' : ''} aria-pressed={k === focus} onClick={() => setFocus(k)}>{l}</button>)}
+        <button type="button" className={`chip-none${focus === 'none' ? ' is-on' : ''}`} aria-pressed={focus === 'none'} onClick={() => setFocus('none')}>딱 맞는 항목이 없어요</button>
       </div>
+      {focus === 'none' && <p className="custom-hint">특정 항목에 가중치를 두지 않고, 목표 문구만 리포트에 함께 보여 드려요.</p>}
+      {tried && focusErr && <p className="field-err" role="alert">{focusErr}</p>}
+      {tried && fullErr && <p className="field-err" role="alert">{fullErr}</p>}
       <p className="custom-warn">{CUSTOM_WARN}</p>
       <div className="custom-act">
-        <button type="button" className="btn-fill" onClick={() => {
-          if (!label.trim()) { toast('목표를 적어 주세요'); return; }
-          if (!cg && draft.outcomeIdxs.length >= MULTI) { toast(`목표는 최대 ${MULTI}개예요. 위에서 하나를 빼고 추가해 주세요.`); return; }
-          update((d) => ({ ...d, customGoal: { label: label.trim(), focus, cta: false } }));
-          toast('목표에 추가했어요');
-        }}>{cg ? '바꾸기' : '목표에 추가'}</button>
-        {cg && <button type="button" className="btn-ghost" onClick={() => { update((d) => ({ ...d, customGoal: null })); setLabel(''); }}>빼기</button>}
+        <button type="button" className="btn-fill" onClick={submit}>{cg ? '바꾸기' : '목표에 추가'}</button>
+        {cg && <button type="button" className="btn-ghost" onClick={() => { update((d) => ({ ...d, customGoal: null })); setLabel(''); setFocus(''); setTried(false); }}>빼기</button>}
       </div>
     </details>
   );
 }
 
 function PromptStep({ draft, update, guest, paid, onAnalyzeScript, onRecord }: Pick<Props, 'draft' | 'update' | 'guest' | 'paid' | 'onAnalyzeScript' | 'onRecord'>) {
-  const titled = draft.title.trim().length > 0;
   const has = draft.hasScript;
   const p = purposeOf(draft);
   const copy = PROMPT_COPY[has];
   const [err, setErr] = useState('');
   const [over, setOver] = useState(false);
+  // 버튼은 늘 누를 수 있어요. 누르면 빠진 칸을 빨간 윤곽과 이유로 바로 보여 주고 그 칸으로 데려가요.
+  const [tried, setTried] = useState(false);
   const focusRef = useRef<HTMLTextAreaElement & HTMLInputElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const scriptRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => { const t = setTimeout(() => focusRef.current?.focus(), 80); return () => clearTimeout(t); }, [has]);
 
   const scN = syllables(draft.script);
+  const titleErr = draft.title.trim() ? '' : '리허설 제목을 적어 주세요. 같은 제목끼리 연습 기록이 모여요.';
+  // 대본 점검·AI 코칭으로 가려면 대본이 있어야 해요(무료는 대본 없이도 녹화할 수 있어요).
+  const needScript = has === 'yes' && (guest || paid);
+  const scriptErr = needScript && scN < 20 ? (scN ? `대본이 너무 짧아요. 지금 ${scN}음절, 20음절 이상 적어 주세요.` : '대본을 붙여넣거나 파일을 올려 주세요.') : '';
+
+  function attempt(next: () => void, checkScript: boolean) {
+    const bad: [string, HTMLElement | null][] = [[titleErr, titleRef.current], [checkScript ? scriptErr : '', scriptRef.current]];
+    const first = bad.find(([e]) => e);
+    if (first) {
+      setTried(true);
+      first[1]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => first[1]?.focus({ preventScroll: true }), 250);
+      return;
+    }
+    next();
+  }
 
   async function load(f: File | undefined) {
     if (!f) return;
@@ -259,9 +370,13 @@ function PromptStep({ draft, update, guest, paid, onAnalyzeScript, onRecord }: P
     catch (e) { setErr((e as Error).message || '파일을 읽지 못했어요.'); }
   }
 
+  const showTitleErr = tried && !!titleErr;
+  const showScriptErr = tried && !!scriptErr;
   const titleField = (
-    <label className="field w-title"><span>리허설 제목 <em className="req">필수</em> <small>(같은 제목끼리 연습 기록이 모여요)</small></span>
-      <input type="text" maxLength={60} required aria-required="true" value={draft.title} onChange={(e) => update((d) => ({ ...d, title: e.target.value }))} placeholder={`예: ${defaultTitle(draft)}`} />
+    <label className={`field w-title${showTitleErr ? ' is-bad' : ''}`}><span>리허설 제목 <em className="req">필수</em> <small>(같은 제목끼리 연습 기록이 모여요)</small></span>
+      <input ref={titleRef} type="text" maxLength={60} required aria-required="true" aria-invalid={showTitleErr || undefined} value={draft.title}
+        onChange={(e) => update((d) => ({ ...d, title: e.target.value }))} placeholder={`예: ${defaultTitle(draft)}`} />
+      {showTitleErr && <em className="field-err" role="alert">{titleErr}</em>}
     </label>
   );
 
@@ -276,13 +391,15 @@ function PromptStep({ draft, update, guest, paid, onAnalyzeScript, onRecord }: P
             <b>대본이 없나요?</b><span>제목과 핵심 메시지만 적고 바로 녹화해요</span>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7" /></svg>
           </button>
-          <div className={`textview wiz-drop${over ? ' is-over' : ''}`}
+          <div className={`textview wiz-drop${over ? ' is-over' : ''}${showScriptErr ? ' is-bad' : ''}`}
             onDragOver={(e) => { e.preventDefault(); setOver(true); }}
             onDragLeave={() => setOver(false)}
             onDrop={(e) => { e.preventDefault(); setOver(false); load(e.dataTransfer.files[0]); }}>
-            <textarea ref={focusRef} rows={9} value={draft.script} onChange={(e) => { update((d) => ({ ...d, script: e.target.value })); setErr(''); }}
+            <textarea ref={(el) => { scriptRef.current = el; focusRef.current = el as HTMLTextAreaElement & HTMLInputElement; }} rows={9} value={draft.script} aria-invalid={showScriptErr || undefined}
+              onChange={(e) => { update((d) => ({ ...d, script: e.target.value })); setErr(''); }}
               placeholder={`발표 대본을 붙여넣거나, 파일(.txt · .md · .docx)을 여기에 끌어다 놓으세요.\n\n예시)\n${SCRIPT_EXAMPLES[p.id] ?? SCRIPT_EXAMPLES.report}`} />
           </div>
+          {showScriptErr && <p className="field-err" role="alert">{scriptErr}</p>}
           <div className="chips-row">
             <label className="chip-btn wiz-file">파일 올리기<input type="file" accept=".txt,.md,.docx,text/plain" hidden onChange={(e) => load(e.target.files?.[0])} /></label>
             <span className="file-types">.txt · .md · .docx</span>
@@ -293,10 +410,9 @@ function PromptStep({ draft, update, guest, paid, onAnalyzeScript, onRecord }: P
             <input type="text" maxLength={80} value={draft.key} onChange={(e) => update((d) => ({ ...d, key: e.target.value }))} placeholder="청중이 기억했으면 하는 한 문장" />
           </label>
           {!guest && !paid && scN >= 20 && <SimpleCoach draft={draft} />}
-          {!titled && <p className="wiz-need">리허설 제목을 적어 주세요.</p>}
-          {guest ? <button type="button" className="btn-fill btn-block w-analyze" disabled={scN < 20 || !titled} onClick={onAnalyzeScript}>로그인하고 계속하기</button>
-            : paid ? <button type="button" className="btn-fill btn-block w-analyze" disabled={scN < 20 || !titled} onClick={onAnalyzeScript}>대본 점검·AI 코칭 받기</button>
-            : <button type="button" className="btn-fill btn-block w-analyze" disabled={!titled} onClick={onRecord}>녹화 준비</button>}
+          {guest ? <button type="button" className="btn-fill btn-block w-analyze" onClick={() => attempt(onAnalyzeScript, true)}>로그인하고 계속하기</button>
+            : paid ? <button type="button" className="btn-fill btn-block w-analyze" onClick={() => attempt(onAnalyzeScript, true)}>대본 점검·AI 코칭 받기</button>
+            : <button type="button" className="btn-fill btn-block w-analyze" onClick={() => attempt(onRecord, false)}>녹화 준비</button>}
         </div>
       ) : (
         <div className="wiz-pane">
@@ -306,12 +422,11 @@ function PromptStep({ draft, update, guest, paid, onAnalyzeScript, onRecord }: P
           </button>
           <label className="field"><span>핵심 메시지 <small>(선택)</small></span>
             <input ref={focusRef} type="text" maxLength={80} value={draft.key} onChange={(e) => update((d) => ({ ...d, key: e.target.value }))}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (titled) onRecord(); } }}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); attempt(onRecord, false); } }}
               placeholder="청중이 기억했으면 하는 한 문장" />
           </label>
           <p className="wiz-note">적어 두면 녹화한 뒤 이 문장을 처음과 끝에 말했는지 확인해요.</p>
-          {!titled && <p className="wiz-need">리허설 제목을 적어 주세요.</p>}
-          <button type="button" className="btn-fill btn-block" disabled={!titled} onClick={onRecord}>{guest ? '로그인하고 녹화 준비' : '녹화 준비'}</button>
+          <button type="button" className="btn-fill btn-block" onClick={() => attempt(onRecord, false)}>{guest ? '로그인하고 녹화 준비' : '녹화 준비'}</button>
         </div>
       )}
     </>

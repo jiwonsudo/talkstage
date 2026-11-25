@@ -8,6 +8,8 @@ import { listRehearsals, NoCreditsError, recordRehearsal } from '@/lib/data/rehe
 import { useCredits } from '@/lib/data/useCredits';
 import type { Rehearsal } from '@/lib/data/types';
 import { isPaidPlan } from '@/lib/plans';
+import { UpsellDialog } from './UpsellDialog';
+import { CreditDialog } from './CreditDialog';
 import { clearText, loadDraft, purposeOf, saveDraft, toSetup, withPurpose, type Draft } from '@/lib/rehearsal/draft';
 import { PURPOSE_BY_ID, type CatId, type PostureId } from '@/lib/scenarios';
 import { Report } from './Report';
@@ -128,6 +130,35 @@ export function RehearsalFlow() {
 
   const setup = useMemo(() => ({ ...toSetup(draft), focus }), [draft, focus]);
 
+  // 무료 요금제는 녹화로 넘어가기 전에 요금제 안내를 한 번 거쳐요(로그인 직후라 요금제를 아직 모르면 건너뛰어요).
+  const userRef = useRef(user);
+  useEffect(() => { userRef.current = user; }, [user]);
+  const [upsell, setUpsell] = useState<(() => void) | null>(null);
+  const viaUpsell = (fn: () => void) => {
+    const u = userRef.current;
+    if (u && !isPaidPlan(u.plan)) setUpsell(() => fn); else fn();
+  };
+  // 크레딧이 모자라거나 이 발표를 몇 번 더 연습하기엔 빠듯하면, 녹화 전에 크레딧 추가를 권해요(같은 제목에는 한 번만).
+  const PLAN_RUNS = 3;
+  const creditsRef = useRef(credits);
+  useEffect(() => { creditsRef.current = credits; }, [credits]);
+  const warned = useRef(new Set<string>());
+  const [lowCr, setLowCr] = useState<{ go: () => void; left: number; cost: number } | null>(null);
+  const viaCredits = (fn: () => void) => {
+    const c = creditsRef.current;
+    if (!c || c.status !== 'ok') { fn(); return; }
+    const key = draft.title.trim() || '-';
+    if (c.left < c.cost || (c.left < c.cost * PLAN_RUNS && !warned.current.has(key))) {
+      warned.current.add(key);
+      setLowCr({ go: fn, left: c.left, cost: c.cost });
+    } else fn();
+  };
+  const upsellDlg = (
+    <>
+      <UpsellDialog open={!!upsell} onContinue={() => upsell?.()} onClose={() => setUpsell(null)} />
+      {lowCr && <CreditDialog open left={lowCr.left} cost={lowCr.cost} runs={PLAN_RUNS} need={lowCr.cost * PLAN_RUNS} onContinue={lowCr.go} onClose={() => setLowCr(null)} />}
+    </>
+  );
   const toStudio = (auto = false) => { setAutoStart(auto); setRun((n) => n + 1); setStage('studio'); top(); };
   // 마지막 단계에서만 로그인을 받아요. 소셜 로그인은 페이지를 떠났다가 마지막 단계로 돌아와요.
   const signedIn = (fn: () => void) => requireAuth(fn, '고른 설정은 그대로 남아 있어요. 로그인하면 바로 이어서 진행해요.', `/rehearsal/new?step=${STEPS.length - 1}&resume=1`);
@@ -215,9 +246,9 @@ export function RehearsalFlow() {
       return (
         <section className="screen"><div className="page">
           <h1 className="title">크레딧을 다 썼어요</h1>
-          <p className="subtitle">리허설 한 번에 {c.cost}크레딧이 필요해요. 남은 크레딧은 {c.left}이에요. 다음 달 1일에 다시 채워지고, 그 전에 회차만 따로 살 수도 있어요.</p>
+          <p className="subtitle">리허설 한 번에 {c.cost}크레딧이 필요해요. 남은 크레딧은 {c.left}이에요. 다음 달 1일에 다시 채워지고, 그 전에 크레딧만 따로 살 수도 있어요.</p>
           <div className="next-actions">
-            <Link className="btn" href="/me/pay?product=pack3">리허설 3회 추가</Link>
+            <Link className="btn" href="/me/pay?product=pack3">크레딧 36 구매</Link>
             <Link className="btn-ghost" href="/me/plan">요금제 보기</Link>
             <button type="button" className="btn-ghost" onClick={() => setStage('wizard')}>설정으로 돌아가기</button>
           </div>
@@ -228,7 +259,7 @@ export function RehearsalFlow() {
 
   switch (stage) {
     case 'script':
-      return <ScriptCheck draft={draft} update={update} onRecord={() => toStudio()} paid={isPaidPlan(user?.plan)} />;
+      return <>{upsellDlg}<ScriptCheck draft={draft} update={update} onRecord={() => viaUpsell(() => viaCredits(() => toStudio()))} paid={isPaidPlan(user?.plan)} /></>;
     case 'studio':
       return (
         <Studio key={run} draft={draft} setup={setup} autoStart={autoStart}
@@ -252,10 +283,12 @@ export function RehearsalFlow() {
     }
     default:
       return (
+        <>{upsellDlg}
         <Wizard draft={draft} update={update} step={step} go={go} paid={isPaidPlan(user?.plan)}
           guest={!user} chosen={chosen} mark={mark}
           onAnalyzeScript={() => signedIn(() => { pushView(stepRef.current, 'script'); setStage('script'); top(); })}
-          onRecord={() => signedIn(() => toStudio())} />
+          onRecord={() => signedIn(() => viaUpsell(() => viaCredits(() => toStudio())))} />
+        </>
       );
   }
 }

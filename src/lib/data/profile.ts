@@ -44,7 +44,16 @@ export async function deleteAccount(email: string, password: string | null) {
   await db().auth.signOut({ scope: 'local' });
 }
 
-export async function sendSupport(message: string) {
-  const { error } = await db().from('support_requests').insert({ message: message.trim() });
-  if (error) throw error;
+export type SupportCategory = 'record' | 'report' | 'credit' | 'payment' | 'account' | 'etc';
+/** 문의 저장(support_requests). 분류·동의 칸은 0008 에서 생겨요 — 아직 없으면 내용만 저장해요. */
+export async function sendSupport(p: { message: string; category: SupportCategory; consentAt: string }) {
+  const message = p.message.trim();
+  const { error } = await db().from('support_requests').insert({ message, category: p.category, consent_at: p.consentAt });
+  if (!error) return;
+  if (error.code === 'PGRST204' || /column/i.test(error.message)) {
+    const { error: e2 } = await db().from('support_requests').insert({ message: `[${p.category}] ${message}`.slice(0, 1000) });
+    if (e2) throw e2;
+    return;
+  }
+  throw error;
 }

@@ -1,6 +1,9 @@
 import { ContactButton, StartButton, PlanButton } from './actions';
 import { PlansFold, PlansProvider, PlanSwitch, PlanTable } from './Plans';
 import { UsageHelp } from '@/components/ui/UsageHelp';
+import { PLAN_PERKS, type PlanId } from '@/lib/plans';
+
+const Perks = ({ plan }: { plan: PlanId }) => <span className="perks">{PLAN_PERKS[plan].map((k) => <i key={k}>{k}</i>)}</span>;
 
 export function Teams() {
   return (
@@ -62,19 +65,21 @@ export function Teams() {
           <div className="cmp-plan" role="columnheader">
             <h3>Opening<span>처음 서 보는 무대</span></h3>
             <p>무료</p>
-            <small>월 36크레딧 · 리허설 약 3회</small>
+            <small>월 36크레딧 · 리허설 약 3회(예상)</small>
             <StartButton className="btn-plain btn-sm">무료로 시작</StartButton>
           </div>
           <div className="cmp-plan is-hi" role="columnheader">
             <h3>Spotlight<span>매주 연습하는 사람</span></h3>
             <p>월 4,900원</p>
             <small>연간 결제 시 월 3,900원 · 월 120크레딧</small>
+            <Perks plan="Spotlight" />
             <PlanButton className="btn-fill btn-sm" plan="Spotlight">Spotlight 시작</PlanButton>
           </div>
           <div className="cmp-plan" role="columnheader">
             <h3>Headliner<span>큰 발표를 앞둔 사람</span></h3>
             <p>월 9,900원</p>
             <small>연간 결제 시 월 7,900원 · 월 360크레딧</small>
+            <Perks plan="Headliner" />
             <PlanButton className="btn-plain btn-sm" plan="Headliner">Headliner 시작</PlanButton>
           </div>
         </div>

@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { creditTone } from '@/lib/colors';
 import { useRouter } from '@/lib/nav';
 import { listRehearsals, deleteRehearsals } from '@/lib/data/rehearsals';
 import { useConfirm } from '@/components/ui/Confirm';
@@ -101,9 +102,18 @@ export default function MyRehearsals() {
             <small>남은 크레딧{plan ? ` · ${plan}` : ''}</small>
             {credits?.status === 'ok' ? (
               <>
-                <b>{credits.left}<em>{credits.bonus ? ' 크레딧' : ` / ${credits.total}`}</em></b>
-                <span className="hp-bar db-credit" aria-hidden="true"><i style={{ width: `${credits.total ? Math.min(100, (credits.left / credits.total) * 100) : 0}%` }} /></span>
-                <p>{credits.left >= credits.cost ? `리허설 ${Math.floor(credits.left / credits.cost)}회 더 할 수 있어요.` : '크레딧을 다 썼어요.'}{credits.bonus ? ` 산 크레딧 ${credits.bonus} 포함.` : ''} <Link href="/me/plan">{credits.left >= credits.cost ? '요금제' : '회차 추가'}</Link></p>
+                {(() => {
+                  // 이번 달 남은 것 / 이번 달 총량, 산 크레딧은 "+N 추가"로 따로(400/360 같은 표시가 안 나오게)
+                  const bonus = credits.bonus ?? 0, month = Math.max(0, credits.left - bonus), all = Math.max(1, credits.total + bonus);
+                  const tone = creditTone(credits.left, all);
+                  return (
+                    <>
+                      <b>{month}<em> / {credits.total}</em>{bonus > 0 && <em className="db-bonus">+{bonus} 추가</em>}</b>
+                      <span className="hp-bar db-credit db-split" aria-hidden="true"><i style={{ width: `${(month / all) * 100}%`, background: tone }} />{bonus > 0 && <i style={{ width: `${(bonus / all) * 100}%`, background: `color-mix(in oklab, ${tone} 45%, var(--surface-2))` }} />}</span>
+                      <p>{credits.left >= credits.cost ? `리허설을 약 ${Math.floor(credits.left / credits.cost)}회 더 할 수 있어요(예상).` : '크레딧을 다 썼어요.'}{bonus > 0 ? ' 산 크레딧은 이번 달 크레딧을 다 쓴 뒤에 쓰여요.' : ''} <Link href={credits.left >= credits.cost ? '/me/billing' : '/me/plan#packs'}>{credits.left >= credits.cost ? '내역 보기' : '크레딧 추가'}</Link></p>
+                    </>
+                  );
+                })()}
               </>
             ) : credits?.status === 'error' ? (
               <p>크레딧을 불러오지 못했어요. <button type="button" className="link-btn" onClick={credits.retry}>다시 시도</button></p>

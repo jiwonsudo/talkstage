@@ -55,3 +55,43 @@ export async function schedulePlan(plan: PlanId) {
 }
 
 export const shortDate = (iso: string) => new Date(iso).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
+
+// ── 요금제 내릴 때 사유(0008 plan_changes) ──
+export const DOWN_REASONS: { id: string; label: string }[] = [
+  { id: 'price', label: '가격이 부담돼요' },
+  { id: 'done', label: '준비하던 발표가 끝났어요' },
+  { id: 'rarely', label: '생각보다 자주 쓰지 않아요' },
+  { id: 'accuracy', label: '분석·코칭이 기대만큼 정확하지 않아요' },
+  { id: 'feature', label: '필요한 기능이 없어요' },
+  { id: 'other', label: '직접 작성' },
+];
+export async function savePlanChange(p: { from: PlanId; to: PlanId; reason: string; detail: string }) {
+  const { error } = await db().from('plan_changes').insert({ from_plan: p.from, to_plan: p.to, reason: p.reason, detail: p.detail.trim() || null });
+  if (error) throw error;
+}
+
+// ── 결제·크레딧 내역(내 것만 읽을 수 있어요, RLS) ──
+export type PaymentRow = { id: string; at: string; title: string; amount: number; status: 'paid' | 'failed' | 'ready'; method?: string | null };
+export type LedgerRow = { id: string; at: string; amount: number; reason: string; source: 'monthly' | 'bonus' };
+
+export async function listPayments(): Promise<PaymentRow[]> {
+  const [subs, orders] = await Promise.all([
+    db().from('subscription_payments').select('id, plan, kind, amount, status, created_at, paid_at').order('created_at', { ascending: false }).limit(50),
+    db().from('orders').select('id, credits, amount, status, method, created_at, paid_at').order('created_at', { ascending: false }).limit(50),
+  ]);
+  if (subs.error) throw subs.error;
+  if (orders.error) throw orders.error;
+  const KIND: Record<string, string> = { start: '시작', upgrade: '업그레이드', renew: '월 결제' };
+  type S = { id: string; plan: string; kind: string; amount: number; status: string; created_at: string; paid_at: string | null };
+  type O = { id: string; credits: number; amount: number; status: string; method: string | null; created_at: string; paid_at: string | null };
+  const a: PaymentRow[] = (subs.data as S[]).map((r) => ({ id: r.id, at: r.paid_at ?? r.created_at, title: `${r.plan} ${KIND[r.kind] ?? ''}`.trim(), amount: r.amount, status: r.status === 'paid' ? 'paid' : r.status === 'failed' ? 'failed' : 'ready' }));
+  const b: PaymentRow[] = (orders.data as O[]).map((r) => ({ id: r.id, at: r.paid_at ?? r.created_at, title: `크레딧 ${r.credits} 구매`, amount: r.amount, status: r.status === 'paid' ? 'paid' : 'ready', method: r.method }));
+  // 결제창만 열고 끝내지 않은 주문(ready)은 내역에서 빼요
+  return [...a, ...b].filter((r) => r.status !== 'ready').sort((x, y) => y.at.localeCompare(x.at));
+}
+
+export async function listLedger(): Promise<LedgerRow[]> {
+  const { data, error } = await db().from('credit_ledger').select('id, amount, reason, source, created_at').order('created_at', { ascending: false }).limit(60);
+  if (error) throw error;
+  return (data as { id: string; amount: number; reason: string; source: 'monthly' | 'bonus'; created_at: string }[]).map((r) => ({ id: r.id, at: r.created_at, amount: r.amount, reason: r.reason, source: r.source }));
+}

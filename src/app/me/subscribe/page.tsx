@@ -87,7 +87,7 @@ export default function Subscribe() {
       <h1 className="title1">{onlyCard ? '결제 카드 바꾸기' : plan ? (upgrade ? `${plan}로 업그레이드` : `${plan} 시작하기`) : '요금제'}</h1>
       {plan && !onlyCard && (
         <p className="subtitle">
-          매달 {PLANS[plan].credits}크레딧(리허설 {Math.floor(PLANS[plan].credits / CREDIT_PER_REHEARSAL)}회) · {PLANS[plan].price}.{' '}
+          매달 {PLANS[plan].credits}크레딧(리허설 약 {Math.floor(PLANS[plan].credits / CREDIT_PER_REHEARSAL)}회 예상) · {PLANS[plan].price}.{' '}
           {upgrade ? '지금 요금제의 남은 날만큼 빼고 결제하고, 오늘부터 한 달씩 결제돼요.' : '오늘 결제하고, 매달 같은 날 자동으로 결제돼요.'} 언제든 해지할 수 있어요.
         </p>
       )}

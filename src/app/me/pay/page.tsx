@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { CreditExamples } from '@/components/ui/CreditExamples';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { loadTossPayments, type TossPaymentsWidgets } from '@tosspayments/tosspayments-sdk';
@@ -10,7 +11,7 @@ import { PACKS, isPackId, won } from '@/lib/plans';
 const CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ?? '';
 
 /**
- * 회차 구매 결제 화면(토스페이먼츠 결제위젯). 카드·토스페이·카카오페이·네이버페이 등을 한 화면에서 골라요.
+ * 크레딧 구매 결제 화면(토스페이먼츠 결제위젯). 카드·토스페이·카카오페이·네이버페이 등을 한 화면에서 골라요.
  * 주문(금액)은 DB 가 먼저 만들고, 결제가 끝나면 /me/pay/success 에서 서버가 승인해요.
  */
 export default function Pay() {
@@ -76,10 +77,11 @@ export default function Pay() {
   return (
     <div className="page pay">
       <Link href="/me/plan" className="pay-back">← 요금제 관리</Link>
-      <h1 className="title1">리허설 {pack?.times ?? ''}회 추가</h1>
+      <h1 className="title1">크레딧 {pack?.credits ?? ''} 구매</h1>
       <p className="subtitle">
-        {pack ? `${pack.credits}크레딧 · ${won(pack.amount)}. 산 크레딧은 매달 초기화되지 않고, 이번 달 크레딧을 다 쓴 뒤에 쓰여요.` : ''}
+        {pack ? `${won(pack.amount)} · 산 크레딧은 기한 없이 남고, 이번 달 크레딧을 다 쓴 뒤에 쓰여요.` : ''}
       </p>
+      {pack && <CreditExamples />}
       {err ? <p className="pay-err" role="alert">{err}</p> : (
         <>
           <div className="pay-box">

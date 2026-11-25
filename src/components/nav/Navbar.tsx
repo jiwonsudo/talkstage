@@ -7,11 +7,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { BrandMark } from '@/components/ui/BrandMark';
 import { useCredits } from '@/lib/data/useCredits';
+import { PlanBadge } from '@/components/ui/PlanBadge';
+import { creditTone } from '@/lib/colors';
 
 const MENU = [
   { href: '/me/rehearsals', label: '내 리허설' },
   { href: '/me/account', label: '계정 관리' },
   { href: '/me/plan', label: '요금제 관리' },
+  { href: '/me/billing', label: '결제·크레딧 내역' },
   { href: '/me/support', label: '지원 받기' },
   { href: '/me/settings', label: '설정', icon: true },
 ];
@@ -21,6 +24,7 @@ const TITLES: Record<string, string> = {
   '/me/rehearsals': '내 리허설',
   '/me/account': '계정 관리',
   '/me/plan': '요금제 관리',
+  '/me/billing': '결제·크레딧 내역',
   '/me/support': '지원 받기',
   '/me/settings': '설정',
 };
@@ -102,11 +106,26 @@ export function Navbar() {
               <div className="menu" role="menu">
                 <p className="menu-h">
                   <b>{user.name}</b><small>{user.email}</small>
-                  <em>{user.plan}{credits?.status === 'ok' ? ` · 남은 크레딧 ${credits.left}${credits.bonus ? '' : `/${credits.total}`}` : ''}</em>
+                  <span className="menu-plan">
+                    <PlanBadge plan={user.plan} />
+                    {credits?.status === 'ok' && (
+                      (() => {
+                        // 이번 달 남은 것 / 이번 달 총량 + 산 크레딧(기한 없음)을 따로 보여 줘요. 400/360 같은 표시가 안 나오게.
+                        const bonus = credits.bonus ?? 0, month = Math.max(0, credits.left - bonus), all = Math.max(1, credits.total + bonus);
+                        return (
+                          <span className="menu-cr" style={{ '--cr': creditTone(credits.left, all) } as React.CSSProperties}
+                            aria-label={`남은 크레딧 이번 달 ${month} / ${credits.total}${bonus ? `, 추가로 산 크레딧 ${bonus}` : ''}`}>
+                            <span className="mc-row"><span>남은 크레딧</span><span><b>{month}</b> / {credits.total}{bonus > 0 && <em>+{bonus} 추가</em>}</span></span>
+                            <i aria-hidden="true"><i style={{ width: `${(month / all) * 100}%` }} />{bonus > 0 && <i className="mc-bonus" style={{ width: `${(bonus / all) * 100}%` }} />}</i>
+                          </span>
+                        );
+                      })()
+                    )}
+                  </span>
                 </p>
                 {MENU.map((m, i) => (
                   <span key={m.href} className="menu-row">
-                    {(i === 1 || i === 4) && <hr />}
+                    {(i === 1 || i === 5) && <hr />}
                     <Link role="menuitem" href={m.href} className={m.icon ? 'menu-ico' : undefined} aria-current={pathname === m.href ? 'page' : undefined}>{m.icon && <GearIcon />}{m.label}</Link>
                   </span>
                 ))}
